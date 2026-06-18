@@ -1,7 +1,10 @@
 import dotenv from 'dotenv';
 import { ethers } from 'ethers';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 export const ETH_RPC_URL     = process.env.ETH_RPC_URL || process.env.RPC_URL || 'http://localhost:8545';
 export const MINTER_PRIVATE_KEY = process.env.MINTER_PRIVATE_KEY || null;
@@ -13,8 +16,12 @@ export const CONTRACT_ADDRESSES = {
   CR3: process.env.CA_RO_CR3 || '0xDD4861C50D600B76F3fc0Ed5b247b8959b8A0d27',
 };
 
-// Ethers v6: JsonRpcProvider lives on ethers directly (not ethers.providers)
-export const getProvider = () => new ethers.JsonRpcProvider(ETH_RPC_URL);
+// Singleton provider — reuse one instance to avoid EventEmitter listener leaks
+let _provider = null;
+export const getProvider = () => {
+  if (!_provider) _provider = new ethers.JsonRpcProvider(ETH_RPC_URL);
+  return _provider;
+};
 
 // ABI for CoffeeToken.sol (new) — also backward-compatible with CaRo1/2/3 (mint(address,uint256))
 export const COFFEE_TOKEN_ABI = [

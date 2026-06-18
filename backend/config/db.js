@@ -1,7 +1,10 @@
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
+import { fileURLToPath } from "url";
+import path from "path";
 
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
@@ -15,5 +18,8 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
 });
+
+// Prevent MaxListenersExceededWarning when many concurrent requests queue on the pool
+pool.setMaxListeners(30);
 
 export default pool;

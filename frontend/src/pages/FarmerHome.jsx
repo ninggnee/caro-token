@@ -1,449 +1,196 @@
-import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/layout/DashboardLayout";
-import { useWallet } from "../context/WalletContext";
-import { ethers } from "ethers";
-import { CA_RO_CONTRACTS, ABI } from "../config/config";
-import OrderBook from "../components/trading/OrderBook";
-import "../styles/farmer.css";
+import { useAuth } from "../context/AuthContext";
+import { useMyBatches } from "../hooks/useBatches";
+import { useQuery } from "@tanstack/react-query";
+import axios from "../utils/axiosClient";
 
-export default function FarmerHome() {
-  const { account, connect, provider, signer } = useWallet();
+function useTokenBalances() {
+  return useQuery({
+    queryKey: ["token-balances"],
+    queryFn: () => axios.get("/token/balances").then((r) => r.data),
+    staleTime: 30_000,
+  });
+}
 
-  const [ethBalance, setEthBalance] = useState("0");
-  const [tokenBalance, setTokenBalance] = useState("0");
+function StatCard({ label, value, sub, color, icon }) {
+  return (
+    <div style={{ background: "#141a1f", borderRadius: 12, padding: "18px 20px", border: "1px solid rgba(255,255,255,0.07)" }}>
+      <div style={{ fontSize: 22, marginBottom: 8 }}>{icon}</div>
+      <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: color || "#fff" }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 4 }}>{sub}</div>}
+    </div>
+  );
+}
 
-  const [cr1, setCr1] = useState("0");
-  const [cr2, setCr2] = useState("0");
-  const [cr3, setCr3] = useState("0");
+function BatchStatusWidget({ navigate }) {
+  const pending = useMyBatches({ status: "PENDING_MINT_APPROVAL", limit: 1 });
+  const minted  = useMyBatches({ status: "MINTED",                limit: 1 });
+  const rejected= useMyBatches({ status: "REJECTED",              limit: 1 });
 
-  const [bids, setBids] = useState([
-    { price: "0.95", amount: "100" },
-    { price: "0.90", amount: "200" },
-  ]);
-
-  const [asks, setAsks] = useState([
-    { price: "1.05", amount: "50" },
-    { price: "1.10", amount: "120" },
-  ]);
-
-  const [side, setSide] = useState("buy");
-  const [price, setPrice] = useState(1);
-  const [amount, setAmount] = useState(0);
-
-  useEffect(() => {
-    const loadBalances = async () => {
-      if (!account || !provider) return;
-
-      try {
-        const balance = await provider.getBalance(account);
-        setEthBalance(ethers.utils.formatEther(balance));
-
-        const tokenContracts = [
-          new ethers.Contract(CA_RO_CONTRACTS.CR1, ABI, provider),
-          new ethers.Contract(CA_RO_CONTRACTS.CR2, ABI, provider),
-          new ethers.Contract(CA_RO_CONTRACTS.CR3, ABI, provider),
-        ];
-
-        const [
-          b1,
-          b2,
-          b3,
-          d1,
-          d2,
-          d3,
-        ] = await Promise.all([
-          tokenContracts[0].balanceOf(account),
-          tokenContracts[1].balanceOf(account),
-          tokenContracts[2].balanceOf(account),
-          tokenContracts[0].decimals(),
-          tokenContracts[1].decimals(),
-          tokenContracts[2].decimals(),
-        ]);
-
-        setCr1(ethers.utils.formatUnits(b1, d1));
-        setCr2(ethers.utils.formatUnits(b2, d2));
-        setCr3(ethers.utils.formatUnits(b3, d3));
-      } catch (error) {
-        console.error("Load balances failed:", error);
-      }
-    };
-
-    loadBalances();
-  }, [account, provider]);
-
-  const placeOrder = async () => {
-    if (!account) {
-      await connect();
-      return;
-    }
-
-  const order = {
-    price: String(price),
-    amount: String(amount),
-  };
-
-  if (side === "buy") {
-    setBids((prev) => [order, ...prev]);
-  } else {
-    setAsks((prev) => [order, ...prev]);
-  }
-};
-
-const executeSellOnChain = async () => {
-  if (!signer) {
-    alert("Connect wallet first");
-    return;
-  }
-
-  if (!amount || Number(amount) <= 0) {
-    alert("Please enter valid amount");
-    return;
-  }
-
-  try {
-    const token = new ethers.Contract(
-      CA_RO_CONTRACTS.CR1,
-      ABI,
-      signer
-    );
-
-    const tx = await token.transfer(
-      "0x0000000000000000000000000000000000000000",
-      ethers.utils.parseUnits(String(amount), 18)
-    );
-
-    alert(`Transaction sent: ${tx.hash}`);
-
-    await tx.wait();
-
-    alert("Transaction confirmed");
-  } catch (error) {
-    console.error(error);
-    alert("On-chain transfer failed");
-  }
-};
-
-const totalAssetValue =
-  Number(cr1 || 0) * 100000 +
-  Number(cr2 || 0) * 85000 +
-  Number(cr3 || 0) * 70000;
-
-const walletStatus = account ? "Connected" : "Disconnected";
-
-const shortAddress = account
-  ? `${account.slice(0, 6)}...${account.slice(-4)}`
-  : "Guest";
+  const items = [
+    { label: "Chờ duyệt", count: pending.data?.total ?? "—", color: "#f39c12", bg: "rgba(243,156,18,0.1)",  icon: "⏳", status: "PENDING_MINT_APPROVAL" },
+    { label: "Đã Mint",   count: minted.data?.total  ?? "—", color: "#27ae60", bg: "rgba(39,174,96,0.1)",   icon: "🪙", status: "MINTED" },
+    { label: "Từ chối",   count: rejected.data?.total ?? "—",color: "#e74c3c", bg: "rgba(231,76,60,0.1)",   icon: "❌", status: "REJECTED" },
+  ];
 
   return (
-  <DashboardLayout title="Farmer Dashboard">
-    <div style={{ display: "grid", gap: 20 }}>
-
-      {/* HERO */}
-      <div
-        style={{
-          background: "linear-gradient(135deg,#162028,#22313d)",
-          borderRadius: 16,
-          padding: 24,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          border: "1px solid rgba(255,255,255,0.08)",
-        }}
-      >
-        <div>
-          <h2 style={{ margin: 0 }}>
-            Xin chào Farmer 👋
-          </h2>
-
-          <div
-            style={{
-              marginTop: 10,
-              color: "#9fcfc6",
-              fontSize: 14,
-            }}
-          >
-            Ví:
-            {" "}
-            <b>{shortAddress}</b>
-          </div>
-
-          <div style={{ marginTop: 8 }}>
-            KYC:
-            {" "}
-            <span style={{ color: "#22c55e" }}>
-              Approved
-            </span>
-          </div>
-
-          <div>
-            Wallet:
-            {" "}
-            <span
-              style={{
-                color: account ? "#22c55e" : "#ef4444",
-              }}
-            >
-              {walletStatus}
-            </span>
-          </div>
-        </div>
-
-        <div style={{ display: "flex", gap: 10 }}>
-          <button
-            className="btn"
-            onClick={() =>
-              (window.location.href =
-                "/farmer/request/new")
-            }
-          >
-            + Token hóa
-          </button>
-
-          <button
-            className="btn"
-            onClick={() =>
-              (window.location.href =
-                "/farmer/trading")
-            }
-          >
-            + Mua Token
-          </button>
-
-          <button
-            className="btn"
-            onClick={() =>
-              (window.location.href =
-                "/farmer/redeem")
-            }
-          >
-            + Quy đổi
-          </button>
-        </div>
+    <div style={{ background: "#141a1f", borderRadius: 12, padding: "20px 24px", border: "1px solid rgba(255,255,255,0.07)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>📦 Trạng thái Batch</h3>
+        <button
+          onClick={() => navigate("/farmer/batches")}
+          style={{ fontSize: 12, color: "#9fcfc6", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+        >
+          Xem tất cả →
+        </button>
       </div>
-
-      {/* SUMMARY */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(auto-fit,minmax(220px,1fr))",
-          gap: 16,
-        }}
-      >
-        <div className="dashboard-card">
-          <div>Tổng tài sản</div>
-          <h2>
-            {totalAssetValue.toLocaleString()} VNĐ
-          </h2>
-        </div>
-
-        <div className="dashboard-card">
-          <div>Số dư ví</div>
-          <h2>
-            {(Number(ethBalance) * 2000).toFixed(2)}
-            {" "}VNĐ
-          </h2>
-        </div>
-
-        <div className="dashboard-card">
-          <div>CaRo1</div>
-          <h2>{Number(cr1).toFixed(2)}</h2>
-        </div>
-
-        <div className="dashboard-card">
-          <div>CaRo2</div>
-          <h2>{Number(cr2).toFixed(2)}</h2>
-        </div>
-
-        <div className="dashboard-card">
-          <div>CaRo3</div>
-          <h2>{Number(cr3).toFixed(2)}</h2>
-        </div>
-      </div>
-
-      {/* TOKEN OVERVIEW */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(auto-fit,minmax(250px,1fr))",
-          gap: 16,
-        }}
-      >
-        {[
-          {
-            name: "CaRo1",
-            amount: cr1,
-            price: "100.000",
-          },
-          {
-            name: "CaRo2",
-            amount: cr2,
-            price: "85.000",
-          },
-          {
-            name: "CaRo3",
-            amount: cr3,
-            price: "70.000",
-          },
-        ].map((token) => (
-          <div
-            key={token.name}
-            style={{
-              background: "#141a1f",
-              padding: 20,
-              borderRadius: 12,
-              border:
-                "1px solid rgba(255,255,255,0.05)",
-            }}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+        {items.map((it) => (
+          <button
+            key={it.status}
+            onClick={() => navigate("/farmer/batches")}
+            style={{ background: it.bg, border: `1px solid ${it.color}30`, borderRadius: 10, padding: "14px 12px", cursor: "pointer", textAlign: "center" }}
           >
-            <h3>{token.name}</h3>
-
-            <div>
-              Số lượng:
-              {" "}
-              <b>
-                {Number(token.amount).toFixed(2)}
-              </b>
-            </div>
-
-            <div>
-              Giá tham chiếu:
-              {" "}
-              <b>{token.price} VNĐ</b>
-            </div>
-          </div>
+            <div style={{ fontSize: 20, marginBottom: 4 }}>{it.icon}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: it.color }}>{it.count}</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>{it.label}</div>
+          </button>
         ))}
       </div>
-
-      {/* CHART + REQUEST */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "2fr 1fr",
-          gap: 16,
-        }}
-      >
-        <div
-          style={{
-            background: "#141a1f",
-            borderRadius: 12,
-            padding: 20,
-          }}
-        >
-          <h3>Biểu đồ thị trường</h3>
-
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              marginBottom: 15,
-            }}
-          >
-            <button className="btn">1D</button>
-            <button className="btn">7D</button>
-            <button className="btn">1M</button>
-            <button className="btn">3M</button>
-          </div>
-
-          <div
-            style={{
-              height: 300,
-              borderRadius: 10,
-              background: "#0b1113",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            📈 Market Chart
-          </div>
-        </div>
-
-        <div
-          style={{
-            background: "#141a1f",
-            borderRadius: 12,
-            padding: 20,
-          }}
-        >
-          <h3>Tình trạng yêu cầu</h3>
-
-          <div style={{ display: "grid", gap: 12 }}>
-            <div>🟡 Chờ duyệt: <b>2</b></div>
-            <div>🟠 Bổ sung: <b>1</b></div>
-            <div>🟢 Đã duyệt: <b>5</b></div>
-            <div>🔵 Đã Mint: <b>12</b></div>
-            <div>🔴 Từ chối: <b>0</b></div>
-          </div>
-        </div>
-      </div>
-
-      {/* RECENT TRANSACTIONS */}
-      <div
-        style={{
-          background: "#141a1f",
-          borderRadius: 12,
-          padding: 20,
-        }}
-      >
-        <h3>Giao dịch gần đây</h3>
-
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-          }}
-        >
-          <thead>
-            <tr>
-              <th>STT</th>
-              <th>Mã GD</th>
-              <th>Loại</th>
-              <th>Giá trị</th>
-              <th>Ngày</th>
-              <th>Trạng thái</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr>
-              <td>1</td>
-              <td>#TX1001</td>
-              <td>Mint</td>
-              <td>+100 CaRo1</td>
-              <td>2026-06-05</td>
-              <td style={{ color: "#22c55e" }}>
-                Completed
-              </td>
-            </tr>
-
-            <tr>
-              <td>2</td>
-              <td>#TX1002</td>
-              <td>Buy</td>
-              <td>-50 CaRo1</td>
-              <td>2026-06-10</td>
-              <td style={{ color: "#22c55e" }}>
-                Completed
-              </td>
-            </tr>
-
-            <tr>
-              <td>3</td>
-              <td>#TX1003</td>
-              <td>Redeem</td>
-              <td>-10 CaRo2</td>
-              <td>2026-06-12</td>
-              <td style={{ color: "#f59e0b" }}>
-                Processing
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
     </div>
-  </DashboardLayout>
-);
+  );
+}
+
+function InternalWalletWidget({ balances }) {
+  const tokenTypes = ["CR1", "CR2", "CR3"];
+  const data = balances?.data?.balances || {};
+
+  const priceMap = { CR1: 100_000, CR2: 85_000, CR3: 70_000 };
+  const totalVnd = tokenTypes.reduce((sum, t) => {
+    return sum + (Number(data[t]?.available_balance || 0) * (priceMap[t] || 0));
+  }, 0);
+
+  return (
+    <div style={{ background: "#141a1f", borderRadius: 12, padding: "20px 24px", border: "1px solid rgba(255,255,255,0.07)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>🏦 Ví Nội Bộ Exchange</h3>
+        <span style={{ fontSize: 11, color: "#27ae60", background: "rgba(39,174,96,0.1)", padding: "3px 8px", borderRadius: 12 }}>Sẵn sàng giao dịch</span>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 4 }}>Tổng giá trị ước tính</div>
+        <div style={{ fontSize: 24, fontWeight: 700, color: "#9fcfc6" }}>
+          {totalVnd > 0 ? totalVnd.toLocaleString("vi-VN") + " ₫" : "—"}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+        {tokenTypes.map((t) => {
+          const avail = Number(data[t]?.available_balance || 0);
+          const locked = Number(data[t]?.locked_balance || 0);
+          return (
+            <div key={t} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: "10px 12px" }}>
+              <div style={{ fontSize: 12, color: "#9fcfc6", fontWeight: 700, marginBottom: 6 }}>{t}</div>
+              <div style={{ fontSize: 16, fontWeight: 700 }}>{avail > 0 ? avail.toLocaleString() : "0"}</div>
+              {locked > 0 && (
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 3 }}>
+                  {locked.toLocaleString()} locked
+                </div>
+              )}
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>
+                ≈ {(avail * (priceMap[t] || 0)).toLocaleString("vi-VN")}₫
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ marginTop: 14, padding: "10px 12px", background: "rgba(159,207,198,0.05)", borderRadius: 8, fontSize: 11, color: "rgba(255,255,255,0.4)", borderLeft: "2px solid rgba(159,207,198,0.2)" }}>
+        Token được mint thẳng vào ví nội bộ khi Admin duyệt batch. Giao dịch trực tiếp trên sàn, không cần MetaMask.
+      </div>
+    </div>
+  );
+}
+
+export default function FarmerHome() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const balances = useTokenBalances();
+
+  return (
+    <DashboardLayout title="Farmer Dashboard">
+      <div style={{ display: "grid", gap: 20 }}>
+
+        {/* Hero */}
+        <div style={{ background: "linear-gradient(135deg,#162028,#22313d)", borderRadius: 16, padding: 24, display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid rgba(255,255,255,0.08)", flexWrap: "wrap", gap: 16 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 22 }}>Xin chào, {user?.full_name || "Farmer"} 👋</h2>
+            <div style={{ marginTop: 8, color: "#9fcfc6", fontSize: 14 }}>
+              ☕ Nền tảng tokenization cà phê Robusta — Sàn giao dịch nội bộ
+            </div>
+            <div style={{ marginTop: 6, fontSize: 13, color: "rgba(255,255,255,0.4)" }}>
+              {user?.email}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={() => navigate("/farmer/batch/new")}
+              style={{ padding: "10px 18px", background: "#1f6f64", border: "none", color: "#fff", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
+              📦 Gửi Batch Mới
+            </button>
+            <button onClick={() => navigate("/farmer/batches")}
+              style={{ padding: "10px 18px", background: "rgba(255,255,255,0.08)", border: "none", color: "#fff", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>
+              📋 Batch Của Tôi
+            </button>
+            <button onClick={() => navigate("/farmer/trading")}
+              style={{ padding: "10px 18px", background: "rgba(255,255,255,0.08)", border: "none", color: "#fff", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>
+              📈 Giao Dịch
+            </button>
+          </div>
+        </div>
+
+        {/* 2-column: batch status + wallet */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+          <BatchStatusWidget navigate={navigate} />
+          <InternalWalletWidget balances={balances} />
+        </div>
+
+        {/* Quick actions */}
+        <div style={{ background: "#141a1f", borderRadius: 12, padding: "20px 24px", border: "1px solid rgba(255,255,255,0.07)" }}>
+          <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>⚡ Thao tác nhanh</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
+            {[
+              { icon: "📦", label: "Gửi batch mới",       sub: "Tokenization cà phê Robusta", path: "/farmer/batch/new",     color: "#1f6f64" },
+              { icon: "📂", label: "Xem batch của tôi",   sub: "Theo dõi trạng thái",         path: "/farmer/batches",        color: "#27ae60" },
+              { icon: "💱", label: "Giao dịch",           sub: "Mua / bán token trên sàn",    path: "/farmer/trading",        color: "#3498db" },
+              { icon: "💸", label: "Quy đổi token",       sub: "Đổi token lấy cà phê thực",   path: "/farmer/redeem",         color: "#9b59b6" },
+              { icon: "💳", label: "Nạp / Rút VND",      sub: "Quản lý số dư VND",           path: "/farmer/wallet",         color: "#e67e22" },
+              { icon: "👤", label: "Hồ sơ",              sub: "KYC & thông tin cá nhân",      path: "/farmer/profile",        color: "#7f8c8d" },
+            ].map((a) => (
+              <button
+                key={a.path}
+                onClick={() => navigate(a.path)}
+                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "14px 16px", cursor: "pointer", textAlign: "left", transition: "all 0.2s" }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = `${a.color}40`; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; }}
+              >
+                <div style={{ fontSize: 24, marginBottom: 8 }}>{a.icon}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{a.label}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginTop: 3 }}>{a.sub}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Platform info */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+          <StatCard icon="☕" label="Loại cà phê" value="Robusta" sub="Cà phê Robusta Việt Nam" color="#9fcfc6" />
+          <StatCard icon="🏦" label="Mô hình" value="Sàn CEX" sub="Ví nội bộ — không cần MetaMask" color="#9fcfc6" />
+          <StatCard icon="🔗" label="Blockchain" value="Sepolia" sub="Mint on-chain khi được duyệt" color="#9fcfc6" />
+        </div>
+
+      </div>
+    </DashboardLayout>
+  );
 }

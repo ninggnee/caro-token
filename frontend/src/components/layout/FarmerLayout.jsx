@@ -1,0 +1,225 @@
+import { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+
+const SW = 220;
+const HH = 56;
+
+function Ico({ d, size = 15, style: sx }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+      style={{ display: "block", flexShrink: 0, ...sx }}>
+      <path d={d} />
+    </svg>
+  );
+}
+
+const I = {
+  home:    "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10",
+  box:     "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z",
+  file:    "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6",
+  wallet:  "M21 12V7H5a2 2 0 0 1 0-4h14v4 M3 5v14a2 2 0 0 0 2 2h16v-5 M18 12a1 1 0 0 0 0 2 1 1 0 0 0 0-2z",
+  bar:     "M18 20V10 M12 20V4 M6 20v-6",
+  list:    "M8 6h13 M8 12h13 M8 18h13 M3 6h.01 M3 12h.01 M3 18h.01",
+  bell:    "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 0 1-3.46 0",
+  user:    "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+  cog:     "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",
+  out:     "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9",
+  chev:    "M9 18l6-6-6-6",
+};
+
+const MENU = [
+  { id: "dash",   label: "Dashboard",        icon: "home",   path: "/farmer/dashboard" },
+  {
+    id: "assets", label: "Asset Management", icon: "box",
+    children: [
+      { label: "Submit Batch",    path: "/farmer/assets/submit"   },
+      { label: "Pending Approval",path: "/farmer/assets/pending"  },
+      { label: "Minted Batches",  path: "/farmer/assets/minted"   },
+      { label: "Rejected",        path: "/farmer/assets/rejected" },
+      { label: "All Batches",     path: "/farmer/assets"          },
+    ],
+  },
+  { id: "docs",   label: "Documents",        icon: "file",   path: "/farmer/documents"    },
+  {
+    id: "wallet", label: "Wallet",            icon: "wallet",
+    children: [
+      { label: "Overview", path: "/farmer/wallet"          },
+      { label: "Deposit",  path: "/farmer/wallet/deposit"  },
+      { label: "Withdraw", path: "/farmer/wallet/withdraw" },
+      { label: "History",  path: "/farmer/wallet/history"  },
+    ],
+  },
+  { id: "market", label: "Marketplace",      icon: "bar",    path: "/farmer/marketplace"  },
+  { id: "orders", label: "Orders",           icon: "list",   path: "/farmer/orders"       },
+  { id: "notif",  label: "Notifications",    icon: "bell",   path: "/farmer/notifications"},
+  { id: "prof",   label: "Profile",          icon: "user",   path: "/farmer/profile"      },
+  { id: "set",    label: "Settings",         icon: "cog",    path: "/farmer/settings"     },
+];
+
+const A = "#00d4aa";
+const ABG = "rgba(0,212,170,0.08)";
+
+export default function FarmerLayout({ children, title = "Farmer Portal" }) {
+  const { user, logout } = useAuth();
+  const loc = useLocation();
+  const nav = useNavigate();
+
+  const isLeafActive = (path) =>
+    path === "/farmer/assets"
+      ? loc.pathname === "/farmer/assets"
+      : loc.pathname === path || loc.pathname.startsWith(path + "/");
+
+  const isParentActive = (m) => m.children?.some(c => isLeafActive(c.path));
+
+  const [open, setOpen] = useState(() => {
+    const s = {};
+    MENU.forEach(m => { if (isParentActive(m)) s[m.id] = true; });
+    return s;
+  });
+
+  const toggle = id => setOpen(p => ({ ...p, [id]: !p[id] }));
+  const initials = (user?.full_name || user?.email || "F")[0].toUpperCase();
+
+  const navItemStyle = (active) => ({
+    display: "flex",
+    alignItems: "center",
+    gap: 9,
+    padding: "9px 16px",
+    background: active ? ABG : "transparent",
+    borderWidth: "0 0 0 2px",
+    borderStyle: "solid",
+    borderColor: active ? A : "transparent",
+    color: active ? A : "#9aa5b4",
+    textDecoration: "none",
+    fontSize: 13,
+    fontWeight: active ? 600 : 400,
+    cursor: "pointer",
+    width: "100%",
+    textAlign: "left",
+    transition: "background 0.15s, color 0.15s",
+    boxSizing: "border-box",
+  });
+
+  const childStyle = (active) => ({
+    display: "block",
+    padding: "7px 16px 7px 42px",
+    color: active ? A : "#6b7a99",
+    background: active ? "rgba(0,212,170,0.05)" : "transparent",
+    borderWidth: "0 0 0 2px",
+    borderStyle: "solid",
+    borderColor: active ? A : "transparent",
+    textDecoration: "none",
+    fontSize: 12,
+    fontWeight: active ? 600 : 400,
+    transition: "background 0.15s, color 0.15s",
+  });
+
+  return (
+    <div style={{ display: "flex", minHeight: "100vh", background: "#0b1117", color: "#e2e8f0", fontFamily: "Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" }}>
+
+      {/* ─── Sidebar ─── */}
+      <aside style={{ width: SW, flexShrink: 0, background: "#0d1421", borderRight: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 100, overflow: "hidden" }}>
+
+        {/* Brand */}
+        <div style={{ height: HH, display: "flex", alignItems: "center", padding: "0 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
+          <div style={{ width: 30, height: 30, borderRadius: 7, background: "linear-gradient(135deg,#00d4aa,#0095ff)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, marginRight: 10 }}>☕</div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: "0.3px", color: "#fff", lineHeight: 1.1 }}>CaRo</div>
+            <div style={{ fontSize: 9, color: "#6b7a99", letterSpacing: "2px", fontWeight: 600 }}>EXCHANGE</div>
+          </div>
+        </div>
+
+        {/* User mini */}
+        <div style={{ padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#1a5c54,#27ae60)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, color: "#fff", flexShrink: 0 }}>{initials}</div>
+            <div style={{ overflow: "hidden", flex: 1 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#e2e8f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user?.full_name || "Farmer"}</div>
+              <div style={{ fontSize: 10, color: "#6b7a99", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user?.email}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Nav */}
+        <nav style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" }}>
+          {MENU.map(m => {
+            if (m.children) {
+              const parentAct = isParentActive(m);
+              const isOpen = open[m.id] || parentAct;
+              return (
+                <div key={m.id}>
+                  <button onClick={() => toggle(m.id)} style={{ ...navItemStyle(parentAct), justifyContent: "space-between", border: "none", borderLeft: `2px solid ${parentAct ? A : "transparent"}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                      <Ico d={I[m.icon]} />
+                      <span>{m.label}</span>
+                    </div>
+                    <div style={{ transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s", display: "flex" }}>
+                      <Ico d={I.chev} size={12} />
+                    </div>
+                  </button>
+                  {isOpen && (
+                    <div style={{ background: "rgba(0,0,0,0.15)" }}>
+                      {m.children.map(c => {
+                        const a = isLeafActive(c.path);
+                        return (
+                          <Link key={c.path} to={c.path} style={childStyle(a)}
+                            onMouseEnter={e => { if (!a) { e.currentTarget.style.color = "#c0ccd8"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; } }}
+                            onMouseLeave={e => { if (!a) { e.currentTarget.style.color = "#6b7a99"; e.currentTarget.style.background = "transparent"; } }}
+                          >{c.label}</Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            const act = loc.pathname === m.path;
+            return (
+              <Link key={m.id} to={m.path} style={navItemStyle(act)}
+                onMouseEnter={e => { if (!act) { e.currentTarget.style.color = "#c0ccd8"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; } }}
+                onMouseLeave={e => { if (!act) { e.currentTarget.style.color = "#9aa5b4"; e.currentTarget.style.background = "transparent"; } }}
+              >
+                <Ico d={I[m.icon]} />
+                <span style={{ flex: 1 }}>{m.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Sign out */}
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
+          <button onClick={() => { logout(); nav("/"); }}
+            style={{ width: "100%", display: "flex", alignItems: "center", gap: 9, padding: "12px 16px", background: "transparent", border: "none", color: "#6b7a99", cursor: "pointer", fontSize: 13, textAlign: "left" }}
+            onMouseEnter={e => { e.currentTarget.style.color = "#f6465d"; e.currentTarget.style.background = "rgba(246,70,93,0.08)"; }}
+            onMouseLeave={e => { e.currentTarget.style.color = "#6b7a99"; e.currentTarget.style.background = "transparent"; }}
+          >
+            <Ico d={I.out} />
+            Sign Out
+          </button>
+        </div>
+      </aside>
+
+      {/* ─── Main ─── */}
+      <div style={{ flex: 1, marginLeft: SW, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+
+        {/* Header */}
+        <header style={{ height: HH, background: "#0d1421", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", position: "sticky", top: 0, zIndex: 50, flexShrink: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "#e2e8f0" }}>{title}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, padding: "3px 9px", borderRadius: 5, background: user?.kyc_status === "approved" ? "rgba(14,203,129,0.12)" : "rgba(240,185,11,0.12)", color: user?.kyc_status === "approved" ? "#0ecb81" : "#f0b90b", fontWeight: 600 }}>
+              KYC {user?.kyc_status === "approved" ? "✓ Verified" : "Pending"}
+            </span>
+            <span style={{ fontSize: 11, padding: "3px 9px", borderRadius: 5, background: "rgba(0,212,170,0.1)", color: "#00d4aa", fontWeight: 700, letterSpacing: "0.5px" }}>FARMER</span>
+          </div>
+        </header>
+
+        {/* Content */}
+        <main style={{ flex: 1, padding: 24, overflowY: "auto" }}>
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}

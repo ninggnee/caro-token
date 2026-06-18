@@ -109,6 +109,13 @@ export default function DashboardLayout({ title, children }) {
                   </Link>
 
                   <Link
+                    to="/admin/mint-requests"
+                    className={isActive("/admin/mint-requests") ? "active" : ""}
+                  >
+                    📦 Asset Batches
+                  </Link>
+
+                  <Link
                     to="/admin/logs"
                     className={isActive("/admin/logs") ? "active" : ""}
                   >

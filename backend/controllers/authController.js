@@ -120,12 +120,14 @@ export const login = async (req, res) => {
       token:         accessToken,          // backward compat
       refresh_token: refreshToken,
       user: {
-        id:           user.id,
-        email:        user.email,
-        full_name:    user.full_name,
-        role:         user.role,
+        id:            user.id,
+        email:         user.email,
+        full_name:     user.full_name,
+        phone:         user.phone    || null,
+        address:       user.address  || null,
+        role:          user.role,
         wallet_address,
-        kyc_status:   user.kyc_status,
+        kyc_status:    user.kyc_status,
       },
     });
   } catch (error) {
@@ -194,6 +196,74 @@ export const logout = async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error(error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// ── Update profile ────────────────────────────────────────────────────────────
+
+export const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { full_name, phone, address } = req.body;
+    if (!full_name?.trim()) {
+      return res.status(400).json({ message: 'full_name is required' });
+    }
+
+    await db.execute(
+      `UPDATE users SET full_name = ?, phone = ?, address = ? WHERE id = ?`,
+      [full_name.trim(), phone?.trim() || null, address?.trim() || null, userId]
+    );
+
+    const [[user]] = await db.execute(
+      `SELECT id, email, full_name, phone, address, role, kyc_status, wallet_address FROM users WHERE id = ? LIMIT 1`,
+      [userId]
+    );
+
+    await logAction({
+      actorId: userId, action: 'user:update_profile',
+      entityType: 'user', entityId: userId,
+      newData: { full_name, phone, address }, ...auditMeta(req),
+    });
+
+    res.json({ success: true, user });
+  } catch (err) {
+    console.error('updateProfile error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// ── Change password ───────────────────────────────────────────────────────────
+
+export const changePassword = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { current_password, new_password } = req.body;
+
+    if (!current_password || !new_password) {
+      return res.status(400).json({ message: 'current_password and new_password are required' });
+    }
+    if (new_password.length < 6) {
+      return res.status(400).json({ message: 'new_password must be at least 6 characters' });
+    }
+
+    const [[user]] = await db.execute(`SELECT password_hash FROM users WHERE id = ? LIMIT 1`, [userId]);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const valid = await bcrypt.compare(current_password, user.password_hash);
+    if (!valid) return res.status(401).json({ message: 'Mật khẩu hiện tại không đúng' });
+
+    const newHash = await bcrypt.hash(new_password, 10);
+    await db.execute(`UPDATE users SET password_hash = ? WHERE id = ?`, [newHash, userId]);
+
+    await logAction({
+      actorId: userId, action: 'user:change_password',
+      entityType: 'user', entityId: userId, ...auditMeta(req),
+    });
+
+    res.json({ success: true, message: 'Mật khẩu đã được cập nhật' });
+  } catch (err) {
+    console.error('changePassword error:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
