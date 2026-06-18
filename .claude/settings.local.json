@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash('C:/Program Files/MySQL/MySQL Server 9.6/bin/mysql.exe' -uroot -p123456 caro_token -e ' *)"
+    ]
+  }
+}

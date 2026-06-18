@@ -1,0 +1,273 @@
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:Inter,sans-serif;
+}
+
+body{
+  background:#f4f7f7;
+}
+
+.login-page{
+  min-height:100vh;
+  display:flex;
+}
+
+.login-left{
+  flex:1;
+  color:white;
+
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:80px;
+}
+
+.login-left{
+  background:
+    radial-gradient(circle at top left,#6fa9a6 0%,transparent 35%),
+    radial-gradient(circle at bottom right,#2d4d4b 0%,transparent 40%),
+    linear-gradient(135deg,#3f6664,#203433);
+}
+
+.login-left h1{
+  font-size:60px;
+  margin-bottom:20px;
+}
+
+.login-left p{
+  font-size:24px;
+  opacity:.9;
+}
+
+.login-card{
+  width:450px;
+
+  display:flex;
+  flex-direction:column;
+
+  justify-content:center;
+
+  padding:60px;
+  gap:15px;
+
+  box-shadow:
+  0 0 30px rgba(0,0,0,.08);
+}
+
+.login-card{
+  background:#ffffff;
+  border:1px solid #eef2f3;
+  box-shadow:
+    0 20px 40px rgba(0,0,0,.08),
+    0 4px 10px rgba(0,0,0,.04);
+}
+
+.login-card h2{
+  margin-bottom:20px;
+  color:#487573;
+}
+
+.login-card input{
+  padding:14px;
+  border-radius:10px;
+  border:1px solid #d8e0e0;
+  background:#fafcfc;
+  color:#243b3a;
+}
+
+.login-card input:focus{
+  outline:none;
+  border-color:#487573;
+  box-shadow:0 0 0 4px rgba(72,117,115,.12);
+}
+
+.login-card select{
+  padding:14px;
+  border-radius:10px;
+  border:1px solid #ddd;
+}
+
+.login-card button{
+  padding:14px;
+
+  border:none;
+
+  background:#487573;
+
+  color:white;
+
+  font-weight:600;
+
+  border-radius:10px;
+
+  cursor:pointer;
+
+  transition:.2s;
+}
+
+.login-card button:hover{
+  opacity:.9;
+}
+
+.login-card span{
+  color:#666;
+  font-size:14px;
+}
+
+.hero-badge {
+  display: inline-block;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(127, 224, 201, 0.08);
+  color: #7fe0c9;
+  margin-bottom: 16px;
+  width: fit-content;
+}
+
+.login-left h1{
+  font-size:64px;
+  font-weight:800;
+  margin-bottom:12px;
+  color:#fff;
+}
+
+.login-left p{
+  font-size:22px;
+  line-height:1.6;
+  color:rgba(255,255,255,.92);
+  max-width:600px;
+}
+
+.feature-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:16px;
+  margin-top:40px;
+  max-width:620px;
+}
+
+.feature-card{
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.12);
+  backdrop-filter:blur(12px);
+  border-radius:16px;
+  padding:18px;
+  transition:.25s;
+}
+
+.feature-card:hover{
+  transform:translateY(-4px);
+  background:rgba(255,255,255,.12);
+}
+
+.feature-icon{
+  font-size:24px;
+  margin-bottom:10px;
+}
+
+.feature-title{
+  font-weight:700;
+  font-size:16px;
+  color:#fff;
+  margin-bottom:6px;
+}
+
+.feature-desc{
+  font-size:13px;
+  line-height:1.5;
+  color:rgba(255,255,255,.8);
+}
+
+.login-card{
+  width:480px;
+  background:white;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:60px;
+  gap:15px;
+  box-shadow:0 20px 60px rgba(0,0,0,.12);
+}
+
+.login-card h2{
+  color:#2f5f5d;
+  font-size:30px;
+  font-weight:700;
+}
+
+.login-card label{
+  color:#365f5d;
+  font-weight:600;
+}
+
+.login-card a{
+  color:#487573;
+  text-decoration:none;
+  font-weight:600;
+}
+
+.login-card a:hover{
+  text-decoration:underline;
+}
+
+.login-card input{
+  width:100%;
+}
+
+.login-card .btn{
+  flex:1;
+}
+
+.remember-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-top:12px;
+}
+
+.remember-label{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:#365f5d;
+  font-weight:500;
+  font-size:14px;
+}
+
+.remember-label input{
+  width:16px;
+  height:16px;
+  accent-color:#487573;
+}
+
+.forgot-link{
+  color:#487573;
+  text-decoration:none;
+  font-weight:600;
+  font-size:14px;
+}
+
+.forgot-link:hover{
+  color:#2f5f5d;
+}
+
+.register-text{
+  margin-top:18px;
+  text-align:center;
+  color:#4b5563;
+  font-size:15px;
+  font-weight:500;
+}
+
+.register-link{
+  margin-left:6px;
+  color:#487573;
+  text-decoration:none;
+  font-weight:700;
+}
+
+.register-link:hover{
+  color:#2f5f5d;
+}

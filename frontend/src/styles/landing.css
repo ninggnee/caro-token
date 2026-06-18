@@ -1,0 +1,70 @@
+body {
+  background: linear-gradient(180deg, #081311 0%, #0c1c18 35%, #0e2420 100%);
+}
+
+.caro-link {
+  text-decoration: none;
+  color: #e8f6f4;
+}
+
+.caro-link:hover {
+  color: #7fe0c9;
+}
+
+.glass-card {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0.02)
+  );
+  border: 1px solid rgba(127, 224, 201, 0.08);
+  backdrop-filter: blur(16px);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.primary-btn {
+  background: #16a085;
+  color: white;
+  text-decoration: none;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.secondary-btn {
+  color: #e8f6f4;
+  text-decoration: none;
+  padding: 12px 20px;
+  border-radius: 10px;
+  border: 1px solid rgba(127, 224, 201, 0.15);
+}
+
+.section-title {
+  color: #7fe0c9;
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+.asset-card {
+  background: linear-gradient(180deg, #112723, #0c1e1a);
+  border: 1px solid rgba(127, 224, 201, 0.12);
+  border-radius: 12px;
+  padding: 16px;
+  transition: 0.2s;
+}
+
+.asset-card:hover {
+  transform: translateY(-4px);
+}
+
+
+.sticky-header {
+  background: rgba(9, 20, 18, 0.95);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(127, 224, 201, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}

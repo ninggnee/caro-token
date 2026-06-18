@@ -1,0 +1,36 @@
+# ── Node modules (tất cả cấp) ─────────────────────────────────────────────
+node_modules/
+**/node_modules/
+
+# ── Build output ──────────────────────────────────────────────────────────
+dist/
+**/dist/
+bundle/
+
+# ── Hardhat ───────────────────────────────────────────────────────────────
+artifacts/
+cache/
+types/
+coverage/
+.gas-snapshot
+snapshots/
+
+# ── Environment — KHÔNG được commit file .env thật ─────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Uploaded files (ảnh CCCD, biên lai nạp tiền) ──────────────────────────
+uploads/
+
+# ── Logs ─────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── OS ────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Editor ────────────────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/

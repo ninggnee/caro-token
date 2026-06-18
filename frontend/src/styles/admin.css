@@ -1,0 +1,40 @@
+:root{--bg:#0b0e11;--panel:#141a1f;--accent:#1f6f64;--muted:#98a8a0}
+body{font-family:Inter,system-ui,Arial,sans-serif}
+.dashboard-container{display:flex;min-height:80vh}
+.sidebar{width:220px;background:var(--panel);color:#fff;padding:20px;box-sizing:border-box}
+.sidebar .sidebar-brand{font-weight:700;margin-bottom:12px}
+.sidebar nav a{display:block;color:#cfd8d5;padding:8px 0;text-decoration:none}
+.sidebar nav a:hover{background:rgba(255,255,255,0.03)}
+.main-content{flex:1;padding:24px;background:linear-gradient(180deg,#071011, #0b0e11);color:#fff}
+.topbar-user{opacity:0.9}
+.wallet-address{background:#0f2b28;padding:6px 10px;border-radius:6px;color:#9fffe6}
+.btn{background:var(--accent);color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer}
+.btn:hover{opacity:0.9}
+@media (max-width:800px){.sidebar{display:none}.dashboard-container{flex-direction:column}}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 20px;
+}
+
+.sidebar-nav a {
+  color: #bfc9d4;
+  text-decoration: none;
+  padding: 12px 14px;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.sidebar-nav a:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-nav a.active {
+  background: #1f2937;
+  color: #fff;
+  border-left: 4px solid #22c55e;
+  font-weight: 700;
+}

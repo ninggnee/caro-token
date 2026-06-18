@@ -1,0 +1,27 @@
+:root{
+  --bg: #0b0e11;
+  --panel: #141a1f;
+  --card: rgba(255,255,255,0.03);
+  --muted: #98a8a0;
+  --accent: #1f6f64;
+  --text: #e6f6f2;
+}
+
+html,body,#root{height:100%;background:var(--bg);color:var(--text);margin:0;font-family:Inter,system-ui,Arial,sans-serif}
+
+.container{max-width:1200px;margin:0 auto;padding:16px}
+
+.card{background:var(--card);padding:12px;border-radius:8px;color:var(--text)}
+.grid{display:grid;gap:12px}
+.row{display:flex;gap:12px}
+
+.btn{background:var(--accent);color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer}
+.btn:hover{opacity:0.95}
+
+.wallet-btn{background:#0f2b28;color:#9fffe6;border:none;padding:6px 10px;border-radius:8px;cursor:pointer}
+
+/* Ensure text contrasts on colored backgrounds */
+.card, .btn, .wallet-btn {color: var(--text)}
+
+/* Responsive helpers */
+@media (max-width:800px){.row{flex-direction:column}}
