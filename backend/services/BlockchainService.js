@@ -66,8 +66,15 @@ export async function mintToken({ tokenType, toAddress, amount, lotCode = '', re
     const amountWei   = ethers.parseUnits(String(amount), decimals);
     tx = await withTimeout(contract.mint(toAddress, amountWei, lotCode, requestId));
   } catch (newErr) {
-    // If call fails with "unexpected argument" it may be a legacy contract
-    if (newErr.message?.includes('too many arguments') || newErr.code === 'INVALID_ARGUMENT') {
+    // Fall back to legacy 2-param ABI when:
+    // - client-side: too many arguments / INVALID_ARGUMENT
+    // - on-chain: function selector not found → CALL_EXCEPTION (execution reverted)
+    const isArgMismatch =
+      newErr.message?.includes('too many arguments') ||
+      newErr.code === 'INVALID_ARGUMENT' ||
+      (newErr.code === 'CALL_EXCEPTION' && newErr.action === 'estimateGas');
+
+    if (isArgMismatch) {
       contract = new ethers.Contract(addr, chain.LEGACY_TOKEN_ABI, wallet);
       const decimals  = await contract.decimals().catch(() => 18);
       const amountWei = ethers.parseUnits(String(amount), decimals);
@@ -137,4 +144,50 @@ export async function getOnChainBalance(tokenType, walletAddress) {
   return ethers.formatUnits(raw, decimals);
 }
 
-export default { mintToken, burnToken, getOnChainBalance };
+// ── Warehouse Document Registry ────────────────────────────────────────────
+
+/**
+ * Record a compliance document CID on-chain via WarehouseDocumentRegistry.
+ *
+ * Only called for compliance-critical document types:
+ *   warehouse_license | inspection_report | warehouse_certificate
+ *
+ * Returns null (not throws) when the registry contract is not configured,
+ * so callers can always skip on-chain recording gracefully.
+ *
+ * @param {object} params
+ * @param {number} params.warehouseId   DB warehouse.id
+ * @param {string} params.cid           IPFS CIDv0
+ * @param {string} params.documentType  Document category
+ * @param {string} params.documentName  Original file name
+ * @param {number} params.dbRecordId    warehouse_documents.id
+ * @returns {{ txHash: string, blockNumber: number } | null}
+ */
+export async function recordWarehouseDocument({ warehouseId, cid, documentType, documentName, dbRecordId }) {
+  const registryAddr = chain.WAREHOUSE_DOC_REGISTRY_ADDRESS;
+  if (!registryAddr || !/^0x[0-9a-fA-F]{40}$/.test(registryAddr)) {
+    return null; // registry not deployed yet — skip silently
+  }
+
+  const wallet   = getMinterWallet();
+  const contract = new ethers.Contract(registryAddr, chain.WAREHOUSE_DOC_REGISTRY_ABI, wallet);
+
+  const tx = await withTimeout(
+    contract.addWarehouseDocument(
+      BigInt(warehouseId),
+      cid,
+      documentType,
+      documentName,
+      BigInt(dbRecordId)
+    )
+  );
+
+  const receipt = await withTimeout(tx.wait());
+  if (!receipt || receipt.status === 0) {
+    throw new Error(`WarehouseDocumentRegistry tx reverted. txHash: ${tx.hash}`);
+  }
+
+  return { txHash: receipt.hash, blockNumber: receipt.blockNumber };
+}
+
+export default { mintToken, burnToken, getOnChainBalance, recordWarehouseDocument };

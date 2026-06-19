@@ -18,7 +18,13 @@ export const getSummary = async (req, res) => {
 
     const [[{ redeemProcessing }]] = await db.execute(`SELECT COUNT(*) as redeemProcessing FROM redeem_requests WHERE status='pending'`);
 
-    res.json({ success: true, summary: { totalFarmers, totalTraders, totalKyc, pendingKyc, rejectedKyc, pendingTokenRequests, totalTokens, totalKg, totalVolumeVnd, supplementRequests, redeemProcessing } });
+    // Batch stats
+    const [[{ pendingBatches }]] = await db.execute(`SELECT COUNT(*) as pendingBatches FROM asset_batches WHERE status='PENDING_MINT_APPROVAL'`);
+    const [[{ mintedBatches  }]] = await db.execute(`SELECT COUNT(*) as mintedBatches  FROM asset_batches WHERE status='MINTED'`);
+    const [[{ rejectedBatches}]] = await db.execute(`SELECT COUNT(*) as rejectedBatches FROM asset_batches WHERE status='REJECTED'`);
+    const [[{ totalBatchKg   }]] = await db.execute(`SELECT COALESCE(SUM(quantity),0) as totalBatchKg FROM asset_batches WHERE status='MINTED'`);
+
+    res.json({ success: true, summary: { totalFarmers, totalTraders, totalKyc, pendingKyc, rejectedKyc, pendingTokenRequests, totalTokens, totalKg, totalVolumeVnd, supplementRequests, redeemProcessing, pendingBatches, mintedBatches, rejectedBatches, totalBatchKg } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Server error' });

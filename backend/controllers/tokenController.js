@@ -14,9 +14,10 @@
  */
 
 import db                from '../config/db.js';
-import { mintToken as mintTokenOnChain } from '../services/BlockchainService.js';
+import { mintToken as mintTokenOnChain, getOnChainBalance } from '../services/BlockchainService.js';
 import { creditMint }    from '../services/BalanceService.js';
 import { logAction, auditMeta } from '../services/AuditService.js';
+import chain             from '../config/chain.js';
 
 // ── Farmer: create tokenisation request ────────────────────────────────────
 
@@ -197,10 +198,11 @@ export const mintToken = async (req, res) => {
     const id      = req.params.id;
     const adminId = req.user?.id;
 
-    // Load request with farmer wallet
+    // Load request with farmer wallet — prefer user_wallets, fall back to users.wallet_address
     const [[row]] = await db.execute(
-      `SELECT tr.*, uw.wallet_address AS farmer_wallet, cl.lot_code
+      `SELECT tr.*, COALESCE(uw.wallet_address, u.wallet_address) AS farmer_wallet, cl.lot_code
        FROM token_requests tr
+       LEFT JOIN users u ON u.id = tr.user_id
        LEFT JOIN user_wallets uw ON uw.user_id = tr.user_id AND uw.role = 'farmer'
        LEFT JOIN coffee_lots cl ON tr.lot_id_ref = cl.id
        WHERE tr.id = ? LIMIT 1`,
@@ -315,5 +317,50 @@ export const getUserBalances = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// ── User: get on-chain balances from blockchain ──────────────────────────────
+
+export const getOnChainBalances = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+
+    // Resolve farmer's wallet address from users table
+    const [[user]] = await db.execute(
+      `SELECT wallet_address FROM users WHERE id = ? LIMIT 1`,
+      [userId]
+    );
+    const walletAddress = user?.wallet_address;
+
+    if (!walletAddress || !/^0x[0-9a-fA-F]{40}$/.test(walletAddress)) {
+      return res.json({
+        success: true,
+        wallet_address: walletAddress || null,
+        balances: { CR1: '0', CR2: '0', CR3: '0' },
+        contracts: chain.CONTRACT_ADDRESSES,
+      });
+    }
+
+    // Query balanceOf for each token type in parallel
+    const tokenTypes = ['CR1', 'CR2', 'CR3'];
+    const results = await Promise.allSettled(
+      tokenTypes.map(t => getOnChainBalance(t, walletAddress))
+    );
+
+    const balances = {};
+    tokenTypes.forEach((t, i) => {
+      balances[t] = results[i].status === 'fulfilled' ? results[i].value : '0';
+    });
+
+    res.json({
+      success: true,
+      wallet_address: walletAddress,
+      balances,
+      contracts: chain.CONTRACT_ADDRESSES,
+    });
+  } catch (err) {
+    console.error('getOnChainBalances error:', err);
+    res.status(500).json({ success: false, message: err.message });
   }
 };

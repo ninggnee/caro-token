@@ -19,8 +19,9 @@ import migrateRoutes    from './routes/migrateRoutes.js';
 import adminSetupRoutes from './routes/adminSetupRoutes.js';
 import orderRoutes      from './routes/orderRoutes.js';
 import walletRoutes     from './routes/walletRoutes.js';
-import custodianRoutes  from './routes/custodianRoutes.js';
-import assetBatchRoutes from './routes/assetBatchRoutes.js';
+import custodianRoutes         from './routes/custodianRoutes.js';
+import assetBatchRoutes        from './routes/assetBatchRoutes.js';
+import warehouseDocumentRoutes from './routes/warehouseDocumentRoutes.js';
 
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
@@ -30,7 +31,7 @@ app.use(cors());
 app.use(express.json());
 
 // Ensure upload directories exist
-['uploads/kyc', 'uploads/deposits', 'uploads/batches'].forEach(dir => {
+['uploads/kyc', 'uploads/deposits', 'uploads/batches', 'uploads/warehouse-docs'].forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -52,8 +53,9 @@ app.use('/api/admin/setup',  adminSetupRoutes);
 // ── New routes (Parts 4, 5, 8, 11) ───────────────────────────────────────────
 app.use('/api/orders',       orderRoutes);        // matching engine
 app.use('/api/wallet',       walletRoutes);       // VND deposit/withdraw
-app.use('/api/custodian',    custodianRoutes);    // RWA custodian flow
-app.use('/api/batches',     assetBatchRoutes);   // Asset batch mint workflow
+app.use('/api/custodian',            custodianRoutes);         // RWA custodian flow
+app.use('/api/batches',             assetBatchRoutes);         // Asset batch mint workflow
+app.use('/api/warehouse-documents', warehouseDocumentRoutes);  // Warehouse document IPFS storage
 
 app.get('/', (_, res) => res.json({ message: 'CaRo Backend Running' }));
 

@@ -1,5 +1,5 @@
 import express from 'express';
-import { createTokenRequest, listTokenRequestsForUser, listTokenRequests, getTokenRequest, reviewTokenRequest, mintToken, getUserBalances } from '../controllers/tokenController.js';
+import { createTokenRequest, listTokenRequestsForUser, listTokenRequests, getTokenRequest, reviewTokenRequest, mintToken, getUserBalances, getOnChainBalances } from '../controllers/tokenController.js';
 import { verifyToken, requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -7,8 +7,11 @@ const router = express.Router();
 router.post('/requests', verifyToken, requireRole('farmer'), createTokenRequest);
 router.get('/requests', verifyToken, requireRole('farmer'), listTokenRequestsForUser);
 
-// balances
+// balances — internal DB
 router.get('/balances', verifyToken, requireRole('farmer'), getUserBalances);
+
+// on-chain balance (live from blockchain)
+router.get('/balances/onchain', verifyToken, requireRole('farmer'), getOnChainBalances);
 
 // admin
 router.get('/admin/requests', verifyToken, requireRole('admin'), listTokenRequests);

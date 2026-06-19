@@ -10,6 +10,7 @@ import {
   getAllBatches,
   approveBatch,
   rejectBatch,
+  updateGrade,
 } from '../controllers/AssetBatchController.js';
 import { verifyToken, requireRole } from '../middleware/auth.js';
 
@@ -50,10 +51,7 @@ const upload = multer({
 // Keep file buffer for IPFS upload (re-read from disk after multer saves)
 // We use diskStorage but also need the buffer — attach it after save.
 const batchDocFields = upload.fields([
-  { name: 'farmer_identity',    maxCount: 3 },
-  { name: 'farm_ownership',     maxCount: 3 },
   { name: 'harvest_certificate',maxCount: 3 },
-  { name: 'warehouse_receipt',  maxCount: 3 },
   { name: 'quality_inspection', maxCount: 3 },
   { name: 'coffee_photos',      maxCount: 10 },
   { name: 'additional_docs',    maxCount: 10 },
@@ -89,6 +87,7 @@ router.get('/mine', verifyToken, requireRole('farmer'), getFarmerBatches);
 // ── Admin ─────────────────────────────────────────────────────────────────
 router.get('/',               verifyToken, requireRole('admin'), getAllBatches);
 router.get('/:id/documents',  verifyToken, requireRole('admin'), getBatchDocuments);
+router.put('/:id/grade',      verifyToken, requireRole('admin'), updateGrade);
 router.post('/:id/approve',   verifyToken, requireRole('admin'), approveBatch);
 router.post('/:id/reject',    verifyToken, requireRole('admin'), rejectBatch);
 
