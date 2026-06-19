@@ -8,7 +8,7 @@ export default function Sidebar() {
       padding: 16,
       color: "#e6f1f1"
     }}>
-      <h3 style={{ color: "#487573" }}>☕ CaRo DEX</h3>
+      <h3 style={{ color: "#487573" }}>🫘 CaRo DEX</h3>
 
       <div style={{ marginTop: 12 }}>
         <div style={{ fontSize: 12, opacity: 0.8 }}>Public</div>

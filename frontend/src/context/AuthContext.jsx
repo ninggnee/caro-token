@@ -40,6 +40,32 @@ export const AuthProvider = ({ children }) => {
     if (refreshTimer.current) clearTimeout(refreshTimer.current);
   }
 
+  async function fetchMe(tokenOverride) {
+    const at = tokenOverride || accessToken || localStorage.getItem('token');
+    if (!at) return;
+    try {
+      const res = await fetch(`${API_URL}/auth/me`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${at}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.user) {
+          persist(data.user);
+        }
+      }
+    } catch (err) {
+      console.error("fetchMe error:", err);
+    }
+  }
+
+  const refreshUser = async () => {
+    await fetchMe();
+  };
+
   // Schedule silent refresh 1 minute before expiry (15 min access token)
   function scheduleRefresh() {
     if (refreshTimer.current) clearTimeout(refreshTimer.current);
@@ -63,6 +89,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', newAt);
       localStorage.setItem(REFRESH_KEY, data.refresh_token);
       scheduleRefresh();
+      return newAt;
     } catch {
       clearState();
     }
@@ -72,7 +99,9 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const rt = localStorage.getItem(REFRESH_KEY);
     if (rt) {
-      silentRefresh().finally(() => setLoading(false));
+      silentRefresh()
+        .then((newAt) => fetchMe(newAt))
+        .finally(() => setLoading(false));
     } else {
       setLoading(false);
     }
@@ -112,7 +141,7 @@ export const AuthProvider = ({ children }) => {
   const getToken = () => accessToken || localStorage.getItem('token');
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, updateUser, getToken, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, updateUser, refreshUser, getToken, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );

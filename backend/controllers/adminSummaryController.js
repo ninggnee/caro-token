@@ -18,9 +18,49 @@ export const getSummary = async (req, res) => {
 
     const [[{ redeemProcessing }]] = await db.execute(`SELECT COUNT(*) as redeemProcessing FROM redeem_requests WHERE status='pending'`);
 
-    res.json({ success: true, summary: { totalFarmers, totalTraders, totalKyc, pendingKyc, rejectedKyc, pendingTokenRequests, totalTokens, totalKg, totalVolumeVnd, supplementRequests, redeemProcessing } });
+    // Fetch v2 asset batches metrics
+    let pendingBatches = 0;
+    let mintedBatches = 0;
+    let rejectedBatches = 0;
+    let totalBatchKg = 0;
+
+    try {
+      const [[pb]] = await db.execute(`SELECT COUNT(*) as pb FROM asset_batches WHERE status='PENDING_MINT_APPROVAL'`);
+      const [[mb]] = await db.execute(`SELECT COUNT(*) as mb FROM asset_batches WHERE status='MINTED'`);
+      const [[rb]] = await db.execute(`SELECT COUNT(*) as rb FROM asset_batches WHERE status='REJECTED'`);
+      const [[tk]] = await db.execute(`SELECT COALESCE(SUM(quantity),0) as tk FROM asset_batches WHERE status='MINTED'`);
+
+      pendingBatches = pb.pb;
+      mintedBatches = mb.mb;
+      rejectedBatches = rb.rb;
+      totalBatchKg = tk.tk;
+    } catch (batchErr) {
+      console.warn("asset_batches table count error, using 0 fallback:", batchErr.message);
+    }
+
+    res.json({
+      success: true,
+      summary: {
+        totalFarmers,
+        totalTraders,
+        totalKyc,
+        pendingKyc,
+        rejectedKyc,
+        pendingTokenRequests,
+        totalTokens,
+        totalKg,
+        totalVolumeVnd,
+        supplementRequests,
+        redeemProcessing,
+        pendingBatches,
+        mintedBatches,
+        rejectedBatches,
+        totalBatchKg
+      }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
+

@@ -12,6 +12,7 @@ import kycRoutes        from './routes/kycRoutes.js';
 import kycAdminRoutes   from './routes/kycAdminRoutes.js';
 import adminUsersRoutes from './routes/adminUsersRoutes.js';
 import adminSummaryRoutes from './routes/adminSummaryRoutes.js';
+import adminLogsRoutes from './routes/adminLogsRoutes.js';
 import tokenRoutes      from './routes/tokenRoutes.js';
 import marketRoutes     from './routes/marketRoutes.js';
 import redeemRoutes     from './routes/redeemRoutes.js';
@@ -43,6 +44,7 @@ app.use('/api/kyc',          kycRoutes);
 app.use('/api/admin/kyc',    kycAdminRoutes);
 app.use('/api/admin/users',  adminUsersRoutes);
 app.use('/api/admin',        adminSummaryRoutes);
+app.use('/api/admin/logs',   adminLogsRoutes);
 app.use('/api/token',        tokenRoutes);
 app.use('/api/market',       marketRoutes);       // legacy market (backward compat)
 app.use('/api/redeem',       redeemRoutes);

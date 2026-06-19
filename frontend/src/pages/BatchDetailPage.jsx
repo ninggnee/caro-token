@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import DashboardLayout from "../components/layout/DashboardLayout";
+import FarmerLayout from "../components/layout/FarmerLayout";
 import { useAuth } from "../context/AuthContext";
 import { useBatch, useApproveBatch, useRejectBatch } from "../hooks/useBatches";
 
@@ -19,26 +20,26 @@ const DOC_LABELS = {
   additional_docs:     "Tài liệu bổ sung",
 };
 
-function InfoRow({ label, value, accent, mono }) {
+function InfoRow({ label, value, accent, mono, borderLine }) {
   if (value == null || value === "") return null;
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "11px 0", borderBottom: "1px solid rgba(255,255,255,0.05)", gap: 12 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "11px 0", borderBottom: `1px solid ${borderLine || "rgba(255,255,255,0.05)"}`, gap: 12 }}>
       <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, flexShrink: 0 }}>{label}</span>
       <span style={{ fontWeight: 600, color: accent || "#fff", fontSize: 13, textAlign: "right", wordBreak: "break-all", fontFamily: mono ? "monospace" : undefined }}>{value}</span>
     </div>
   );
 }
 
-function Section({ title, children, accent, bgColor }) {
+function Section({ title, children, accent, bgColor, border }) {
   return (
-    <div style={{ background: bgColor || "#141a1f", borderRadius: 12, padding: "20px 24px", marginBottom: 16, border: "1px solid rgba(255,255,255,0.08)" }}>
+    <div style={{ background: bgColor || "#141a1f", borderRadius: 12, padding: "20px 24px", marginBottom: 16, border: border || "1px solid rgba(255,255,255,0.08)" }}>
       <h3 style={{ margin: "0 0 14px", fontSize: 14, color: accent || "#9fcfc6", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>{title}</h3>
       {children}
     </div>
   );
 }
 
-function DocumentsSection({ documents }) {
+function DocumentsSection({ documents, accent, borderLine }) {
   if (!documents || documents.length === 0) {
     return (
       <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, padding: "12px 0" }}>
@@ -57,19 +58,19 @@ function DocumentsSection({ documents }) {
   return (
     <div>
       {Object.entries(grouped).map(([type, files]) => (
-        <div key={type} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-          <div style={{ fontSize: 12, color: "#9fcfc6", fontWeight: 600, marginBottom: 8 }}>
+        <div key={type} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${borderLine || "rgba(255,255,255,0.05)"}` }}>
+          <div style={{ fontSize: 12, color: accent || "#9fcfc6", fontWeight: 600, marginBottom: 8 }}>
             {DOC_LABELS[type] || type}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {files.map((f) => (
-              <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "7px 12px" }}>
+              <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.05)", border: `1px solid ${borderLine || "rgba(255,255,255,0.08)"}`, borderRadius: 8, padding: "7px 12px" }}>
                 <span style={{ fontSize: 16 }}>📄</span>
                 <div>
                   <div style={{ fontSize: 12, color: "rgba(255,255,255,0.8)", fontWeight: 600 }}>{f.file_name}</div>
                   {f.ipfs_cid ? (
                     <a href={`https://ipfs.io/ipfs/${f.ipfs_cid}`} target="_blank" rel="noreferrer"
-                      style={{ fontSize: 11, color: "#9fcfc6", textDecoration: "none", display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}>
+                      style={{ fontSize: 11, color: accent || "#9fcfc6", textDecoration: "none", display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}>
                       IPFS: {f.ipfs_cid.slice(0, 12)}... ↗
                     </a>
                   ) : (
@@ -85,15 +86,16 @@ function DocumentsSection({ documents }) {
   );
 }
 
-function SkeletonDetail() {
+function SkeletonDetail({ isAdmin }) {
+  const Layout = isAdmin ? DashboardLayout : FarmerLayout;
   return (
-    <DashboardLayout title="Chi tiết Batch">
+    <Layout title="Chi tiết lô hàng">
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
         {[240, 320, 200].map((h, i) => (
-          <div key={i} style={{ height: h, background: "#141a1f", borderRadius: 12, marginBottom: 16, border: "1px solid rgba(255,255,255,0.05)", animation: "pulse 1.5s ease-in-out infinite" }} />
+          <div key={i} style={{ height: h, background: isAdmin ? "#141a1f" : "#172524", borderRadius: 12, marginBottom: 16, border: isAdmin ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(72,117,115,0.15)", animation: "pulse 1.5s ease-in-out infinite" }} />
         ))}
       </div>
-    </DashboardLayout>
+    </Layout>
   );
 }
 
@@ -130,28 +132,35 @@ export default function BatchDetailPage() {
     });
   };
 
-  if (isLoading) return <SkeletonDetail />;
+  if (isLoading) return <SkeletonDetail isAdmin={isAdmin} />;
   if (isError || !batch) {
+    const Layout = isAdmin ? DashboardLayout : FarmerLayout;
     return (
-      <DashboardLayout title="Chi tiết Batch">
+      <Layout title="Chi tiết lô hàng">
         <div style={{ maxWidth: 760, margin: "0 auto", textAlign: "center", padding: 80 }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>❌</div>
-          <div style={{ color: "#e74c3c", fontSize: 16 }}>Không tìm thấy batch hoặc bạn không có quyền truy cập</div>
-          <button onClick={() => navigate(backPath)} style={{ marginTop: 20, padding: "9px 22px", background: "#1f6f64", border: "none", color: "#fff", borderRadius: 8, cursor: "pointer" }}>← Quay lại</button>
+          <div style={{ color: "#e74c3c", fontSize: 16 }}>Không tìm thấy lô hàng hoặc bạn không có quyền truy cập</div>
+          <button onClick={() => navigate(backPath)} style={{ marginTop: 20, padding: "9px 22px", background: isAdmin ? "#1f6f64" : "#487573", border: "none", color: "#fff", borderRadius: 8, cursor: "pointer" }}>← Quay lại</button>
         </div>
-      </DashboardLayout>
+      </Layout>
     );
   }
 
   const sm = STATUS_META[batch.status] || { color: "#aaa", bg: "rgba(255,255,255,0.08)", label: batch.status };
   const isPending = approve.isPending || reject.isPending;
 
+  const Layout = isAdmin ? DashboardLayout : FarmerLayout;
+  const accentColor = isAdmin ? "#9fcfc6" : "#7fe0c9";
+  const cardBg = isAdmin ? "#141a1f" : "#172524";
+  const borderVal = isAdmin ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(72,117,115,0.15)";
+  const borderLine = isAdmin ? "rgba(255,255,255,0.05)" : "rgba(72,117,115,0.15)";
+
   return (
-    <DashboardLayout title={`Batch — ${batch.batch_id}`}>
+    <Layout title={`Chi tiết lô hàng — ${batch.batch_id}`}>
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
 
-        <button onClick={() => navigate(backPath)} style={{ background: "none", border: "none", color: "#9fcfc6", cursor: "pointer", fontSize: 13, marginBottom: 16, padding: 0, display: "flex", alignItems: "center", gap: 4 }}>
+        <button onClick={() => navigate(backPath)} style={{ background: "none", border: "none", color: accentColor, cursor: "pointer", fontSize: 13, marginBottom: 16, padding: 0, display: "flex", alignItems: "center", gap: 4 }}>
           ← Quay lại
         </button>
 
@@ -168,15 +177,15 @@ export default function BatchDetailPage() {
         </div>
 
         {/* Batch info */}
-        <Section title="📋 Thông tin lô hàng">
-          <InfoRow label="Farmer"           value={batch.farmer_name}  />
-          <InfoRow label="Email"            value={batch.farmer_email} />
-          <InfoRow label="Loại cà phê"      value={batch.coffee_type || "ROBUSTA COFFEE"} accent="#9fcfc6" />
-          <InfoRow label="Khối lượng"       value={`${Number(batch.quantity).toLocaleString()} kg`} accent="#fff" />
-          <InfoRow label="Ngày thu hoạch"   value={batch.harvest_date?.slice(0, 10)} />
-          <InfoRow label="Kho lưu trữ"      value={batch.storage_location} />
+        <Section title="📋 Thông tin lô hàng" accent={accentColor} bgColor={cardBg} border={borderVal}>
+          <InfoRow label="Farmer"           value={batch.farmer_name} borderLine={borderLine} />
+          <InfoRow label="Email"            value={batch.farmer_email} borderLine={borderLine} />
+          <InfoRow label="Loại cà phê"      value={batch.coffee_type || "ROBUSTA COFFEE"} accent={accentColor} borderLine={borderLine} />
+          <InfoRow label="Khối lượng"       value={`${Number(batch.quantity).toLocaleString()} kg`} accent="#fff" borderLine={borderLine} />
+          <InfoRow label="Ngày thu hoạch"   value={batch.harvest_date?.slice(0, 10)} borderLine={borderLine} />
+          <InfoRow label="Kho lưu trữ"      value={batch.storage_location} borderLine={borderLine} />
           {batch.batch_description && (
-            <div style={{ padding: "11px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+            <div style={{ padding: "11px 0", borderBottom: `1px solid ${borderLine}` }}>
               <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, marginBottom: 4 }}>Mô tả</div>
               <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", lineHeight: 1.5 }}>{batch.batch_description}</div>
             </div>
@@ -184,24 +193,24 @@ export default function BatchDetailPage() {
         </Section>
 
         {/* Documents */}
-        <Section title={`📂 Tài liệu (${batch.documents?.length || 0} files)`}>
-          <DocumentsSection documents={batch.documents} />
+        <Section title={`📂 Tài liệu (${batch.documents?.length || 0} file)`} accent={accentColor} bgColor={cardBg} border={borderVal}>
+          <DocumentsSection documents={batch.documents} accent={accentColor} borderLine={borderLine} />
         </Section>
 
         {/* Minted info */}
         {batch.status === "MINTED" && (
-          <div style={{ background: "rgba(39,174,96,0.07)", border: "1px solid rgba(39,174,96,0.25)", borderRadius: 12, padding: "20px 24px", marginBottom: 16 }}>
+          <div style={{ background: isAdmin ? "rgba(39,174,96,0.07)" : "rgba(14,203,129,0.05)", border: isAdmin ? "1px solid rgba(39,174,96,0.25)" : "1px solid rgba(14,203,129,0.15)", borderRadius: 12, padding: "20px 24px", marginBottom: 16 }}>
             <h3 style={{ margin: "0 0 14px", fontSize: 14, color: "#27ae60", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>🪙 Token đã Mint</h3>
-            <InfoRow label="Số lượng"       value={`${Number(batch.minted_amount).toLocaleString()} CaRo`} accent="#22c55e" />
-            <InfoRow label="Ví nhận"        value={batch.farmer_wallet || "Farmer Blockchain Wallet"} accent="#9fcfc6" mono />
-            <InfoRow label="Thời gian Mint" value={batch.minted_at ? new Date(batch.minted_at).toLocaleString("vi-VN") : null} />
-            <InfoRow label="Block Number"   value={batch.block_number?.toLocaleString()} />
-            <InfoRow label="Người duyệt"    value={batch.reviewer_name} />
+            <InfoRow label="Số lượng"       value={`${Number(batch.minted_amount).toLocaleString()} CaRo`} accent="#22c55e" borderLine={borderLine} />
+            <InfoRow label="Ví nhận"        value={batch.farmer_wallet || "Farmer Blockchain Wallet"} accent={accentColor} mono borderLine={borderLine} />
+            <InfoRow label="Thời gian Mint" value={batch.minted_at ? new Date(batch.minted_at).toLocaleString("vi-VN") : null} borderLine={borderLine} />
+            <InfoRow label="Block Number"   value={batch.block_number?.toLocaleString()} borderLine={borderLine} />
+            <InfoRow label="Người duyệt"    value={batch.reviewer_name} borderLine={borderLine} />
             {batch.tx_hash && (
               <div style={{ marginTop: 12 }}>
-                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginBottom: 6 }}>Transaction Hash</div>
+                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginBottom: 6 }}>Transaction Hash (Mã giao dịch)</div>
                 <a href={`https://sepolia.etherscan.io/tx/${batch.tx_hash}`} target="_blank" rel="noreferrer"
-                  style={{ color: "#9fcfc6", fontSize: 12, wordBreak: "break-all", fontFamily: "monospace" }}>
+                  style={{ color: accentColor, fontSize: 12, wordBreak: "break-all", fontFamily: "monospace", textDecoration: "none" }}>
                   {batch.tx_hash}
                 </a>
               </div>
@@ -213,15 +222,15 @@ export default function BatchDetailPage() {
         {batch.status === "REJECTED" && (
           <div style={{ background: "rgba(231,76,60,0.07)", border: "1px solid rgba(231,76,60,0.25)", borderRadius: 12, padding: "20px 24px", marginBottom: 16 }}>
             <h3 style={{ margin: "0 0 14px", fontSize: 14, color: "#e74c3c", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>❌ Chi tiết từ chối</h3>
-            <InfoRow label="Lý do"           value={batch.rejection_reason} accent="#e74c3c" />
-            <InfoRow label="Từ chối lúc"     value={batch.rejected_at ? new Date(batch.rejected_at).toLocaleString("vi-VN") : null} />
-            <InfoRow label="Người xét duyệt" value={batch.reviewer_name} />
+            <InfoRow label="Lý do"           value={batch.rejection_reason} accent="#e74c3c" borderLine={borderLine} />
+            <InfoRow label="Từ chối lúc"     value={batch.rejected_at ? new Date(batch.rejected_at).toLocaleString("vi-VN") : null} borderLine={borderLine} />
+            <InfoRow label="Người xét duyệt" value={batch.reviewer_name} borderLine={borderLine} />
           </div>
         )}
 
         {/* Admin actions */}
         {isAdmin && batch.status === "PENDING_MINT_APPROVAL" && (
-          <Section title="⚙️ Thao tác Admin">
+          <Section title="⚙️ Thao tác Admin" accent={accentColor} bgColor={cardBg} border={borderVal}>
             {!showReject ? (
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <button
@@ -264,6 +273,6 @@ export default function BatchDetailPage() {
           </Section>
         )}
       </div>
-    </DashboardLayout>
+    </Layout>
   );
 }

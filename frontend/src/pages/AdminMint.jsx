@@ -66,51 +66,59 @@ export default function AdminMint() {
   const explorerUrl = (txHash) =>
     `https://sepolia.etherscan.io/tx/${txHash}`;
 
+  const translateStatus = (s) => {
+    if (s === 'pending') return 'CHỜ DUYỆT';
+    if (s === 'approved') return 'ĐÃ DUYỆT';
+    if (s === 'minted') return 'ĐÃ MINT';
+    if (s === 'rejected') return 'BỊ TỪ CHỐI';
+    return s.toUpperCase();
+  };
+
   return (
-    <DashboardLayout title="Mint Token (Admin)">
+    <DashboardLayout title="Mint Token (Quản trị)">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>Danh sách yêu cầu Token hóa</h2>
-        <button onClick={load} style={{ padding: '6px 14px', borderRadius: 6, cursor: 'pointer' }}>
-          🔄 Refresh
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Danh sách yêu cầu Token hóa</h2>
+        <button onClick={load} style={{ padding: '6px 14px', borderRadius: 6, cursor: 'pointer', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(72,117,115,0.15)', color: '#fff', fontSize: 13, fontWeight: 600 }}>
+          🔄 Làm mới
         </button>
       </div>
 
       {loading ? (
-        <div style={{ color: '#aaa' }}>Đang tải...</div>
+        <div style={{ color: '#aaa', fontSize: 14 }}>Đang tải...</div>
       ) : requests.length === 0 ? (
-        <div style={{ color: '#aaa' }}>Không có yêu cầu nào</div>
+        <div style={{ color: '#aaa', fontSize: 14 }}>Không có yêu cầu nào</div>
       ) : (
         <div style={{ display: 'grid', gap: 12 }}>
           {requests.map(r => {
             const res = results[r.id];
             return (
               <div key={r.id} style={{
-                padding: 16, borderRadius: 8, background: 'rgba(255,255,255,0.04)',
-                border: `1px solid ${STATUS_COLOR[r.status] || '#444'}30`,
+                padding: 16, borderRadius: 8, background: '#172524',
+                border: `1px solid rgba(72,117,115,0.15)`,
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
-                    <div style={{ fontWeight: 600 }}>Request #{r.id} — {r.full_name} ({r.email})</div>
-                    <div style={{ fontSize: 13, color: '#aaa', marginTop: 4 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>Yêu cầu #{r.id} — {r.full_name} ({r.email})</div>
+                    <div style={{ fontSize: 13, color: '#9aa5b4', marginTop: 4 }}>
                       {r.kg_amount} kg → {r.token_amount} token
                       {r.grade && ` | Grade: ${r.grade}`}
-                      {r.token_type && ` | Type: ${r.token_type}`}
+                      {r.token_type && ` | Loại: ${r.token_type}`}
                     </div>
                     {r.lot_code && (
-                      <div style={{ fontSize: 12, color: '#888' }}>Lot: {r.lot_code}</div>
+                      <div style={{ fontSize: 12, color: '#6b7a99', marginTop: 4 }}>Mã lô: {r.lot_code}</div>
                     )}
                     {r.receipt_code && (
-                      <div style={{ fontSize: 12, color: '#27ae60' }}>✅ Warehouse Receipt: {r.receipt_code}</div>
+                      <div style={{ fontSize: 12, color: '#0ecb81', marginTop: 4 }}>✅ Chứng từ kho: {r.receipt_code}</div>
                     )}
                     {r.lot_id_ref && !r.receipt_code && (
-                      <div style={{ fontSize: 12, color: '#e74c3c' }}>⚠ Chưa có Warehouse Receipt</div>
+                      <div style={{ fontSize: 12, color: '#f6465d', marginTop: 4 }}>⚠ Chưa có Chứng từ kho</div>
                     )}
                   </div>
                   <span style={{
-                    padding: '3px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600,
+                    padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600,
                     background: `${STATUS_COLOR[r.status] || '#555'}20`,
                     color: STATUS_COLOR[r.status] || '#fff',
-                  }}>{r.status.toUpperCase()}</span>
+                  }}>{translateStatus(r.status)}</span>
                 </div>
 
                 {/* Actions */}
@@ -122,8 +130,8 @@ export default function AdminMint() {
                           key={type}
                           onClick={() => review(r.id, 'approve', type)}
                           disabled={reviewingId === r.id}
-                          style={{ padding: '5px 12px', borderRadius: 6, cursor: 'pointer',
-                            background: '#3498db', color: '#fff', border: 'none', fontSize: 13 }}
+                          style={{ padding: '6px 12px', borderRadius: 6, cursor: 'pointer',
+                            background: '#487573', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600 }}
                         >
                           ✅ Duyệt ({type})
                         </button>
@@ -131,8 +139,8 @@ export default function AdminMint() {
                       <button
                         onClick={() => review(r.id, 'reject')}
                         disabled={reviewingId === r.id}
-                        style={{ padding: '5px 12px', borderRadius: 6, cursor: 'pointer',
-                          background: '#e74c3c', color: '#fff', border: 'none', fontSize: 13 }}
+                        style={{ padding: '6px 12px', borderRadius: 6, cursor: 'pointer',
+                          background: '#f6465d', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600 }}
                       >
                         ❌ Từ chối
                       </button>
@@ -144,7 +152,7 @@ export default function AdminMint() {
                       onClick={() => mint(r.id)}
                       disabled={mintingId === r.id}
                       style={{ padding: '6px 16px', borderRadius: 6, cursor: 'pointer',
-                        background: '#27ae60', color: '#fff', border: 'none', fontWeight: 600 }}
+                        background: '#0ecb81', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13 }}
                     >
                       {mintingId === r.id ? '⏳ Đang mint trên blockchain...' : '🪙 Mint Token'}
                     </button>
@@ -154,23 +162,23 @@ export default function AdminMint() {
                 {/* Mint result */}
                 {res && (
                   <div style={{ marginTop: 10, padding: 8, borderRadius: 6,
-                    background: res.success ? 'rgba(39,174,96,0.1)' : 'rgba(231,76,60,0.1)' }}>
-                    {res.loading && <span>⏳ Đang xử lý...</span>}
+                    background: res.success ? 'rgba(14,203,129,0.1)' : 'rgba(246,70,93,0.1)' }}>
+                    {res.loading && <span style={{ fontSize: 13 }}>⏳ Đang xử lý...</span>}
                     {res.success && (
                       <div>
-                        <div style={{ color: '#27ae60', fontWeight: 600 }}>✅ Mint thành công!</div>
+                        <div style={{ color: '#0ecb81', fontWeight: 600, fontSize: 13 }}>✅ Mint thành công!</div>
                         <div style={{ fontSize: 12, marginTop: 4 }}>
                           TxHash:{' '}
                           <a href={explorerUrl(res.txHash)} target="_blank" rel="noreferrer"
-                            style={{ color: '#3498db', wordBreak: 'break-all' }}>
+                            style={{ color: '#7fe0c9', wordBreak: 'break-all', textDecoration: 'none' }}>
                             {res.txHash}
                           </a>
                         </div>
-                        <div style={{ fontSize: 12 }}>Block: #{res.block}</div>
+                        <div style={{ fontSize: 12, color: '#9aa5b4' }}>Block: #{res.block}</div>
                       </div>
                     )}
                     {res.success === false && (
-                      <div style={{ color: '#e74c3c' }}>❌ {res.error}</div>
+                      <div style={{ color: '#f6465d', fontSize: 13 }}>❌ {res.error}</div>
                     )}
                   </div>
                 )}

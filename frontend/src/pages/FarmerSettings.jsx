@@ -5,12 +5,12 @@ import FarmerLayout from "../components/layout/FarmerLayout";
 import { useAuth } from "../context/AuthContext";
 import { changePassword } from "../services/orderApi";
 
-const C = { accent: "#00d4aa", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d" };
+const C = { accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#7fe0c9" };
 
 function Section({ title, children }) {
   return (
-    <div style={{ background: "#141f2e", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", overflow: "hidden" }}>
-      <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{title}</div>
+    <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+      <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{title}</div>
       <div style={{ padding: "16px 20px" }}>{children}</div>
     </div>
   );
@@ -18,14 +18,14 @@ function Section({ title, children }) {
 
 function Toggle({ label, sub, checked, onChange }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 14, marginBottom: 14, borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 14, marginBottom: 14, borderBottom: `1px solid ${C.border}` }}>
       <div>
         <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 500 }}>{label}</div>
         {sub && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{sub}</div>}
       </div>
       <div onClick={onChange}
-        style={{ width: 42, height: 22, borderRadius: 11, background: checked ? C.accent : "rgba(255,255,255,0.1)", cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
-        <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: checked ? 22 : 2, transition: "left 0.2s" }} />
+        style={{ width: 42, height: 22, borderRadius: 11, background: checked ? C.tealLight : "rgba(255,255,255,0.1)", cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
+        <div style={{ width: 18, height: 18, borderRadius: "50%", background: checked ? "#172524" : "#fff", position: "absolute", top: 2, left: checked ? 22 : 2, transition: "left 0.2s" }} />
       </div>
     </div>
   );
@@ -33,7 +33,7 @@ function Toggle({ label, sub, checked, onChange }) {
 
 const inputStyle = {
   width: "100%", padding: "10px 14px",
-  background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.03)", border: "1px solid " + C.border,
   borderRadius: 7, color: "#e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box",
 };
 
@@ -75,8 +75,8 @@ export default function FarmerSettings() {
   };
 
   return (
-    <FarmerLayout title="Settings">
-      <div style={{ maxWidth: 680, display: "grid", gap: 20 }}>
+    <FarmerLayout title="Cài đặt">
+      <div style={{ maxWidth: 680, margin: "0 auto", display: "grid", gap: 20 }}>
 
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>⚙️ Cài Đặt</h2>
 
@@ -89,7 +89,7 @@ export default function FarmerSettings() {
               { label: "Vai trò",        value: "Farmer" },
               { label: "Trạng thái KYC", value: user?.kyc_status === "approved" ? "✓ Đã xác minh" : "⏳ Chờ duyệt" },
             ].map(r => (
-              <div key={r.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 12, borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+              <div key={r.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 12, borderBottom: `1px solid ${C.border}` }}>
                 <div style={{ fontSize: 13, color: C.muted }}>{r.label}</div>
                 <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 500 }}>{r.value}</div>
               </div>
@@ -125,7 +125,7 @@ export default function FarmerSettings() {
 
               <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                 <button onClick={handlePasswordSave} disabled={pwdMut.isPending}
-                  style={{ padding: "10px 20px", background: pwdMut.isPending ? "#555" : "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.08)", color: "#e2e8f0", borderRadius: 7, cursor: pwdMut.isPending ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600 }}>
+                  style={{ padding: "10px 20px", background: pwdMut.isPending ? "rgba(255,255,255,0.03)" : "rgba(72,117,115,0.12)", border: `1px solid ${C.border}`, color: C.tealLight, borderRadius: 7, cursor: pwdMut.isPending ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600, transition: "all 0.15s" }}>
                   {pwdMut.isPending ? "Đang cập nhật..." : "Cập nhật mật khẩu"}
                 </button>
                 {pwdMut.isSuccess && <span style={{ fontSize: 13, color: C.green, fontWeight: 600 }}>✓ Đã cập nhật</span>}
@@ -161,7 +161,7 @@ export default function FarmerSettings() {
             </div>
             <div style={{ display: "flex", gap: 6 }}>
               {["Tối (Dark)", "Hệ thống"].map((t, i) => (
-                <button key={t} style={{ padding: "6px 14px", background: i === 0 ? C.accent : "rgba(255,255,255,0.06)", color: i === 0 ? "#000" : C.muted, border: "none", borderRadius: 5, cursor: "pointer", fontSize: 12, fontWeight: i === 0 ? 700 : 400 }}>
+                <button key={t} style={{ padding: "6px 14px", background: i === 0 ? C.accent : "rgba(255,255,255,0.03)", border: `1px solid ${i === 0 ? C.tealLight : C.border}`, color: i === 0 ? "#fff" : C.muted, borderRadius: 5, cursor: "pointer", fontSize: 12, fontWeight: i === 0 ? 700 : 400, transition: "all 0.15s" }}>
                   {t}
                 </button>
               ))}
@@ -169,8 +169,8 @@ export default function FarmerSettings() {
           </div>
         </Section>
 
-        <div style={{ padding: "12px 16px", background: "rgba(0,212,170,0.04)", border: "1px solid rgba(0,212,170,0.1)", borderRadius: 8, fontSize: 12, color: C.muted }}>
-          💡 Để thay đổi họ tên, số điện thoại và địa chỉ, vào trang <strong style={{ color: C.accent }}>Profile</strong>.
+        <div style={{ padding: "12px 16px", background: "rgba(72,117,115,0.05)", border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.muted }}>
+          💡 Để thay đổi họ tên, số điện thoại và địa chỉ, vui lòng truy cập trang <strong style={{ color: C.tealLight }}>Hồ sơ cá nhân</strong>.
         </div>
 
       </div>

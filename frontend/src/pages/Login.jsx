@@ -100,9 +100,25 @@ export default function Login() {
         <input placeholder="farmer@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} />
 
         <label style={{ display: 'block', marginTop: 12 }}>Mật khẩu</label>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input type={showPassword ? 'text' : 'password'} placeholder="Mật khẩu" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <button onClick={() => setShowPassword(!showPassword)} style={{ minWidth: 80 }}>{showPassword ? 'Ẩn' : 'Hiện'}</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input
+            style={{ flex: 1 }}
+            type={showPassword ? "text" : "password"}
+            placeholder="Mật khẩu"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+
+          <button
+            type="button"
+            style={{
+              width: 80,
+              flexShrink: 0
+            }}
+            onClick={() => setShowPassword(!showPassword)}
+          >
+            {showPassword ? "Ẩn" : "Hiện"}
+          </button>
         </div>
 
         <div className="remember-row">
