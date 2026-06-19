@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import FarmerLayout from "../components/layout/FarmerLayout";
@@ -5,14 +6,14 @@ import { useAuth } from "../context/AuthContext";
 import { useMyBatches } from "../hooks/useBatches";
 import axios from "../utils/axiosClient";
 
-const PRICE = { CR1: 100_000, CR2: 85_000, CR3: 70_000 };
 const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#00d4aa", muted: "#6b7a99" };
 
 function useBalances() {
   return useQuery({
-    queryKey: ["token-balances"],
-    queryFn: () => axios.get("/token/balances").then(r => r.data),
+    queryKey: ["token-balances-onchain"],
+    queryFn: () => axios.get("/token/balances/onchain").then(r => r.data),
     staleTime: 30_000,
+    retry: 1,
   });
 }
 
@@ -29,32 +30,99 @@ function StatCard({ label, value, sub, accent, icon }) {
   );
 }
 
-function TokenRow({ type, avail, locked }) {
-  const val = avail * PRICE[type];
-  return (
-    <tr>
-      <td style={{ padding: "10px 16px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 6, background: "linear-gradient(135deg,#1a5c54,#00d4aa)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff" }}>{type}</div>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>CaRo {type}</div>
-            <div style={{ fontSize: 10, color: C.muted }}>Robusta Coffee</div>
-          </div>
+function PieChart({ pending, minted, rejected }) {
+  const [hovered, setHovered] = useState(null);
+  const total = pending + minted + rejected;
+
+  const segments = [
+    { label: "Pending Approval", count: pending,  color: "#f0b90b" },
+    { label: "Minted",           count: minted,   color: "#0ecb81" },
+    { label: "Rejected",         count: rejected, color: "#f6465d" },
+  ];
+
+  if (total === 0) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "8px 0" }}>
+        <svg width={130} height={130} viewBox="0 0 100 100">
+          <circle cx={50} cy={50} r={32} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={16} />
+          <text x={50} y={48} textAnchor="middle" fill="#6b7a99" fontSize={9}>No batches</text>
+          <text x={50} y={59} textAnchor="middle" fill="#6b7a99" fontSize={8}>yet</text>
+        </svg>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
+          {segments.map((s, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 8, height: 8, borderRadius: 2, background: s.color }} />
+                <span style={{ fontSize: 12, color: "#e2e8f0" }}>{s.label}</span>
+              </div>
+              <span style={{ fontSize: 12, color: C.muted }}>0</span>
+            </div>
+          ))}
         </div>
-      </td>
-      <td style={{ padding: "10px 16px", fontSize: 14, fontWeight: 600, color: "#e2e8f0", textAlign: "right" }}>
-        {avail > 0 ? Number(avail).toLocaleString("vi-VN") : "0"} kg
-      </td>
-      <td style={{ padding: "10px 16px", textAlign: "right" }}>
-        <div style={{ fontSize: 13, color: "#e2e8f0" }}>{val > 0 ? val.toLocaleString("vi-VN") + " ₫" : "—"}</div>
-        {locked > 0 && <div style={{ fontSize: 10, color: C.gold }}>{Number(locked).toLocaleString()} locked</div>}
-      </td>
-      <td style={{ padding: "10px 16px", textAlign: "right" }}>
-        <span style={{ fontSize: 11, padding: "3px 8px", borderRadius: 4, background: avail > 0 ? "rgba(14,203,129,0.1)" : "rgba(255,255,255,0.05)", color: avail > 0 ? C.green : C.muted, fontWeight: 600 }}>
-          {avail > 0 ? "Active" : "Empty"}
-        </span>
-      </td>
-    </tr>
+      </div>
+    );
+  }
+
+  const cx = 50, cy = 50, r = 36, innerR = 20;
+  let angle = -Math.PI / 2;
+
+  const arcs = segments.map((seg) => {
+    if (seg.count === 0) return { ...seg, path: null, percent: "0.0" };
+    const sweep = (seg.count / total) * 2 * Math.PI;
+    const s = angle;
+    const e = angle + sweep;
+    angle = e;
+    const x1 = cx + r * Math.cos(s), y1 = cy + r * Math.sin(s);
+    const x2 = cx + r * Math.cos(e), y2 = cy + r * Math.sin(e);
+    const ix1 = cx + innerR * Math.cos(s), iy1 = cy + innerR * Math.sin(s);
+    const ix2 = cx + innerR * Math.cos(e), iy2 = cy + innerR * Math.sin(e);
+    const la = sweep > Math.PI ? 1 : 0;
+    return {
+      ...seg,
+      path: `M ${ix1} ${iy1} L ${x1} ${y1} A ${r} ${r} 0 ${la} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${innerR} ${innerR} 0 ${la} 0 ${ix1} ${iy1} Z`,
+      percent: (seg.count / total * 100).toFixed(1),
+    };
+  });
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+      <div style={{ position: "relative" }}>
+        {hovered !== null && arcs[hovered] && (
+          <div style={{ position: "absolute", top: -34, left: "50%", transform: "translateX(-50%)", background: "#1a2332", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, padding: "5px 10px", fontSize: 11, color: "#e2e8f0", whiteSpace: "nowrap", zIndex: 10, pointerEvents: "none" }}>
+            {arcs[hovered].label}: {arcs[hovered].count} batches ({arcs[hovered].percent}%)
+          </div>
+        )}
+        <svg width={130} height={130} viewBox="0 0 100 100">
+          {arcs.map((arc, i) => arc.path && (
+            <path key={i} d={arc.path}
+              fill={arc.color + (hovered === i ? "ff" : "bb")}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+              style={{ cursor: "pointer", transition: "fill 0.15s" }} />
+          ))}
+          <text x={50} y={47} textAnchor="middle" fill="#e2e8f0" fontSize={13} fontWeight="bold">{total}</text>
+          <text x={50} y={58} textAnchor="middle" fill="#6b7a99" fontSize={7}>Total Batches</text>
+        </svg>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
+        {arcs.map((arc, i) => (
+          <div key={i}
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", background: hovered === i ? `${arc.color}18` : "transparent", borderRadius: 7, transition: "background 0.15s", cursor: "default" }}
+            onMouseEnter={() => setHovered(i)}
+            onMouseLeave={() => setHovered(null)}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 9, height: 9, borderRadius: 2, background: arc.color, flexShrink: 0 }} />
+              <span style={{ fontSize: 12, color: "#e2e8f0" }}>{arc.label}</span>
+            </div>
+            <div>
+              <span style={{ fontSize: 14, fontWeight: 700, color: arc.color }}>{arc.count}</span>
+              <span style={{ fontSize: 10, color: C.muted, marginLeft: 5 }}>({arc.percent}%)</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -71,21 +139,9 @@ function ActivityRow({ batch }) {
       <div style={{ width: 8, height: 8, borderRadius: "50%", background: m.dot, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 500, color: "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{batch.batch_id}</div>
-        <div style={{ fontSize: 11, color: C.muted }}>{Number(batch.quantity).toLocaleString()} kg · {batch.quality_grade} · {new Date(batch.created_at).toLocaleDateString("en-GB")}</div>
+        <div style={{ fontSize: 11, color: C.muted }}>{Number(batch.quantity).toLocaleString()} kg · {batch.coffee_type || "ROBUSTA"} · {new Date(batch.created_at).toLocaleDateString("en-GB")}</div>
       </div>
       <div style={{ fontSize: 12, color: m.color, fontWeight: 600, flexShrink: 0 }}>{m.label}</div>
-    </div>
-  );
-}
-
-function MiniChart({ data }) {
-  if (!data || data.length === 0) return null;
-  const max = Math.max(...data, 1);
-  return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 48 }}>
-      {data.map((v, i) => (
-        <div key={i} style={{ flex: 1, background: i === data.length - 1 ? "#00d4aa" : "rgba(0,212,170,0.3)", borderRadius: "3px 3px 0 0", height: `${Math.max((v / max) * 100, 8)}%`, transition: "height 0.3s" }} />
-      ))}
     </div>
   );
 }
@@ -93,23 +149,19 @@ function MiniChart({ data }) {
 export default function FarmerDashboard() {
   const nav = useNavigate();
   const { user } = useAuth();
-  const balQ = useBalances();
-  const pendQ = useMyBatches({ status: "PENDING_MINT_APPROVAL", limit: 1 });
-  const mintQ = useMyBatches({ status: "MINTED", limit: 1 });
-  const rejectQ = useMyBatches({ status: "REJECTED", limit: 1 });
+  const balQ    = useBalances();
+  const pendQ   = useMyBatches({ status: "PENDING_MINT_APPROVAL", limit: 1 });
+  const mintQ   = useMyBatches({ status: "MINTED",                limit: 1 });
+  const rejectQ = useMyBatches({ status: "REJECTED",              limit: 1 });
   const recentQ = useMyBatches({ limit: 8 });
 
   const bals = balQ.data?.balances || {};
-  const tokens = ["CR1", "CR2", "CR3"];
+  // on-chain response: { CR1: "150.0", CR2: "0.0", CR3: "0.0" } — plain string per token
 
-  const totalVnd = tokens.reduce((s, t) => s + Number(bals[t]?.available_balance || 0) * PRICE[t], 0);
-  const totalKg  = tokens.reduce((s, t) => s + Number(bals[t]?.available_balance || 0), 0);
-  const pending  = pendQ.data?.total ?? 0;
-  const minted   = mintQ.data?.total ?? 0;
+  const pending  = pendQ.data?.total   ?? 0;
+  const minted   = mintQ.data?.total   ?? 0;
   const rejected = rejectQ.data?.total ?? 0;
   const recent   = recentQ.data?.batches || [];
-
-  const mockChart = [40, 65, 50, 80, 70, 90, totalKg > 0 ? 100 : 85];
 
   return (
     <FarmerLayout title="Dashboard">
@@ -133,103 +185,68 @@ export default function FarmerDashboard() {
           </div>
         </div>
 
-        {/* 5 stat cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
-          <StatCard label="Total Portfolio" value={totalVnd > 0 ? (totalVnd / 1_000_000).toFixed(1) + "M ₫" : "—"} sub="Estimated value" accent="#e2e8f0" icon="💼" />
-          <StatCard label="CR1 Balance"  value={Number(bals.CR1?.available_balance || 0).toLocaleString()} sub="Grade CR1 · 100K₫/kg" accent={C.green}  icon="🥇" />
-          <StatCard label="CR2 Balance"  value={Number(bals.CR2?.available_balance || 0).toLocaleString()} sub="Grade CR2 · 85K₫/kg"  accent={C.accent} icon="🥈" />
-          <StatCard label="CR3 Balance"  value={Number(bals.CR3?.available_balance || 0).toLocaleString()} sub="Grade CR3 · 70K₫/kg"  accent={C.gold}   icon="🥉" />
-          <StatCard label="Pending Mint" value={pending}               sub={`${minted} minted · ${rejected} rejected`} accent={C.gold}   icon="⏳" />
+        {/* CaRo1 / CaRo2 / CaRo3 live on-chain cards */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+          <StatCard
+            label="CaRo1 (Grade A)"
+            value={balQ.isLoading ? "…" : Number(bals.CR1 || 0).toLocaleString("vi-VN")}
+            sub="CR1 · Premium Robusta · live on-chain"
+            accent={C.green}
+            icon="🥇"
+          />
+          <StatCard
+            label="CaRo2 (Grade B)"
+            value={balQ.isLoading ? "…" : Number(bals.CR2 || 0).toLocaleString("vi-VN")}
+            sub="CR2 · Standard Robusta · live on-chain"
+            accent={C.accent}
+            icon="🥈"
+          />
+          <StatCard
+            label="CaRo3 (Grade C)"
+            value={balQ.isLoading ? "…" : Number(bals.CR3 || 0).toLocaleString("vi-VN")}
+            sub="CR3 · Basic Robusta · live on-chain"
+            accent={C.gold}
+            icon="🥉"
+          />
         </div>
 
-        {/* Token Holdings + Batch Status */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 16 }}>
+        {/* Pie Chart + Recent Batches */}
+        <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 16 }}>
 
-          {/* Token Holdings */}
+          {/* Batch Status Pie Chart */}
+          <div style={{ background: "#141f2e", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", padding: "16px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>Batch Status</div>
+              <button onClick={() => nav("/farmer/assets")} style={{ fontSize: 12, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>All →</button>
+            </div>
+            <PieChart pending={pending} minted={minted} rejected={rejected} />
+          </div>
+
+          {/* Recent Batches */}
           <div style={{ background: "#141f2e", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", overflow: "hidden" }}>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 14, fontWeight: 600 }}>Token Holdings</div>
-              <button onClick={() => nav("/farmer/wallet")} style={{ fontSize: 12, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>View Wallet →</button>
+            <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>Recent Batches</div>
+              <button onClick={() => nav("/farmer/assets")} style={{ fontSize: 12, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>View All →</button>
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ background: "rgba(255,255,255,0.02)" }}>
-                  <th style={{ padding: "8px 16px", fontSize: 11, color: C.muted, fontWeight: 600, textAlign: "left", textTransform: "uppercase", letterSpacing: "0.5px" }}>Token</th>
-                  <th style={{ padding: "8px 16px", fontSize: 11, color: C.muted, fontWeight: 600, textAlign: "right", textTransform: "uppercase", letterSpacing: "0.5px" }}>Balance</th>
-                  <th style={{ padding: "8px 16px", fontSize: 11, color: C.muted, fontWeight: 600, textAlign: "right", textTransform: "uppercase", letterSpacing: "0.5px" }}>Value</th>
-                  <th style={{ padding: "8px 16px", fontSize: 11, color: C.muted, fontWeight: 600, textAlign: "right", textTransform: "uppercase", letterSpacing: "0.5px" }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tokens.map(t => (
-                  <TokenRow key={t} type={t}
-                    avail={Number(bals[t]?.available_balance || 0)}
-                    locked={Number(bals[t]?.locked_balance || 0)}
-                  />
-                ))}
-              </tbody>
-            </table>
-            {balQ.isLoading && <div style={{ padding: 20, textAlign: "center", fontSize: 13, color: C.muted }}>Loading balances…</div>}
-          </div>
-
-          {/* Batch Status + Chart */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-
-            {/* Batch status */}
-            <div style={{ background: "#141f2e", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", padding: 16, flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                Batch Status
-                <button onClick={() => nav("/farmer/assets")} style={{ fontSize: 12, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>All →</button>
-              </div>
-              {[
-                { label: "Pending Approval", count: pending, color: C.gold,   path: "/farmer/assets/pending",  bg: "rgba(240,185,11,0.08)"  },
-                { label: "Minted",           count: minted,  color: C.green,  path: "/farmer/assets/minted",   bg: "rgba(14,203,129,0.08)"  },
-                { label: "Rejected",         count: rejected,color: C.red,    path: "/farmer/assets/rejected", bg: "rgba(246,70,93,0.08)"   },
-              ].map(it => (
-                <button key={it.label} onClick={() => nav(it.path)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: it.bg, border: `1px solid ${it.color}20`, borderRadius: 8, cursor: "pointer", marginBottom: 8, textAlign: "left" }}>
-                  <div style={{ fontSize: 13, color: "#e2e8f0" }}>{it.label}</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: it.color }}>{it.count}</div>
-                </button>
-              ))}
-              <button onClick={() => nav("/farmer/assets/submit")} style={{ width: "100%", padding: "10px 12px", background: "rgba(0,212,170,0.08)", border: "1px solid rgba(0,212,170,0.2)", borderRadius: 8, color: C.accent, fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
-                + Submit New Batch
-              </button>
+            <div style={{ padding: "4px 20px 8px" }}>
+              {recentQ.isLoading && <div style={{ padding: 20, color: C.muted, fontSize: 13 }}>Loading…</div>}
+              {!recentQ.isLoading && recent.length === 0 && (
+                <div style={{ padding: "24px 0", textAlign: "center", color: C.muted, fontSize: 13 }}>
+                  No batches yet.{" "}
+                  <button onClick={() => nav("/farmer/assets/submit")} style={{ color: C.accent, background: "none", border: "none", cursor: "pointer", fontSize: 13 }}>Submit your first batch →</button>
+                </div>
+              )}
+              {recent.map(b => <ActivityRow key={b.id} batch={b} />)}
             </div>
-
-            {/* Mini chart */}
-            <div style={{ background: "#141f2e", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", padding: 16 }}>
-              <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>Portfolio (7d)</div>
-              <MiniChart data={mockChart} />
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>Total: {totalKg.toLocaleString()} kg</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div style={{ background: "#141f2e", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", overflow: "hidden" }}>
-          <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>Recent Batches</div>
-            <button onClick={() => nav("/farmer/assets")} style={{ fontSize: 12, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>View All →</button>
-          </div>
-          <div style={{ padding: "4px 20px 8px" }}>
-            {recentQ.isLoading && <div style={{ padding: 20, color: C.muted, fontSize: 13 }}>Loading…</div>}
-            {!recentQ.isLoading && recent.length === 0 && (
-              <div style={{ padding: "24px 0", textAlign: "center", color: C.muted, fontSize: 13 }}>
-                No batches yet.{" "}
-                <button onClick={() => nav("/farmer/assets/submit")} style={{ color: C.accent, background: "none", border: "none", cursor: "pointer", fontSize: 13 }}>Submit your first batch →</button>
-              </div>
-            )}
-            {recent.map(b => <ActivityRow key={b.id} batch={b} />)}
           </div>
         </div>
 
         {/* Quick Actions */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
           {[
-            { icon: "📦", label: "Submit Batch",  sub: "New tokenization request", path: "/farmer/assets/submit",  accent: "#00d4aa" },
-            { icon: "📁", label: "My Documents",  sub: "View uploaded files",       path: "/farmer/documents",      accent: "#0095ff" },
-            { icon: "💹", label: "Trade Tokens",  sub: "Buy & sell on exchange",    path: "/farmer/marketplace",    accent: "#f0b90b" },
-            { icon: "👛", label: "Wallet",        sub: "Manage balances",           path: "/farmer/wallet",         accent: "#9b59b6" },
+            { icon: "📁", label: "My Documents",  sub: "View uploaded files",       path: "/farmer/warehouse-docs", accent: "#0095ff" },
+            { icon: "💹", label: "Marketplace",   sub: "Buy & sell on exchange",    path: "/farmer/marketplace", accent: "#f0b90b" },
+            { icon: "👛", label: "Wallet",        sub: "Manage balances",           path: "/farmer/wallet",      accent: "#9b59b6" },
           ].map(a => (
             <button key={a.path} onClick={() => nav(a.path)}
               style={{ padding: "16px 14px", background: "#141f2e", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, cursor: "pointer", textAlign: "left", transition: "border-color 0.15s" }}

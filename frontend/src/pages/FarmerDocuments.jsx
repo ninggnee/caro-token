@@ -6,10 +6,7 @@ import { useMyBatches, useBatch } from "../hooks/useBatches";
 const C = { accent: "#00d4aa", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d", gold: "#f0b90b" };
 
 const DOC_LABELS = {
-  farmer_identity:     { label: "Identity Documents",    icon: "🪪" },
-  farm_ownership:      { label: "Farm Ownership",        icon: "🏞️" },
   harvest_certificate: { label: "Harvest Certificate",   icon: "📜" },
-  warehouse_receipt:   { label: "Warehouse Receipt",     icon: "🏭" },
   quality_inspection:  { label: "Quality Inspection",    icon: "🔬" },
   coffee_photos:       { label: "Coffee Photos",         icon: "📷" },
   additional_docs:     { label: "Additional Documents",  icon: "📄" },
@@ -136,7 +133,7 @@ export default function FarmerDocuments() {
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: sc, flexShrink: 0, marginTop: 4 }} />
                 </div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>
-                  {Number(b.quantity).toLocaleString()} kg · {b.quality_grade}
+                  {Number(b.quantity).toLocaleString()} kg · {b.coffee_type || "ROBUSTA"}
                   {b.doc_count !== undefined && ` · ${b.doc_count} files`}
                 </div>
               </button>

@@ -24,38 +24,20 @@ const I = {
   list:    "M8 6h13 M8 12h13 M8 18h13 M3 6h.01 M3 12h.01 M3 18h.01",
   bell:    "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 0 1-3.46 0",
   user:    "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+  shop:    "M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z M3 6h18 M16 10a4 4 0 0 1-8 0",
   cog:     "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",
   out:     "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9",
   chev:    "M9 18l6-6-6-6",
 };
 
 const MENU = [
-  { id: "dash",   label: "Dashboard",        icon: "home",   path: "/farmer/dashboard" },
-  {
-    id: "assets", label: "Asset Management", icon: "box",
-    children: [
-      { label: "Submit Batch",    path: "/farmer/assets/submit"   },
-      { label: "Pending Approval",path: "/farmer/assets/pending"  },
-      { label: "Minted Batches",  path: "/farmer/assets/minted"   },
-      { label: "Rejected",        path: "/farmer/assets/rejected" },
-      { label: "All Batches",     path: "/farmer/assets"          },
-    ],
-  },
-  { id: "docs",   label: "Documents",        icon: "file",   path: "/farmer/documents"    },
-  {
-    id: "wallet", label: "Wallet",            icon: "wallet",
-    children: [
-      { label: "Overview", path: "/farmer/wallet"          },
-      { label: "Deposit",  path: "/farmer/wallet/deposit"  },
-      { label: "Withdraw", path: "/farmer/wallet/withdraw" },
-      { label: "History",  path: "/farmer/wallet/history"  },
-    ],
-  },
-  { id: "market", label: "Marketplace",      icon: "bar",    path: "/farmer/marketplace"  },
-  { id: "orders", label: "Orders",           icon: "list",   path: "/farmer/orders"       },
-  { id: "notif",  label: "Notifications",    icon: "bell",   path: "/farmer/notifications"},
-  { id: "prof",   label: "Profile",          icon: "user",   path: "/farmer/profile"      },
-  { id: "set",    label: "Settings",         icon: "cog",    path: "/farmer/settings"     },
+  { id: "dash",   label: "Dashboard",        icon: "home",   path: "/farmer/dashboard"        },
+  { id: "status", label: "Status",           icon: "box",    path: "/farmer/status"           },
+  { id: "wallet", label: "Wallet",           icon: "wallet", path: "/farmer/wallet"           },
+  { id: "tokens", label: "Token Holdings",   icon: "bar",    path: "/farmer/token-holdings"   },
+  { id: "market", label: "Marketplace",      icon: "shop",   path: "/farmer/marketplace"      },
+  { id: "wdocs",  label: "Warehouse Docs",   icon: "file",   path: "/farmer/warehouse-docs"   },
+  { id: "prof",   label: "Profile",          icon: "user",   path: "/farmer/profile"          },
 ];
 
 const A = "#00d4aa";
@@ -67,8 +49,8 @@ export default function FarmerLayout({ children, title = "Farmer Portal" }) {
   const nav = useNavigate();
 
   const isLeafActive = (path) =>
-    path === "/farmer/assets"
-      ? loc.pathname === "/farmer/assets"
+    path === "/farmer/status"
+      ? loc.pathname === "/farmer/status" || loc.pathname.startsWith("/farmer/status/")
       : loc.pathname === path || loc.pathname.startsWith(path + "/");
 
   const isParentActive = (m) => m.children?.some(c => isLeafActive(c.path));

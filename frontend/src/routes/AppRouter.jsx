@@ -21,8 +21,9 @@ import DepositPage       from '../pages/DepositPage';
 import WithdrawPage      from '../pages/WithdrawPage';
 
 // Farmer — new portal
-import FarmerDashboard    from '../pages/FarmerDashboard';
-import FarmerAssets       from '../pages/FarmerAssets';
+import FarmerDashboard      from '../pages/FarmerDashboard';
+import FarmerAssets         from '../pages/FarmerAssets';
+import FarmerTokenHoldings  from '../pages/FarmerTokenHoldings';
 import FarmerDocuments    from '../pages/FarmerDocuments';
 import FarmerWalletOverview from '../pages/FarmerWalletOverview';
 import FarmerDepositPage  from '../pages/FarmerDepositPage';
@@ -37,6 +38,7 @@ import FarmerProfile       from '../pages/FarmerProfile';
 import SubmitBatchPage     from '../pages/SubmitBatchPage';
 import FarmerBatchesPage   from '../pages/FarmerBatchesPage';
 import BatchDetailPage     from '../pages/BatchDetailPage';
+import WarehouseDocuments  from '../pages/WarehouseDocuments';
 // Farmer — legacy pages kept for backward compat
 import FarmerHome          from '../pages/FarmerHome';
 import FarmerWallet        from '../pages/FarmerWallet';
@@ -59,6 +61,7 @@ import LotDetail           from '../pages/LotDetail';
 import GradeClassification from '../pages/GradeClassification';
 import AdminMint             from '../pages/AdminMint';
 import AdminMintRequestsPage from '../pages/AdminMintRequestsPage';
+import AdminMintedPage       from '../pages/AdminMintedPage';
 import SupplementRequests  from '../pages/SupplementRequests';
 import CreditVnd           from '../pages/CreditVnd';
 import AdminRedeemOrders   from '../pages/AdminRedeemOrders';
@@ -95,21 +98,31 @@ export default function AppRouter() {
         <Route path="/farmer"              element={<Navigate to="/farmer/dashboard" replace />} />
         <Route path="/farmer/dashboard"    element={<FarmerDashboard />} />
 
-        {/* Asset Management */}
-        <Route path="/farmer/assets"           element={<FarmerAssets />} />
-        <Route path="/farmer/assets/pending"   element={<FarmerAssets />} />
-        <Route path="/farmer/assets/minted"    element={<FarmerAssets />} />
-        <Route path="/farmer/assets/rejected"  element={<FarmerAssets />} />
-        <Route path="/farmer/assets/submit"    element={<SubmitBatchPage />} />
-
-        {/* Documents */}
-        <Route path="/farmer/documents"        element={<FarmerDocuments />} />
+        {/* Status (batch management) */}
+        <Route path="/farmer/status"           element={<FarmerAssets />} />
+        <Route path="/farmer/status/pending"   element={<FarmerAssets />} />
+        <Route path="/farmer/status/minted"    element={<FarmerAssets />} />
+        <Route path="/farmer/status/rejected"  element={<FarmerAssets />} />
+        <Route path="/farmer/status/submit"    element={<SubmitBatchPage />} />
 
         {/* Wallet */}
         <Route path="/farmer/wallet"           element={<FarmerWalletOverview />} />
         <Route path="/farmer/wallet/deposit"   element={<FarmerDepositPage />} />
         <Route path="/farmer/wallet/withdraw"  element={<FarmerWithdrawPage />} />
         <Route path="/farmer/wallet/history"   element={<FarmerTxHistory />} />
+
+        {/* Token Holdings */}
+        <Route path="/farmer/token-holdings"   element={<FarmerTokenHoldings />} />
+
+        {/* Warehouse Documents */}
+        <Route path="/farmer/warehouse-docs"   element={<WarehouseDocuments />} />
+
+        {/* Legacy asset routes redirect to status */}
+        <Route path="/farmer/assets"           element={<Navigate to="/farmer/status" replace />} />
+        <Route path="/farmer/assets/pending"   element={<Navigate to="/farmer/status/pending" replace />} />
+        <Route path="/farmer/assets/minted"    element={<Navigate to="/farmer/status/minted" replace />} />
+        <Route path="/farmer/assets/rejected"  element={<Navigate to="/farmer/status/rejected" replace />} />
+        <Route path="/farmer/assets/submit"    element={<Navigate to="/farmer/status/submit" replace />} />
 
         {/* Marketplace & Trading */}
         <Route path="/farmer/marketplace"      element={<FarmerMarketplace />} />
@@ -149,8 +162,11 @@ export default function AppRouter() {
         <Route path="/admin/credit"               element={<CreditVnd />} />
         <Route path="/admin/redeem-orders"        element={<AdminRedeemOrders />} />
         <Route path="/admin/logs"                 element={<SystemLogs />} />
-        <Route path="/admin/mint-requests"        element={<AdminMintRequestsPage />} />
+        <Route path="/admin/batches"              element={<AdminMintRequestsPage />} />
+        <Route path="/admin/minted"               element={<AdminMintedPage />} />
+        <Route path="/admin/mint-requests"        element={<Navigate to="/admin/batches" replace />} />
         <Route path="/admin/batch/:id"            element={<BatchDetailPage />} />
+        <Route path="/admin/warehouse-docs"       element={<WarehouseDocuments />} />
 
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

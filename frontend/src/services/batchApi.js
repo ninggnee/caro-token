@@ -27,8 +27,11 @@ export const getAllBatches = (params) =>
 export const getBatchDocuments = (id) =>
   axios.get(`/batches/${id}/documents`).then((r) => r.data);
 
-export const approveBatch = (id) =>
-  axios.post(`/batches/${id}/approve`).then((r) => r.data);
+export const updateBatchGrade = (id, grade) =>
+  axios.put(`/batches/${id}/grade`, { grade }).then((r) => r.data);
+
+export const approveBatch = (id, grade) =>
+  axios.post(`/batches/${id}/approve`, grade ? { grade } : {}).then((r) => r.data);
 
 export const rejectBatch = (id, reason) =>
   axios.post(`/batches/${id}/reject`, { reason }).then((r) => r.data);

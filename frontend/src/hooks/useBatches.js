@@ -59,14 +59,28 @@ export function useSubmitBatch() {
   });
 }
 
+// ── Admin: update grade ───────────────────────────────────────────────────────
+export function useUpdateGrade() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, grade }) => api.updateBatchGrade(id, grade),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["batches"] });
+    },
+    onError: (e) => {
+      toast.error(e?.response?.data?.message || "Cập nhật grade thất bại");
+    },
+  });
+}
+
 // ── Admin: approve batch ──────────────────────────────────────────────────────
 export function useApproveBatch() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id }) => api.approveBatch(id),
+    mutationFn: ({ id, grade }) => api.approveBatch(id, grade),
     onSuccess: (data) => {
       const amount = Number(data.minted_amount).toLocaleString("vi-VN");
-      toast.success(`Mint thành công! ${amount} ${data.token_type} → ví nội bộ của farmer`);
+      toast.success(`Mint thành công! ${amount} ${data.token_type} → ví farmer`);
       qc.invalidateQueries({ queryKey: ["batches"] });
     },
     onError: (e) => {

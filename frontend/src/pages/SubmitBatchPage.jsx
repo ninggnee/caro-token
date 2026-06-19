@@ -3,17 +3,8 @@ import { useNavigate } from "react-router-dom";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import { useSubmitBatch } from "../hooks/useBatches";
 
-const GRADES = [
-  { value: "CR1", label: "CR1 — Xuất sắc" },
-  { value: "CR2", label: "CR2 — Tốt" },
-  { value: "CR3", label: "CR3 — Trung bình" },
-];
-
 const DOC_CATEGORIES = [
-  { key: "farmer_identity",     label: "Xác minh danh tính nông dân",     required: true,  multiple: false, accept: ".pdf,.jpg,.jpeg,.png" },
-  { key: "farm_ownership",      label: "Giấy chứng nhận quyền sở hữu đất", required: true, multiple: false, accept: ".pdf,.jpg,.jpeg,.png" },
   { key: "harvest_certificate", label: "Giấy chứng nhận thu hoạch cà phê", required: true, multiple: false, accept: ".pdf,.jpg,.jpeg,.png" },
-  { key: "warehouse_receipt",   label: "Phiếu nhập kho",                   required: true,  multiple: false, accept: ".pdf,.jpg,.jpeg,.png" },
   { key: "quality_inspection",  label: "Báo cáo kiểm định chất lượng",     required: true,  multiple: false, accept: ".pdf,.jpg,.jpeg,.png" },
   { key: "coffee_photos",       label: "Ảnh lô cà phê",                    required: true,  multiple: true,  accept: ".jpg,.jpeg,.png,.webp" },
   { key: "additional_docs",     label: "Tài liệu bổ sung",                 required: false, multiple: true,  accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx" },
@@ -114,12 +105,10 @@ export default function SubmitBatchPage() {
   const submit   = useSubmitBatch();
 
   const [form, setForm] = useState({
-    quantity:         "",
-    quality_grade:    "CR1",
-    harvest_date:     "",
-    storage_location: "",
-    estimated_value:  "",
-    batch_description:"",
+    quantity:          "",
+    harvest_date:      "",
+    storage_location:  "",
+    batch_description: "",
   });
   const [fileMap, setFileMap]   = useState({});
   const [errors,  setErrors]    = useState({});
@@ -152,10 +141,8 @@ export default function SubmitBatchPage() {
 
     const fd = new FormData();
     fd.append("quantity",          form.quantity);
-    fd.append("quality_grade",     form.quality_grade);
     fd.append("harvest_date",      form.harvest_date);
     fd.append("storage_location",  form.storage_location);
-    fd.append("estimated_value",   form.estimated_value);
     fd.append("batch_description", form.batch_description);
 
     for (const [docKey, files] of Object.entries(fileMap)) {
@@ -167,7 +154,7 @@ export default function SubmitBatchPage() {
     setUploading(true);
     try {
       const res = await submit.mutateAsync(fd);
-      if (res?.success) navigate("/farmer/assets");
+      if (res?.success) navigate("/farmer/status");
     } finally {
       setUploading(false);
     }
@@ -203,34 +190,20 @@ export default function SubmitBatchPage() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div style={S.group}>
-              <label style={S.label}>Khối lượng (kg) *</label>
-              <input
-                style={{ ...S.input, borderColor: errors.quantity ? "#e74c3c" : undefined }}
-                type="number" min="0.1" step="0.1"
-                value={form.quantity} onChange={setField("quantity")}
-                placeholder="VD: 1000"
-              />
-              {errors.quantity && <div style={S.errMsg}>{errors.quantity}</div>}
-            </div>
-            <div style={S.group}>
-              <label style={S.label}>Chất lượng (Grade) *</label>
-              <select style={S.input} value={form.quality_grade} onChange={setField("quality_grade")}>
-                {GRADES.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
-              </select>
-            </div>
+          <div style={S.group}>
+            <label style={S.label}>Khối lượng (kg) *</label>
+            <input
+              style={{ ...S.input, borderColor: errors.quantity ? "#e74c3c" : undefined }}
+              type="number" min="0.1" step="0.1"
+              value={form.quantity} onChange={setField("quantity")}
+              placeholder="VD: 1000"
+            />
+            {errors.quantity && <div style={S.errMsg}>{errors.quantity}</div>}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div style={S.group}>
-              <label style={S.label}>Ngày thu hoạch</label>
-              <input style={S.input} type="date" value={form.harvest_date} onChange={setField("harvest_date")} />
-            </div>
-            <div style={S.group}>
-              <label style={S.label}>Giá trị ước tính (VNĐ)</label>
-              <input style={S.input} type="number" min="0" value={form.estimated_value} onChange={setField("estimated_value")} placeholder="VD: 50000000" />
-            </div>
+          <div style={S.group}>
+            <label style={S.label}>Ngày thu hoạch</label>
+            <input style={S.input} type="date" value={form.harvest_date} onChange={setField("harvest_date")} />
           </div>
 
           <div style={S.group}>
@@ -295,7 +268,7 @@ export default function SubmitBatchPage() {
               : "📤 Gửi Yêu Cầu Tokenization"}
           </button>
           <button
-            onClick={() => navigate("/farmer/assets")}
+            onClick={() => navigate("/farmer/status")}
             disabled={uploading || submit.isPending}
             style={{ padding: "11px 20px", background: "rgba(255,255,255,0.08)", color: "#fff", border: "none", borderRadius: 9, cursor: "pointer", fontSize: 15 }}
           >
