@@ -50,15 +50,10 @@ function BatchCard({ batch, navigate }) {
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 8 }}>☕ Robusta Coffee</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
             <span>⚖️ {Number(batch.quantity).toLocaleString()} kg</span>
-            <span>🏷️ {batch.quality_grade}</span>
+            <span>☕ {batch.coffee_type || "ROBUSTA"}</span>
             {batch.harvest_date && <span>📅 {batch.harvest_date?.slice(0, 10)}</span>}
             {batch.storage_location && <span>📍 {batch.storage_location}</span>}
           </div>
-          {batch.estimated_value && (
-            <div style={{ marginTop: 6, fontSize: 13, color: "rgba(255,255,255,0.4)" }}>
-              💰 {Number(batch.estimated_value).toLocaleString("vi-VN")} ₫
-            </div>
-          )}
         </div>
         <div style={{ textAlign: "right", flexShrink: 0 }}>
           <StatusBadge status={batch.status} />
@@ -78,7 +73,7 @@ function BatchCard({ batch, navigate }) {
           <div style={{ background: "rgba(39,174,96,0.08)", borderRadius: 8, padding: "10px 12px" }}>
             <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginBottom: 3 }}>Token đã Mint</div>
             <div style={{ fontWeight: 700, color: "#22c55e", fontSize: 15 }}>
-              {Number(batch.minted_amount).toLocaleString()} {batch.quality_grade}
+              {Number(batch.minted_amount).toLocaleString()} CaRo
             </div>
           </div>
           <div style={{ background: "rgba(31,111,100,0.08)", borderRadius: 8, padding: "10px 12px" }}>

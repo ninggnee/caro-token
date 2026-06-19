@@ -14,7 +14,7 @@ function batchToNotifs(batches) {
         icon: "🪙",
         color: C.green,
         title: "Batch Minted Successfully",
-        body: `${b.batch_id} — ${Number(b.minted_amount || b.quantity).toLocaleString()} ${b.quality_grade} tokens credited to your wallet`,
+        body: `${b.batch_id} — ${Number(b.minted_amount || b.quantity).toLocaleString()} CFT tokens minted to your wallet`,
         date: b.minted_at || b.updated_at || b.created_at,
         link: `/farmer/batch/${b.id}`,
       });

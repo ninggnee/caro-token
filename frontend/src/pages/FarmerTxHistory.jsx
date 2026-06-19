@@ -88,7 +88,7 @@ export default function FarmerTxHistory() {
       type:   "Mint",
       title:  `Batch Minted — ${b.batch_id}`,
       amount: Number(b.minted_amount).toLocaleString("vi-VN"),
-      token:  b.quality_grade,
+      token:  "CaRo",
       date:   new Date(b.minted_at || b.created_at).toLocaleString("vi-VN"),
       status: "completed",
       txHash: b.tx_hash,

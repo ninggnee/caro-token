@@ -13,10 +13,10 @@ const STATUS = {
 };
 
 const TABS = [
-  { label: "All Batches",     status: null,                    path: "/farmer/assets"          },
-  { label: "Pending",         status: "PENDING_MINT_APPROVAL", path: "/farmer/assets/pending"  },
-  { label: "Minted",          status: "MINTED",                path: "/farmer/assets/minted"   },
-  { label: "Rejected",        status: "REJECTED",              path: "/farmer/assets/rejected" },
+  { label: "All Batches",     status: null,                    path: "/farmer/status"           },
+  { label: "Pending Approval",status: "PENDING_MINT_APPROVAL", path: "/farmer/status/pending"   },
+  { label: "Minted Batches",  status: "MINTED",                path: "/farmer/status/minted"    },
+  { label: "Rejected",        status: "REJECTED",              path: "/farmer/status/rejected"  },
 ];
 
 function Badge({ status }) {
@@ -31,7 +31,7 @@ function Badge({ status }) {
 function SkRow() {
   return (
     <tr>
-      {[40, 120, 80, 70, 80, 90].map((w, i) => (
+      {[40, 120, 80, 80, 90, 60].map((w, i) => (
         <td key={i} style={{ padding: "14px 16px" }}>
           <div style={{ height: 12, background: "rgba(255,255,255,0.06)", borderRadius: 4, width: w, animation: "pulse 1.5s infinite" }} />
         </td>
@@ -41,9 +41,9 @@ function SkRow() {
 }
 
 function pathToStatus(p) {
-  if (p.endsWith("/pending"))  return "PENDING_MINT_APPROVAL";
-  if (p.endsWith("/minted"))   return "MINTED";
-  if (p.endsWith("/rejected")) return "REJECTED";
+  if (p.includes("/pending"))  return "PENDING_MINT_APPROVAL";
+  if (p.includes("/minted"))   return "MINTED";
+  if (p.includes("/rejected")) return "REJECTED";
   return null;
 }
 
@@ -80,19 +80,19 @@ export default function FarmerAssets() {
   };
 
   return (
-    <FarmerLayout title={PAGE_TITLE[activeStatus] ?? "Asset Management"}>
+    <FarmerLayout title={PAGE_TITLE[activeStatus] ?? "Batch Status"}>
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}`}</style>
       <div style={{ display: "grid", gap: 16, maxWidth: 1100 }}>
 
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>📦 {PAGE_TITLE[activeStatus] ?? "Asset Management"}</h2>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>📦 {PAGE_TITLE[activeStatus] ?? "Batch Status"}</h2>
             <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>{total} batch{total !== 1 ? "es" : ""} total</div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => refetch()} style={{ padding: "7px 12px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: "#e2e8f0", borderRadius: 6, cursor: "pointer", fontSize: 13 }}>↺</button>
-            <button onClick={() => nav("/farmer/assets/submit")} style={{ padding: "7px 16px", background: "#00d4aa", color: "#000", border: "none", borderRadius: 6, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>+ Submit Batch</button>
+            <button onClick={() => nav("/farmer/status/submit")} style={{ padding: "7px 16px", background: "#00d4aa", color: "#000", border: "none", borderRadius: 6, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>+ Submit Batch</button>
           </div>
         </div>
 
@@ -122,7 +122,7 @@ export default function FarmerAssets() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                {["Batch ID", "Grade", "Quantity", "Est. Value", "Date", "Status", ""].map(h => (
+                {["Batch ID", "Coffee Type", "Quantity", "Date", "Status", ""].map(h => (
                   <th key={h} style={{ padding: "10px 16px", fontSize: 11, color: C.muted, fontWeight: 600, textAlign: "left", textTransform: "uppercase", letterSpacing: "0.5px", whiteSpace: "nowrap" }}>{h}</th>
                 ))}
               </tr>
@@ -130,15 +130,15 @@ export default function FarmerAssets() {
             <tbody>
               {isLoading && [1, 2, 3, 4, 5].map(i => <SkRow key={i} />)}
               {isError && (
-                <tr><td colSpan={7} style={{ padding: 40, textAlign: "center", color: C.red }}>
+                <tr><td colSpan={6} style={{ padding: 40, textAlign: "center", color: C.red }}>
                   Error loading data. <button onClick={() => refetch()} style={{ color: C.accent, background: "none", border: "none", cursor: "pointer" }}>Retry</button>
                 </td></tr>
               )}
               {!isLoading && !isError && filtered.length === 0 && (
-                <tr><td colSpan={7} style={{ padding: 60, textAlign: "center", color: C.muted }}>
+                <tr><td colSpan={6} style={{ padding: 60, textAlign: "center", color: C.muted }}>
                   <div style={{ fontSize: 32, marginBottom: 10 }}>📭</div>
                   <div style={{ fontSize: 14, marginBottom: 12 }}>No batches found</div>
-                  <button onClick={() => nav("/farmer/assets/submit")} style={{ padding: "8px 20px", background: "#00d4aa", color: "#000", border: "none", borderRadius: 6, fontWeight: 700, cursor: "pointer" }}>Submit First Batch</button>
+                  <button onClick={() => nav("/farmer/status/submit")} style={{ padding: "8px 20px", background: "#00d4aa", color: "#000", border: "none", borderRadius: 6, fontWeight: 700, cursor: "pointer" }}>Submit First Batch</button>
                 </td></tr>
               )}
               {filtered.map(b => (
@@ -153,13 +153,10 @@ export default function FarmerAssets() {
                     {b.storage_location && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{b.storage_location}</div>}
                   </td>
                   <td style={{ padding: "12px 16px" }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(0,212,170,0.1)", color: C.accent }}>{b.quality_grade}</span>
+                    <span style={{ fontSize: 12, padding: "2px 8px", borderRadius: 4, background: "rgba(0,212,170,0.08)", color: C.muted }}>{b.coffee_type || "ROBUSTA"}</span>
                   </td>
                   <td style={{ padding: "12px 16px", fontSize: 13, color: "#e2e8f0", whiteSpace: "nowrap" }}>
                     {Number(b.quantity).toLocaleString("vi-VN")} <span style={{ color: C.muted, fontSize: 11 }}>kg</span>
-                  </td>
-                  <td style={{ padding: "12px 16px", fontSize: 13, color: "#e2e8f0", whiteSpace: "nowrap" }}>
-                    {b.estimated_value ? Number(b.estimated_value).toLocaleString("vi-VN") + " ₫" : "—"}
                   </td>
                   <td style={{ padding: "12px 16px", fontSize: 12, color: C.muted, whiteSpace: "nowrap" }}>
                     {new Date(b.created_at).toLocaleDateString("en-GB")}
@@ -194,7 +191,7 @@ export default function FarmerAssets() {
             {filtered.filter(b => b.minted_amount).map(b => (
               <div key={b.id} style={{ background: "rgba(14,203,129,0.05)", border: "1px solid rgba(14,203,129,0.12)", borderRadius: 8, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                 <div style={{ fontSize: 12, color: C.muted, fontFamily: "monospace" }}>{b.batch_id}</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.green }}>{Number(b.minted_amount).toLocaleString()} {b.quality_grade} minted</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.green }}>{Number(b.minted_amount).toLocaleString()} CaRo minted</div>
                 <div style={{ fontSize: 11, color: C.muted }}>{b.minted_at ? new Date(b.minted_at).toLocaleString("en-GB") : "—"}</div>
                 {b.tx_hash && (
                   <a href={`https://sepolia.etherscan.io/tx/${b.tx_hash}`} target="_blank" rel="noreferrer"
