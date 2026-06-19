@@ -50,7 +50,9 @@ export default function Login() {
         Real World Asset • Coffee Tokenization
         </div>
         
-        <h1>CaRo Exchange</h1>
+        <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
+          <h1>CaRo Exchange</h1>
+        </Link>
 
         <p>
           Nền tảng giao dịch tài sản số hóa từ cà phê Robusta Việt Nam

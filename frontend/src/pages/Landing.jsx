@@ -38,8 +38,31 @@ export default function Landing() {
         </div>
 
         <div style={{ display: 'flex', gap: 12 }}>
-          <Link className="caro-link" to="/login" style={{ padding: '8px 12px', background: '#0b7a6b', borderRadius: 6 }}>Đăng nhập</Link>
-          <Link className="caro-link" to="/register" style={{ padding: '8px 12px', background: '#ffffff12', borderRadius: 6 }}>Đăng ký</Link>
+          <Link
+            className="caro-link"
+            to="/login"
+            style={{
+              padding: '12px 18px',
+              background: 'transparent',
+              border: '1px solid #16a085',
+              color: '#7fe0c9',
+              borderRadius: 8
+            }}
+          >
+            Đăng nhập
+          </Link>
+          <Link
+            className="caro-link"
+            to="/register"
+            style={{
+              padding: '12px 18px',
+              background: '#16a085',
+              color: 'white',
+              borderRadius: 8
+            }}
+          >
+            Đăng ký ngay
+          </Link>
         </div>
       </header>
     
@@ -165,32 +188,60 @@ export default function Landing() {
       </section>
 
       {/* Roles */}
-      <section style={{ padding: '20px 48px' }}>
-        <h2 className="section-title">Vai trò tham gia hệ sinh thái</h2>
-        <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-          <div style={{ flex: 1, background: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 8 }}>
-            <h3>Farmer</h3>
-            <ul>
-              <li>Token hóa cà phê</li>
-              <li>Theo dõi lô hàng</li>
-              <li>Nhận Token RWA</li>
-            </ul>
+      <section style={{ padding: '60px 48px' }}>
+        <h2 className="section-title" style={{ marginBottom: 16 }}>
+          Tham gia hệ sinh thái CaRo Exchange
+        </h2>
+
+        <div className="role-grid">
+          {/* Farmer */}
+          <div className="role-card-v2 farmer">
+            <div className="role-top">
+              <div className="role-icon">👨‍🌾</div>
+              <h3>Farmer</h3>
+              <p>Chủ sở hữu và token hóa tài sản cà phê</p>
+            </div>
+
+            <div className="role-body">
+              <div className="role-feature">
+                ✓ Token hóa lô hàng cà phê Robusta
+              </div>
+              <div className="role-feature">
+                ✓ Quản lý & theo dõi tài sản
+              </div>
+              <div className="role-feature">
+                ✓ Nhận thanh toán từ giao dịch Token
+              </div>
+            </div>
+
+            <button className="role-btn">
+              Tham gia với Farmer
+            </button>
           </div>
-          <div style={{ flex: 1, background: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 8 }}>
-            <h3>Trader</h3>
-            <ul>
-              <li>Mua bán Token</li>
-              <li>Đầu tư tài sản thực</li>
-              <li>Quy đổi hàng hóa</li>
-            </ul>
-          </div>
-          <div style={{ flex: 1, background: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 8 }}>
-            <h3>Admin</h3>
-            <ul>
-              <li>Kiểm duyệt</li>
-              <li>Phân loại</li>
-              <li>Mint Token</li>
-            </ul>
+
+          {/* Trader */}
+          <div className="role-card-v2 trader">
+            <div className="role-top">
+              <div className="role-icon">📈</div>
+              <h3>Trader</h3>
+              <p>Nhà đầu tư và giao dịch tài sản số</p>
+            </div>
+
+            <div className="role-body">
+              <div className="role-feature">
+                ✓ Mua bán Token cà phê
+              </div>
+              <div className="role-feature">
+                ✓ Theo dõi biến động giá
+              </div>
+              <div className="role-feature">
+                ✓ Quy đổi Token thành hàng hóa thực
+              </div>
+            </div>
+
+            <button className="role-btn">
+              Tham gia với Trader
+            </button>
           </div>
         </div>
       </section>
@@ -225,8 +276,8 @@ export default function Landing() {
             <div>Tham gia ngay để token hóa, giao dịch hoặc đổi trả hàng hóa thực.</div>
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
+            <Link to="/login" style={{ padding: '12px 18px', background: 'transparent', border: '1px solid #16a085', color: '#7fe0c9', borderRadius: 8 }}>Đăng nhập</Link>
             <Link to="/register" style={{ padding: '12px 18px', background: '#16a085', color: 'white', borderRadius: 8 }}>Đăng ký ngay</Link>
-            <Link to="/farmer/connect-wallet" style={{ padding: '12px 18px', background: 'transparent', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8 }}>Kết nối ví</Link>
           </div>
         </div>
       </section>

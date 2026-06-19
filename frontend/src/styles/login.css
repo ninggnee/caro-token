@@ -202,13 +202,15 @@ body{
   font-weight:600;
 }
 
-.login-card a{
+.login-card a,
+.login-card a:visited {
   color:#487573;
   text-decoration:none;
   font-weight:600;
 }
 
-.login-card a:hover{
+.login-card a:hover,
+.login-card a:visited:hover {
   text-decoration:underline;
 }
 
@@ -242,15 +244,18 @@ body{
   accent-color:#487573;
 }
 
-.forgot-link{
+.forgot-link,
+.forgot-link:visited {
   color:#487573;
   text-decoration:none;
   font-weight:600;
   font-size:14px;
 }
 
-.forgot-link:hover{
+.forgot-link:hover,
+.forgot-link:visited:hover {
   color:#2f5f5d;
+  text-decoration:underline;
 }
 
 .register-text{
@@ -261,13 +266,15 @@ body{
   font-weight:500;
 }
 
-.register-link{
+.register-link,
+.register-link:visited {
   margin-left:6px;
   color:#487573;
   text-decoration:none;
   font-weight:700;
 }
 
-.register-link:hover{
+.register-link:hover,
+.register-link:visited:hover {
   color:#2f5f5d;
 }

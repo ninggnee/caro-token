@@ -1,7 +1,7 @@
 import express from "express";
 import multer from "multer";
 import path from "path";
-import { submitKyc } from "../controllers/kycController.js";
+import { submitKyc, processOcr } from "../controllers/kycController.js";
 import { verifyToken } from "../middleware/auth.js";
 
 const router = express.Router();
@@ -25,6 +25,7 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ storage, fileFilter, limits: { fileSize: 2 * 1024 * 1024 } }); // 2MB
 
+router.post("/ocr", upload.single("image"), processOcr);
 router.post("/submit", verifyToken, upload.fields([{ name: "front" }, { name: "back" }]), submitKyc);
 
 export default router;
