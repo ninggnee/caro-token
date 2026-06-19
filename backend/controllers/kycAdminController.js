@@ -3,7 +3,7 @@ import db from "../config/db.js";
 export const listPending = async (req, res) => {
   try {
     const [rows] = await db.execute(
-      `SELECT k.id, k.user_id, COALESCE(k.document_front, '') AS front_path, COALESCE(k.document_back, '') AS back_path, k.status, k.created_at, u.email, u.full_name FROM kyc_requests k JOIN users u ON k.user_id = u.id WHERE k.status = 'pending' ORDER BY k.created_at DESC`
+      `SELECT k.id, k.user_id, k.id_number, COALESCE(k.front_path, k.document_front, '') AS front_path, COALESCE(k.back_path, k.document_back, '') AS back_path, k.status, k.created_at, u.email, u.full_name FROM kyc_requests k JOIN users u ON k.user_id = u.id WHERE k.status = 'pending' ORDER BY k.created_at DESC`
     );
     res.json({ success: true, data: rows });
   } catch (err) {

@@ -1,23 +1,47 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "../utils/axiosClient";
 import { useAuth } from "../context/AuthContext";
-import "../styles/login.css";
+import "../styles/register.css";
 
 export default function Register() {
   const navigate = useNavigate();
   const auth = useAuth();
 
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail]       = useState("");
-  const [phone, setPhone]       = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm]   = useState("");
-  const [role, setRole]         = useState("farmer");
+  const [fullName, setFullName] = useState(() => sessionStorage.getItem("reg_fullName") || "");
+  const [email, setEmail]       = useState(() => sessionStorage.getItem("reg_email") || "");
+  const [phone, setPhone]       = useState(() => sessionStorage.getItem("reg_phone") || "");
+  const [password, setPassword] = useState(() => sessionStorage.getItem("reg_password") || "");
+  const [confirm, setConfirm]   = useState(() => sessionStorage.getItem("reg_confirm") || "");
+  const [role, setRole]         = useState(() => sessionStorage.getItem("reg_role") || "farmer");
   const [agree, setAgree]       = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [error, setError]       = useState("");
   const [loading, setLoading]   = useState(false);
+
+  useEffect(() => {
+    sessionStorage.setItem("reg_fullName", fullName);
+  }, [fullName]);
+
+  useEffect(() => {
+    sessionStorage.setItem("reg_email", email);
+  }, [email]);
+
+  useEffect(() => {
+    sessionStorage.setItem("reg_phone", phone);
+  }, [phone]);
+
+  useEffect(() => {
+    sessionStorage.setItem("reg_password", password);
+  }, [password]);
+
+  useEffect(() => {
+    sessionStorage.setItem("reg_confirm", confirm);
+  }, [confirm]);
+
+  useEffect(() => {
+    sessionStorage.setItem("reg_role", role);
+  }, [role]);
 
   const validate = () => {
     if (!fullName.trim())                                    return "Họ tên không được để trống";
@@ -36,35 +60,48 @@ export default function Register() {
 
     setLoading(true);
     try {
-      // Step 1: register
-      await axios.post("/auth/register", { full_name: fullName, email, phone, password, role });
+      const res = await axios.post("/auth/register", {
+        full_name: fullName,
+        email,
+        phone,
+        password,
+        role,
+      });
 
-      // Step 2: auto-login so user gets a session immediately
-      const loginRes = await axios.post("/auth/login", { email, password, role });
-      const data = loginRes.data;
-      if (data?.success) {
-        auth.login(data);
-        const userRole = data.user?.role || role;
-        if (userRole === "trader") return navigate("/trader");
-        return navigate("/farmer");
+      if (res.data?.success && res.data?.token) {
+        auth.login({ token: res.data.token, user: res.data.user });
+
+        // Clear forms data on success
+        sessionStorage.removeItem("reg_fullName");
+        sessionStorage.removeItem("reg_email");
+        sessionStorage.removeItem("reg_phone");
+        sessionStorage.removeItem("reg_password");
+        sessionStorage.removeItem("reg_confirm");
+        sessionStorage.removeItem("reg_role");
+
+        navigate("/kyc-cccd");
+      } else {
+        setError(res.data?.message || "Đăng ký thất bại");
       }
-      // register ok but login failed — send to login page
-      navigate("/login");
     } catch (e) {
-      const msg = e?.response?.data?.message || "Đăng ký thất bại. Vui lòng thử lại.";
-      setError(msg);
+      console.error(e);
+      setError(e?.response?.data?.message || e.message || "Lỗi khi đăng ký");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="login-page">
-      {/* Left panel */}
-      <div className="login-left">
-        <div className="hero-badge">Real World Asset • Coffee Tokenization</div>
-        <h1>CaRo Exchange</h1>
-        <p>Nền tảng token hóa cà phê Robusta Việt Nam</p>
+    <div className="register-page">
+      {/* LEFT SIDE */}
+      <div className="register-left">
+        <div className="hero-badge">
+          Real World Asset • Coffee Tokenization
+        </div>
+
+        <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
+          <h1>CaRo Exchange</h1>
+        </Link>
 
         <div className="feature-grid">
           <div className="feature-card">

@@ -59,13 +59,37 @@ export const register = async (req, res) => {
     }
 
     const password_hash = await bcrypt.hash(password, 10);
-    await db.execute(
+    const [result] = await db.execute(
       `INSERT INTO users (email, password_hash, full_name, role, kyc_status)
        VALUES (?, ?, ?, ?, 'pending')`,
       [email, password_hash, full_name, role || 'trader']
     );
 
-    res.status(201).json({ success: true, message: 'Register success' });
+    const insertId = result.insertId;
+
+    const token = jwt.sign(
+      {
+        id: insertId,
+        role: role || 'trader',
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      }
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Register success",
+      token,
+      user: {
+        id: insertId,
+        email,
+        full_name,
+        role: role || 'trader',
+        kyc_status: "pending",
+      }
+    });
   } catch (error) {
     console.error('Register error:', error);
     res.status(500).json({ success: false, message: error?.message || 'Server error' });
