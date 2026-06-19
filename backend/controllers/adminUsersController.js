@@ -26,6 +26,9 @@ export const listUsers = async (req, res) => {
         u.role,
         u.full_name,
         u.kyc_status,
+        u.is_active,
+        u.phone,
+        u.address,
 
         (
           SELECT wallet_address
@@ -137,7 +140,10 @@ export const getUserDetail = async (req, res) => {
         role,
         full_name,
         kyc_status,
-        wallet_address
+        wallet_address,
+        is_active,
+        phone,
+        address
       FROM users
       WHERE id = ?
       `,
@@ -174,8 +180,12 @@ export const updateUser = async (req, res) => {
 
     const {
       full_name,
+      email,
+      phone,
+      address,
       role,
       kyc_status,
+      is_active,
     } = req.body;
 
     const allowedRoles = [
@@ -189,6 +199,20 @@ export const updateUser = async (req, res) => {
       "approved",
       "rejected",
     ];
+
+    const [exist] = await db.execute(
+      `SELECT role, kyc_status, is_active, full_name, email, phone, address FROM users WHERE id = ?`,
+      [id]
+    );
+
+    if (!exist.length) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const currentUser = exist[0];
 
     if (
       role &&
@@ -210,22 +234,67 @@ export const updateUser = async (req, res) => {
       });
     }
 
-    await db.execute(
-      `
-      UPDATE users
-      SET
-        full_name = ?,
-        role = ?,
-        kyc_status = ?
-      WHERE id = ?
-      `,
-      [
-        full_name,
-        role,
-        kyc_status,
-        id,
-      ]
-    );
+    if (email && email !== currentUser.email) {
+      const [existing] = await db.execute(
+        `SELECT id FROM users WHERE email = ? AND id != ?`,
+        [email, id]
+      );
+      if (existing.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Email already exists for another account",
+        });
+      }
+    }
+
+    try {
+      await db.execute(
+        `
+        UPDATE users
+        SET
+          full_name = ?,
+          email = ?,
+          phone = ?,
+          address = ?,
+          role = ?,
+          kyc_status = ?,
+          is_active = ?
+        WHERE id = ?
+        `,
+        [
+          full_name !== undefined ? full_name : currentUser.full_name,
+          email !== undefined ? email : currentUser.email,
+          phone !== undefined ? phone : currentUser.phone,
+          address !== undefined ? address : currentUser.address,
+          role !== undefined ? role : currentUser.role,
+          kyc_status !== undefined ? kyc_status : currentUser.kyc_status,
+          is_active !== undefined ? Number(is_active) : currentUser.is_active,
+          id,
+        ]
+      );
+    } catch (err) {
+      // Fallback if phone or address columns don't exist
+      await db.execute(
+        `
+        UPDATE users
+        SET
+          full_name = ?,
+          email = ?,
+          role = ?,
+          kyc_status = ?,
+          is_active = ?
+        WHERE id = ?
+        `,
+        [
+          full_name !== undefined ? full_name : currentUser.full_name,
+          email !== undefined ? email : currentUser.email,
+          role !== undefined ? role : currentUser.role,
+          kyc_status !== undefined ? kyc_status : currentUser.kyc_status,
+          is_active !== undefined ? Number(is_active) : currentUser.is_active,
+          id,
+        ]
+      );
+    }
 
     res.json({
       success: true,

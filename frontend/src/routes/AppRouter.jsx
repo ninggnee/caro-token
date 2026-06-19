@@ -6,6 +6,7 @@ import Landing        from '../pages/Landing';
 import VneidLogin     from '../pages/VneidLogin';
 import VneidShare     from '../pages/VneidShare';
 import KycCccd        from '../pages/KycCccd';
+import RegisterWallet from '../pages/RegisterWallet';
 import TestAuth       from '../pages/TestAuth';
 
 // Trader
@@ -79,6 +80,7 @@ export default function AppRouter() {
         <Route path="/vneid-login" element={<VneidLogin />} />
         <Route path="/vneid-share" element={<VneidShare />} />
         <Route path="/kyc-cccd"    element={<KycCccd />} />
+        <Route path="/register-wallet" element={<RegisterWallet />} />
         <Route path="/test-auth"   element={<TestAuth />} />
 
         {/* ── Trader ─────────────────────────────────────────── */}

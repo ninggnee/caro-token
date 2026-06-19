@@ -2,9 +2,25 @@ import db from "../config/db.js";
 
 export const listPending = async (req, res) => {
   try {
-    const [rows] = await db.execute(
-      `SELECT k.id, k.user_id, k.id_number, COALESCE(k.front_path, k.document_front, '') AS front_path, COALESCE(k.back_path, k.document_back, '') AS back_path, k.status, k.created_at, u.email, u.full_name FROM kyc_requests k JOIN users u ON k.user_id = u.id WHERE k.status = 'pending' ORDER BY k.created_at DESC`
-    );
+    let rows = [];
+    try {
+      [rows] = await db.execute(
+        `SELECT k.id, k.user_id, k.id_number, k.front_path, k.back_path, k.status, k.created_at, u.email, u.full_name 
+         FROM kyc_requests k 
+         JOIN users u ON k.user_id = u.id 
+         WHERE k.status = 'pending' 
+         ORDER BY k.created_at DESC`
+      );
+    } catch (err) {
+      // Fallback if front_path / back_path do not exist
+      [rows] = await db.execute(
+        `SELECT k.id, k.user_id, k.id_number, k.document_front AS front_path, k.document_back AS back_path, k.status, k.created_at, u.email, u.full_name 
+         FROM kyc_requests k 
+         JOIN users u ON k.user_id = u.id 
+         WHERE k.status = 'pending' 
+         ORDER BY k.created_at DESC`
+      );
+    }
     res.json({ success: true, data: rows });
   } catch (err) {
     console.error(err);
@@ -22,8 +38,16 @@ export const reviewKyc = async (req, res) => {
 
     const status = action === 'approve' ? 'approved' : 'rejected';
 
-    // update status and timestamp - adapt to schema (no reviewed_by column guaranteed)
-    await db.execute(`UPDATE kyc_requests SET status = ?, updated_at = NOW() WHERE id = ?`, [status, id]);
+    // update status and timestamp - adapt to schema variations (updated_at vs reviewed_at/reviewed_by)
+    try {
+      await db.execute(`UPDATE kyc_requests SET status = ?, updated_at = NOW() WHERE id = ?`, [status, id]);
+    } catch (e) {
+      try {
+        await db.execute(`UPDATE kyc_requests SET status = ?, reviewed_at = NOW(), reviewed_by = ? WHERE id = ?`, [status, adminId || null, id]);
+      } catch (e2) {
+        await db.execute(`UPDATE kyc_requests SET status = ? WHERE id = ?`, [status, id]);
+      }
+    }
 
     const [[row]] = await db.execute(`SELECT user_id FROM kyc_requests WHERE id = ?`, [id]);
     if (row) {

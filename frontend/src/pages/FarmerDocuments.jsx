@@ -93,7 +93,7 @@ export default function FarmerDocuments() {
 
   return (
     <FarmerLayout title="Documents">
-      <div style={{ display: "grid", gridTemplateColumns: selectedBatch ? "340px 1fr" : "1fr", gap: 16, maxWidth: 1100 }}>
+      <div style={{ display: "grid", gridTemplateColumns: selectedBatch ? "340px 1fr" : "1fr", gap: 16, width: "100%" }}>
 
         {/* Left panel - batch list */}
         <div>

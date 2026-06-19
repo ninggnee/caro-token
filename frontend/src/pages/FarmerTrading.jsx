@@ -5,7 +5,7 @@ import FarmerLayout from "../components/layout/FarmerLayout";
 import * as api from "../services/orderApi";
 
 const PAIRS = ["CR1/VND", "CR2/VND", "CR3/VND"];
-const C = { accent: "#00d4aa", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", bg: "#0b1117", card: "#141f2e" };
+const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#487573", muted: "#6b7a99", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#7fe0c9" };
 
 const fmt = (n, dec = 0) => Number(n || 0).toLocaleString("vi-VN", { minimumFractionDigits: dec, maximumFractionDigits: dec });
 
@@ -46,14 +46,14 @@ function OrderForm({ pair, onPlace, isPlacing }) {
 
   const isBuy = side === "buy";
   return (
-    <div style={{ background: C.card, borderRadius: 10, padding: 16, border: "1px solid rgba(255,255,255,0.07)" }}>
+    <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}` }}>
       {/* Side toggle */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", marginBottom: 14, background: "rgba(255,255,255,0.04)", borderRadius: 7, padding: 3 }}>
         {["buy", "sell"].map(s => (
           <button key={s} onClick={() => setSide(s)}
             style={{ padding: "8px 0", borderRadius: 5, border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer",
               background: side === s ? (s === "buy" ? C.green : C.red) : "transparent",
-              color: side === s ? "#000" : C.muted }}>
+              color: side === s ? "#fff" : C.muted }}>
             {s === "buy" ? "Mua" : "Bán"}
           </button>
         ))}
@@ -64,13 +64,13 @@ function OrderForm({ pair, onPlace, isPlacing }) {
           <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>Giá (VND/kg)</label>
           <input type="number" min="0" value={price} onChange={e => setPrice(e.target.value)}
             placeholder="0"
-            style={{ width: "100%", padding: "9px 12px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+            style={{ width: "100%", padding: "9px 12px", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 6, color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
         </div>
         <div>
           <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>Số lượng (kg)</label>
           <input type="number" min="0" value={amount} onChange={e => setAmount(e.target.value)}
             placeholder="0"
-            style={{ width: "100%", padding: "9px 12px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+            style={{ width: "100%", padding: "9px 12px", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 6, color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
         </div>
 
         {total > 0 && (
@@ -81,7 +81,7 @@ function OrderForm({ pair, onPlace, isPlacing }) {
 
         <button onClick={submit} disabled={isPlacing}
           style={{ padding: "10px 0", background: isPlacing ? "#555" : (isBuy ? C.green : C.red),
-            border: "none", borderRadius: 7, color: "#000", fontWeight: 700, fontSize: 14,
+            border: "none", borderRadius: 7, color: "#fff", fontWeight: 700, fontSize: 14,
             cursor: isPlacing ? "not-allowed" : "pointer" }}>
           {isPlacing ? "Đang đặt lệnh..." : (isBuy ? `Mua ${pair.split("/")[0]}` : `Bán ${pair.split("/")[0]}`)}
         </button>
@@ -114,7 +114,7 @@ function OpenOrdersTable({ pair, onCancel, isCancelling }) {
         </thead>
         <tbody>
           {orders.map(o => (
-            <tr key={o.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+            <tr key={o.id} style={{ borderBottom: `1px solid ${C.border}` }}>
               <td style={{ padding: "9px 10px", fontWeight: 600 }}>{o.pair}</td>
               <td style={{ padding: "9px 10px", color: o.side === "buy" ? C.green : C.red, fontWeight: 700 }}>
                 {o.side === "buy" ? "MUA" : "BÁN"}
@@ -125,8 +125,8 @@ function OpenOrdersTable({ pair, onCancel, isCancelling }) {
               <td style={{ padding: "9px 10px" }}>{fmt(o.remaining, 2)}</td>
               <td style={{ padding: "9px 10px" }}>
                 <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4,
-                  background: o.status === "partial" ? "rgba(240,185,11,0.12)" : "rgba(0,212,170,0.1)",
-                  color: o.status === "partial" ? C.gold : C.accent, fontWeight: 600 }}>
+                  background: o.status === "partial" ? "rgba(240,185,11,0.12)" : "rgba(72,117,115,0.12)",
+                  color: o.status === "partial" ? C.gold : C.tealLight, fontWeight: 600 }}>
                   {o.status === "partial" ? "Khớp một phần" : "Mở"}
                 </span>
               </td>
@@ -157,7 +157,7 @@ function RecentTrades({ pair }) {
 
   return (
     <div style={{ display: "grid", gap: 0 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", padding: "4px 6px", borderBottom: "1px solid rgba(255,255,255,0.06)", marginBottom: 4 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", padding: "4px 6px", borderBottom: `1px solid ${C.border}`, marginBottom: 4 }}>
         {["Giá", "SL (kg)", "Thời gian"].map(h => (
           <span key={h} style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>{h}</span>
         ))}
@@ -223,22 +223,22 @@ export default function FarmerTrading() {
   }, [placeMut]);
 
   return (
-    <FarmerLayout title="Orders — Trading">
-      <div style={{ maxWidth: 1100 }}>
+    <FarmerLayout title="Giao dịch">
+      <div style={{ width: "100%" }}>
 
         {/* Header + Pair Selector */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
           <div>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>📈 Sàn Giao Dịch</h2>
-            <p style={{ margin: "3px 0 0", color: C.muted, fontSize: 13 }}>Đặt lệnh limit buy/sell token cà phê Robusta</p>
+            <p style={{ margin: "3px 0 0", color: C.muted, fontSize: 13 }}>Đặt lệnh limit mua/bán token cà phê Robusta</p>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             {PAIRS.map(p => (
               <button key={p} onClick={() => setPair(p)}
                 style={{ padding: "7px 16px", borderRadius: 7, border: "1px solid", cursor: "pointer", fontSize: 13, fontWeight: 700,
-                  background: pair === p ? "rgba(0,212,170,0.12)" : "rgba(255,255,255,0.04)",
-                  borderColor: pair === p ? C.accent : "rgba(255,255,255,0.1)",
-                  color: pair === p ? C.accent : C.muted }}>
+                  background: pair === p ? "rgba(72,117,115,0.15)" : "rgba(255,255,255,0.04)",
+                  borderColor: pair === p ? C.tealLight : C.border,
+                  color: pair === p ? C.tealLight : C.muted }}>
                 {p}
               </button>
             ))}
@@ -253,19 +253,19 @@ export default function FarmerTrading() {
             <OrderForm pair={pair} onPlace={handlePlace} isPlacing={placeMut.isPending} />
 
             {/* Spread info */}
-            <div style={{ marginTop: 10, padding: "10px 14px", background: C.card, borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div style={{ marginTop: 10, padding: "10px 14px", background: C.card, borderRadius: 8, border: `1px solid ${C.border}` }}>
               <div style={{ display: "grid", gap: 6 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                  <span style={{ color: C.muted }}>Best Bid</span>
+                  <span style={{ color: C.muted }}>Mua tốt nhất</span>
                   <span style={{ color: C.green, fontWeight: 700 }}>{bids[0] ? fmt(bids[0].price) : "—"}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                  <span style={{ color: C.muted }}>Best Ask</span>
+                  <span style={{ color: C.muted }}>Bán tốt nhất</span>
                   <span style={{ color: C.red, fontWeight: 700 }}>{asks[0] ? fmt(asks[0].price) : "—"}</span>
                 </div>
                 {spread !== null && (
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                    <span style={{ color: C.muted }}>Spread</span>
+                    <span style={{ color: C.muted }}>Chênh lệch</span>
                     <span style={{ color: C.gold }}>{fmt(spread)}</span>
                   </div>
                 )}
@@ -277,12 +277,12 @@ export default function FarmerTrading() {
           <div style={{ display: "grid", gap: 12 }}>
 
             {/* Order book */}
-            <div style={{ background: C.card, borderRadius: 10, border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden" }}>
-              <div style={{ padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.06)", fontSize: 13, fontWeight: 700 }}>
+            <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+              <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, fontSize: 13, fontWeight: 700 }}>
                 📖 Sổ Lệnh — {pair}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
-                <div style={{ padding: "10px 12px", borderRight: "1px solid rgba(255,255,255,0.06)" }}>
+                <div style={{ padding: "10px 12px", borderRight: `1px solid ${C.border}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}>Giá (VND)</span>
                     <span style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}>Khối lượng (kg)</span>
@@ -302,8 +302,8 @@ export default function FarmerTrading() {
             </div>
 
             {/* Recent trades */}
-            <div style={{ background: C.card, borderRadius: 10, border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden" }}>
-              <div style={{ padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.06)", fontSize: 13, fontWeight: 700 }}>
+            <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+              <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, fontSize: 13, fontWeight: 700 }}>
                 🔄 Giao Dịch Gần Đây
               </div>
               <div style={{ padding: "8px 12px" }}>
@@ -314,8 +314,8 @@ export default function FarmerTrading() {
         </div>
 
         {/* Bottom: open orders + tabs */}
-        <div style={{ marginTop: 12, background: C.card, borderRadius: 10, border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden" }}>
-          <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+        <div style={{ marginTop: 12, background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+          <div style={{ display: "flex", borderBottom: `1px solid ${C.border}` }}>
             {[
               { key: "openOrders", label: "Lệnh Mở" },
               { key: "info",       label: "Hướng dẫn" },
@@ -323,8 +323,8 @@ export default function FarmerTrading() {
               <button key={t.key} onClick={() => setActiveTab(t.key)}
                 style={{ padding: "11px 20px", background: "none", border: "none", cursor: "pointer", fontSize: 13,
                   fontWeight: activeTab === t.key ? 700 : 400,
-                  color: activeTab === t.key ? C.accent : C.muted,
-                  borderBottom: activeTab === t.key ? `2px solid ${C.accent}` : "2px solid transparent" }}>
+                  color: activeTab === t.key ? C.tealLight : C.muted,
+                  borderBottom: activeTab === t.key ? `2px solid ${C.tealLight}` : "2px solid transparent" }}>
                 {t.label}
               </button>
             ))}

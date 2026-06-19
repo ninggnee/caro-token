@@ -1,5 +1,5 @@
 import express from 'express';
-import { createTokenRequest, listTokenRequestsForUser, listTokenRequests, getTokenRequest, reviewTokenRequest, mintToken, getUserBalances } from '../controllers/tokenController.js';
+import { createTokenRequest, listTokenRequestsForUser, listTokenRequests, getTokenRequest, reviewTokenRequest, mintToken, getUserBalances, getOnChainBalances } from '../controllers/tokenController.js';
 import { verifyToken, requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -9,6 +9,7 @@ router.get('/requests', verifyToken, requireRole('farmer'), listTokenRequestsFor
 
 // balances
 router.get('/balances', verifyToken, requireRole('farmer'), getUserBalances);
+router.get('/balances/onchain', verifyToken, requireRole('farmer'), getOnChainBalances);
 
 // admin
 router.get('/admin/requests', verifyToken, requireRole('admin'), listTokenRequests);

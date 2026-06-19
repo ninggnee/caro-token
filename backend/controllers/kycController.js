@@ -3,16 +3,21 @@ import fs from "fs";
 import path from "path";
 
 export const processOcr = async (req, res) => {
-  const filePath = req.file?.path;
+  const frontFile = req.files?.front?.[0];
+  const backFile = req.files?.back?.[0];
+
+  const frontPath = frontFile?.path;
+  const backPath = backFile?.path;
+
   try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: "No image file provided" });
+    if (!frontFile || !backFile) {
+      return res.status(400).json({ success: false, message: "Vui lòng cung cấp đầy đủ cả mặt trước và mặt sau CCCD" });
     }
 
-    const fileBuffer = fs.readFileSync(filePath);
-    const blob = new Blob([fileBuffer], { type: req.file.mimetype });
+    const fileBuffer = fs.readFileSync(frontPath);
+    const blob = new Blob([fileBuffer], { type: frontFile.mimetype });
     const formData = new FormData();
-    formData.append("image", blob, req.file.originalname);
+    formData.append("image", blob, frontFile.originalname);
 
     const fptAiUrl = "https://api.fpt.ai/vision/idr/vnm";
     const apiKey = process.env.OCR_API_KEY || "***REMOVED-OCR-KEY***";
@@ -49,11 +54,18 @@ export const processOcr = async (req, res) => {
     console.error("OCR Error:", err);
     res.status(500).json({ success: false, message: err.message || "OCR processing server error" });
   } finally {
-    if (filePath && fs.existsSync(filePath)) {
+    if (frontPath && fs.existsSync(frontPath)) {
       try {
-        fs.unlinkSync(filePath);
+        fs.unlinkSync(frontPath);
       } catch (e) {
-        console.error("Failed to delete temp OCR file:", e);
+        console.error("Failed to delete temp front OCR file:", e);
+      }
+    }
+    if (backPath && fs.existsSync(backPath)) {
+      try {
+        fs.unlinkSync(backPath);
+      } catch (e) {
+        console.error("Failed to delete temp back OCR file:", e);
       }
     }
   }
