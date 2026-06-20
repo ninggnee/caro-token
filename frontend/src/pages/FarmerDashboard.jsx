@@ -10,11 +10,16 @@ const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#00d4aa"
 
 function useBalances() {
   return useQuery({
-    queryKey: ["token-balances-onchain"],
-    queryFn: () => axios.get("/token/balances/onchain").then(r => r.data),
+    queryKey: ["token-balances-db"],
+    queryFn: () => axios.get("/token/balances").then(r => r.data),
     staleTime: 30_000,
     retry: 1,
   });
+}
+
+function extractBal(bals, key) {
+  const v = bals[key];
+  return Number(v?.total ?? v ?? 0);
 }
 
 function StatCard({ label, value, sub, accent, icon }) {
@@ -185,26 +190,23 @@ export default function FarmerDashboard() {
           </div>
         </div>
 
-        {/* CaRo1 / CaRo2 / CaRo3 live on-chain cards */}
+        {/* CaRo1 / CaRo2 / CaRo3 token cards */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
           <StatCard
-            label="CaRo1 (Grade A)"
-            value={balQ.isLoading ? "…" : Number(bals.CR1 || 0).toLocaleString("vi-VN")}
-            sub="CR1 · Premium Robusta · live on-chain"
+            label="CaRo1"
+            value={balQ.isLoading ? "…" : extractBal(bals, "CR1").toLocaleString("vi-VN")}
             accent={C.green}
             icon="🥇"
           />
           <StatCard
-            label="CaRo2 (Grade B)"
-            value={balQ.isLoading ? "…" : Number(bals.CR2 || 0).toLocaleString("vi-VN")}
-            sub="CR2 · Standard Robusta · live on-chain"
+            label="CaRo2"
+            value={balQ.isLoading ? "…" : extractBal(bals, "CR2").toLocaleString("vi-VN")}
             accent={C.accent}
             icon="🥈"
           />
           <StatCard
-            label="CaRo3 (Grade C)"
-            value={balQ.isLoading ? "…" : Number(bals.CR3 || 0).toLocaleString("vi-VN")}
-            sub="CR3 · Basic Robusta · live on-chain"
+            label="CaRo3"
+            value={balQ.isLoading ? "…" : extractBal(bals, "CR3").toLocaleString("vi-VN")}
             accent={C.gold}
             icon="🥉"
           />

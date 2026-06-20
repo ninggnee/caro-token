@@ -9,11 +9,16 @@ const PRICE = { CR1: 100_000, CR2: 85_000, CR3: 70_000 };
 
 function useBalances() {
   return useQuery({
-    queryKey: ["token-balances-onchain"],
-    queryFn: () => axios.get("/token/balances/onchain").then(r => r.data),
+    queryKey: ["token-balances-db"],
+    queryFn: () => axios.get("/token/balances").then(r => r.data),
     staleTime: 30_000,
     retry: 1,
   });
+}
+
+function extractBal(bals, key) {
+  const v = bals[key];
+  return Number(v?.total ?? v ?? 0);
 }
 
 function BalCard({ label, value, sub, accent, action, onAction }) {
@@ -39,9 +44,8 @@ export default function FarmerWalletOverview() {
   const bals = balQ.data?.balances || {};
   const walletAddr = balQ.data?.wallet_address || user?.wallet_address;
   const tokens = ["CR1", "CR2", "CR3"];
-  // on-chain format: { CR1: "150.0", CR2: "0.0", CR3: "0.0" } — plain string per token
-  const totalVnd = tokens.reduce((s, t) => s + Number(bals[t] || 0) * PRICE[t], 0);
-  const totalKg = tokens.reduce((s, t) => s + Number(bals[t] || 0), 0);
+  const totalVnd = tokens.reduce((s, t) => s + extractBal(bals, t) * PRICE[t], 0);
+  const totalKg = tokens.reduce((s, t) => s + extractBal(bals, t), 0);
 
   return (
     <FarmerLayout title="Wallet">
@@ -57,9 +61,8 @@ export default function FarmerWalletOverview() {
         </div>
 
         {/* Summary cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-          <BalCard label="Portfolio Value (Est.)" value={totalVnd > 0 ? (totalVnd / 1_000_000).toFixed(2) + "M ₫" : "0 ₫"} sub={`${totalKg.toLocaleString("vi-VN")} kg on-chain`} accent="#e2e8f0" />
-          <BalCard label="On-chain Balance" value={`${totalKg.toLocaleString("vi-VN")} CaRo`} sub="Live from blockchain · balanceOf()" accent={C.green} action="Trade Now" onAction={() => nav("/farmer/marketplace")} />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12 }}>
+          <BalCard label="Portfolio Value (Est.)" value={totalVnd > 0 ? (totalVnd / 1_000_000).toFixed(2) + "M ₫" : "0 ₫"} sub={`${totalKg.toLocaleString("vi-VN")} CaRo tokens`} accent="#e2e8f0" action="Trade Now" onAction={() => nav("/farmer/marketplace")} />
           <BalCard label="Wallet" value={walletAddr ? `${walletAddr.slice(0,8)}…` : "Not linked"} sub={walletAddr ? "Sepolia testnet" : "Update in Profile"} accent={C.accent} />
         </div>
 
@@ -90,7 +93,7 @@ export default function FarmerWalletOverview() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "rgba(255,255,255,0.02)" }}>
-                {["Token", "On-chain Balance", "= kg Coffee", "Est. Value", "Price/kg"].map(h => (
+                {["Token", "Token_CaRo", "Khối lượng", "Est. Value", "Price/kg"].map(h => (
                   <th key={h} style={{ padding: "10px 16px", fontSize: 11, color: C.muted, fontWeight: 600, textAlign: "left", textTransform: "uppercase", letterSpacing: "0.5px" }}>{h}</th>
                 ))}
               </tr>
@@ -100,7 +103,7 @@ export default function FarmerWalletOverview() {
                 <tr><td colSpan={5} style={{ padding: 30, textAlign: "center", color: C.muted, fontSize: 13 }}>Loading balances…</td></tr>
               )}
               {tokens.map(t => {
-                const bal = Number(bals[t] || 0);
+                const bal = extractBal(bals, t);
                 const val = bal * PRICE[t];
                 return (
                   <tr key={t} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>

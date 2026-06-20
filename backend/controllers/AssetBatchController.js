@@ -161,12 +161,26 @@ export const getBatchById = async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    // Attach documents
+    // Attach batch documents
     const [docs] = await db.execute(
       `SELECT * FROM batch_documents WHERE batch_id = ? ORDER BY document_type, uploaded_at`,
       [batch.batch_id]
     );
     batch.documents = docs;
+
+    // Attach farmer's warehouse documents
+    try {
+      const [warehouseDocs] = await db.execute(
+        `SELECT id, document_type, document_name, cid, file_size, mime_type, created_at
+         FROM warehouse_documents
+         WHERE uploaded_by = ? AND status = 'active'
+         ORDER BY document_type, created_at DESC`,
+        [batch.farmer_id]
+      );
+      batch.warehouse_documents = warehouseDocs;
+    } catch (_) {
+      batch.warehouse_documents = [];
+    }
 
     res.json({ success: true, batch });
   } catch (err) {

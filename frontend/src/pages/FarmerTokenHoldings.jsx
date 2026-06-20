@@ -7,13 +7,18 @@ const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#00d4aa"
 
 const TOKEN_TYPES = ["CR1", "CR2", "CR3"];
 
-function useOnChainBalances() {
+function useTokenBalances() {
   return useQuery({
-    queryKey: ["onchain-balances"],
-    queryFn: () => axios.get("/token/balances/onchain").then(r => r.data),
+    queryKey: ["token-balances-db"],
+    queryFn: () => axios.get("/token/balances").then(r => r.data),
     staleTime: 15_000,
     retry: 2,
   });
+}
+
+function extractBal(bals, key) {
+  const v = bals[key];
+  return Number(v?.total ?? v ?? 0);
 }
 
 function StatCard({ label, value, sub, color }) {
@@ -28,12 +33,12 @@ function StatCard({ label, value, sub, color }) {
 
 export default function FarmerTokenHoldings() {
   const { user } = useAuth();
-  const balQ = useOnChainBalances();
+  const balQ = useTokenBalances();
 
   const balances = balQ.data?.balances || {};
   const walletAddr = balQ.data?.wallet_address || user?.wallet_address;
 
-  const totalCaRo = TOKEN_TYPES.reduce((s, t) => s + Number(balances[t] || 0), 0);
+  const totalCaRo = TOKEN_TYPES.reduce((s, t) => s + extractBal(balances, t), 0);
   const hasWallet = walletAddr && /^0x[0-9a-fA-F]{40}$/.test(walletAddr);
 
   return (
@@ -43,15 +48,14 @@ export default function FarmerTokenHoldings() {
         <div>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>☕ Token Holdings</h2>
           <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
-            Live balance read directly from the blockchain smart contract.
+            Token_CaRo và Khối lượng phản ánh tổng token đã được mint vào tài khoản của bạn.
           </div>
         </div>
 
         {/* Summary cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-          <StatCard label="Total CaRo Balance" value={`${totalCaRo.toLocaleString("vi-VN")} CaRo`} sub="1 CaRo = 1 kg coffee" color={C.accent} />
-          <StatCard label="Source" value="On-Chain" sub="balanceOf(walletAddress)" color={C.green} />
-          <StatCard label="Network" value="Sepolia" sub="Ethereum Testnet" color={C.gold} />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12 }}>
+          <StatCard label="Token_CaRo (Tổng)" value={`${totalCaRo.toLocaleString("vi-VN")} CaRo`} sub="Tổng token đã mint" color={C.accent} />
+          <StatCard label="Khối lượng" value={`${totalCaRo.toLocaleString("vi-VN")} kg`} sub="1 CaRo = 1 kg cà phê" color={C.green} />
         </div>
 
         {/* Wallet address */}
@@ -114,7 +118,7 @@ export default function FarmerTokenHoldings() {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "rgba(255,255,255,0.02)" }}>
-                  {["Token", "Balance (CaRo)", "= kg Coffee", "Contract"].map(h => (
+                  {["Token", "Token_CaRo", "Khối lượng", "Contract"].map(h => (
                     <th key={h} style={{ padding: "10px 16px", fontSize: 11, color: C.muted, fontWeight: 600, textAlign: "left", textTransform: "uppercase", letterSpacing: "0.5px" }}>{h}</th>
                   ))}
                 </tr>
@@ -128,7 +132,7 @@ export default function FarmerTokenHoldings() {
                   </tr>
                 )}
                 {!balQ.isLoading && TOKEN_TYPES.map(t => {
-                  const bal = Number(balances[t] || 0);
+                  const bal = extractBal(balances, t);
                   const contractAddr = balQ.data?.contracts?.[t];
                   return (
                     <tr key={t} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
@@ -176,6 +180,7 @@ export default function FarmerTokenHoldings() {
                     <td />
                   </tr>
                 )}
+
               </tbody>
             </table>
           )}
@@ -183,9 +188,9 @@ export default function FarmerTokenHoldings() {
 
         {/* Info note */}
         <div style={{ padding: "14px 18px", background: "rgba(0,212,170,0.04)", border: "1px solid rgba(0,212,170,0.12)", borderRadius: 9, fontSize: 12, color: C.muted }}>
-          <span style={{ color: C.accent, fontWeight: 600 }}>ℹ Single source of truth:</span> Balances shown here are read live from the blockchain using{" "}
-          <code style={{ background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: 3, color: "#e2e8f0" }}>balanceOf(walletAddress)</code>.
-          They automatically reflect any minted tokens the moment the transaction is confirmed on-chain.
+          <span style={{ color: C.accent, fontWeight: 600 }}>ℹ Nguồn dữ liệu:</span>{" "}
+          Token_CaRo và Khối lượng hiển thị ở đây phản ánh tổng token đã được mint cho tài khoản của bạn.
+          Giá trị được cập nhật tự động sau khi admin duyệt và mint batch của bạn.
         </div>
 
       </div>

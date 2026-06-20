@@ -22,6 +22,8 @@ import walletRoutes     from './routes/walletRoutes.js';
 import custodianRoutes         from './routes/custodianRoutes.js';
 import assetBatchRoutes        from './routes/assetBatchRoutes.js';
 import warehouseDocumentRoutes from './routes/warehouseDocumentRoutes.js';
+import mockMarketRoutes        from './routes/mockMarketRoutes.js';
+import MockMarketEngine        from './services/MockMarketEngine.js';
 
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
@@ -45,7 +47,8 @@ app.use('/api/admin/kyc',    kycAdminRoutes);
 app.use('/api/admin/users',  adminUsersRoutes);
 app.use('/api/admin',        adminSummaryRoutes);
 app.use('/api/token',        tokenRoutes);
-app.use('/api/market',       marketRoutes);       // legacy market (backward compat)
+app.use('/api/market',       mockMarketRoutes);   // mock market engine (MARKET_MODE=MOCK)
+app.use('/api/market-legacy', marketRoutes);     // legacy market (kept for backward compat)
 app.use('/api/redeem',       redeemRoutes);
 app.use('/api/migrate',      migrateRoutes);
 app.use('/api/admin/setup',  adminSetupRoutes);
@@ -73,5 +76,15 @@ app.listen(PORT, async () => {
   } catch (err) {
     console.error(`❌ DB connection FAILED: ${err.message}`);
     console.error('   Check DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME in .env');
+  }
+
+  // Start mock market engine unless explicitly in LIVE mode
+  if (process.env.MARKET_MODE !== 'LIVE') {
+    try {
+      await MockMarketEngine.initialize();
+      MockMarketEngine.start();
+    } catch (err) {
+      console.warn('⚠️  MockMarketEngine failed to start:', err.message);
+    }
   }
 });

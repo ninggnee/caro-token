@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import DashboardLayout from "../components/layout/DashboardLayout";
+import FarmerLayout from "../components/layout/FarmerLayout";
 import { useAuth } from "../context/AuthContext";
 import { useBatch, useApproveBatch, useRejectBatch } from "../hooks/useBatches";
 
@@ -17,6 +18,18 @@ const DOC_LABELS = {
   quality_inspection:  "Kiểm định chất lượng",
   coffee_photos:       "Ảnh lô cà phê",
   additional_docs:     "Tài liệu bổ sung",
+};
+
+const WAREHOUSE_DOC_LABELS = {
+  warehouse_license:       "Warehouse License",
+  inspection_report:       "Inspection Report",
+  warehouse_certificate:   "Warehouse Certificate",
+  warehouse_insurance:     "Warehouse Insurance",
+  warehouse_ownership_proof: "Ownership Documents",
+  warehouse_photos:        "Warehouse Photos",
+  coffee_storage_report:   "Coffee Storage Report",
+  warehouse_receipt:       "Warehouse Receipt",
+  other:                   "Other",
 };
 
 function InfoRow({ label, value, accent, mono }) {
@@ -47,7 +60,6 @@ function DocumentsSection({ documents }) {
     );
   }
 
-  // Group by document_type
   const grouped = {};
   for (const doc of documents) {
     if (!grouped[doc.document_type]) grouped[doc.document_type] = [];
@@ -85,15 +97,63 @@ function DocumentsSection({ documents }) {
   );
 }
 
-function SkeletonDetail() {
-  return (
-    <DashboardLayout title="Chi tiết Batch">
-      <div style={{ maxWidth: 760, margin: "0 auto" }}>
-        {[240, 320, 200].map((h, i) => (
-          <div key={i} style={{ height: h, background: "#141a1f", borderRadius: 12, marginBottom: 16, border: "1px solid rgba(255,255,255,0.05)", animation: "pulse 1.5s ease-in-out infinite" }} />
-        ))}
+function WarehouseDocsSection({ docs }) {
+  if (!docs || docs.length === 0) {
+    return (
+      <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, padding: "12px 0" }}>
+        Chưa có tài liệu kho nào
       </div>
-    </DashboardLayout>
+    );
+  }
+
+  const grouped = {};
+  for (const doc of docs) {
+    const key = doc.document_type || "other";
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(doc);
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 12 }}>
+      {Object.entries(grouped).map(([type, files]) => (
+        <div key={type}>
+          <div style={{ fontSize: 12, color: "#9fcfc6", fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.4px" }}>
+            {WAREHOUSE_DOC_LABELS[type] || type}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {files.map((doc) => (
+              <div key={doc.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "12px 14px", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: 20, flexShrink: 0 }}>📋</span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.document_name}</div>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>
+                      {WAREHOUSE_DOC_LABELS[doc.document_type] || doc.document_type}
+                      {doc.created_at && ` · ${new Date(doc.created_at).toLocaleDateString("vi-VN")}`}
+                    </div>
+                    {doc.cid && (
+                      <div style={{ fontSize: 11, color: "#9fcfc6", fontFamily: "monospace", marginTop: 2 }}>
+                        CID: {doc.cid.slice(0, 16)}…
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {doc.cid && (
+                  <a
+                    href={`https://ipfs.io/ipfs/${doc.cid}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ padding: "6px 14px", background: "rgba(0,212,170,0.1)", border: "1px solid rgba(0,212,170,0.2)", color: "#00d4aa", borderRadius: 6, fontSize: 12, fontWeight: 600, textDecoration: "none", flexShrink: 0 }}
+                  >
+                    View Document ↗
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -112,7 +172,8 @@ export default function BatchDetailPage() {
   const [showReject, setShowReject] = useState(false);
   const [reason,     setReason]     = useState("");
 
-  const backPath = isAdmin ? "/admin/mint-requests" : "/farmer/batches";
+  const Layout   = isAdmin ? DashboardLayout : FarmerLayout;
+  const backPath = isAdmin ? "/admin/mint-requests" : "/farmer/status";
 
   const handleApprove = () => {
     if (!window.confirm(
@@ -130,24 +191,36 @@ export default function BatchDetailPage() {
     });
   };
 
-  if (isLoading) return <SkeletonDetail />;
+  if (isLoading) {
+    return (
+      <Layout title="Chi tiết Batch">
+        <div style={{ maxWidth: 760, margin: "0 auto" }}>
+          {[240, 320, 200].map((h, i) => (
+            <div key={i} style={{ height: h, background: "#141a1f", borderRadius: 12, marginBottom: 16, border: "1px solid rgba(255,255,255,0.05)", animation: "pulse 1.5s ease-in-out infinite" }} />
+          ))}
+        </div>
+      </Layout>
+    );
+  }
+
   if (isError || !batch) {
     return (
-      <DashboardLayout title="Chi tiết Batch">
+      <Layout title="Chi tiết Batch">
         <div style={{ maxWidth: 760, margin: "0 auto", textAlign: "center", padding: 80 }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>❌</div>
           <div style={{ color: "#e74c3c", fontSize: 16 }}>Không tìm thấy batch hoặc bạn không có quyền truy cập</div>
           <button onClick={() => navigate(backPath)} style={{ marginTop: 20, padding: "9px 22px", background: "#1f6f64", border: "none", color: "#fff", borderRadius: 8, cursor: "pointer" }}>← Quay lại</button>
         </div>
-      </DashboardLayout>
+      </Layout>
     );
   }
 
   const sm = STATUS_META[batch.status] || { color: "#aaa", bg: "rgba(255,255,255,0.08)", label: batch.status };
   const isPending = approve.isPending || reject.isPending;
+  const warehouseDocs = batch.warehouse_documents || [];
 
   return (
-    <DashboardLayout title={`Batch — ${batch.batch_id}`}>
+    <Layout title={`Batch — ${batch.batch_id}`}>
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
 
@@ -183,9 +256,14 @@ export default function BatchDetailPage() {
           )}
         </Section>
 
-        {/* Documents */}
-        <Section title={`📂 Tài liệu (${batch.documents?.length || 0} files)`}>
+        {/* Batch Documents */}
+        <Section title={`📂 Tài liệu lô hàng (${batch.documents?.length || 0} files)`}>
           <DocumentsSection documents={batch.documents} />
+        </Section>
+
+        {/* Warehouse Documents */}
+        <Section title={`🏭 Warehouse Docs (${warehouseDocs.length} files)`} accent="#f0b90b">
+          <WarehouseDocsSection docs={warehouseDocs} />
         </Section>
 
         {/* Minted info */}
@@ -264,6 +342,6 @@ export default function BatchDetailPage() {
           </Section>
         )}
       </div>
-    </DashboardLayout>
+    </Layout>
   );
 }

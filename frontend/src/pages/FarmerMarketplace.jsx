@@ -1,161 +1,462 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import FarmerLayout from "../components/layout/FarmerLayout";
-import { getOrderbook, getTickers, getRecentTrades } from "../services/orderApi";
+import { getMarketStats, getMockOrderbook, getMockTrades, getChart } from "../services/marketApi";
 
-const C = { accent: "#00d4aa", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", card: "#141f2e" };
-const PAIRS = ["CR1/VND", "CR2/VND", "CR3/VND"];
-
-const GRADE_DESC = {
-  "CR1/VND": { grade: "CR1", name: "Xuất Sắc", desc: "Cà phê Robusta chất lượng cao nhất — phù hợp xuất khẩu" },
-  "CR2/VND": { grade: "CR2", name: "Tốt",      desc: "Robusta chất lượng tốt — tiêu dùng trong nước + xuất khẩu" },
-  "CR3/VND": { grade: "CR3", name: "Tiêu Chuẩn", desc: "Robusta tiêu chuẩn — phù hợp pha trộn và nội địa" },
+const C = {
+  accent: "#00d4aa", muted: "#6b7a99",
+  green:  "#0ecb81", red:   "#f6465d",
+  gold:   "#f0b90b", card:  "#141f2e",
 };
+const TOKEN_KEYS   = ["CR1", "CR2", "CR3"];
+const TOKEN_LABELS = { CR1: "CaRo1", CR2: "CaRo2", CR3: "CaRo3" };
+const TOKEN_COLORS = { CR1: "#f0b90b", CR2: "#00d4aa", CR3: "#9b87f5" };
+
+const TIME_OPTIONS = [
+  { key: "1h",  label: "1H"  },
+  { key: "24h", label: "24H" },
+  { key: "7d",  label: "7D"  },
+  { key: "30d", label: "30D" },
+  { key: "90d", label: "90D" },
+  { key: "1y",  label: "1Y"  },
+];
 
 function fmt(n, dec = 0) {
-  return Number(n || 0).toLocaleString("vi-VN", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  return Number(n || 0).toLocaleString("vi-VN", {
+    minimumFractionDigits: dec,
+    maximumFractionDigits: dec,
+  });
 }
 
-function PairCard({ ticker, selected, onClick }) {
-  const pair     = ticker?.pair || "—";
-  const last     = Number(ticker?.last_price || 0);
-  const high     = Number(ticker?.high        || 0);
-  const low      = Number(ticker?.low         || 0);
-  const volume   = Number(ticker?.volume      || 0);
-  const meta     = GRADE_DESC[pair] || {};
-  const change   = high && low ? ((last - low) / low * 100) : 0;
-  const isUp     = change >= 0;
+// ── OHLC Candlestick chart ────────────────────────────────────────────────────
+
+function CandleChart({ candles }) {
+  const W = 700, H_C = 210, H_V = 48, H = H_C + H_V, PAD_R = 52;
+
+  if (!candles || candles.length < 2) {
+    return (
+      <div style={{ height: H, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        <div style={{ fontSize: 24 }}>📊</div>
+        <div style={{ fontSize: 12, color: C.muted }}>Đang tải dữ liệu biểu đồ…</div>
+      </div>
+    );
+  }
+
+  const prices  = candles.flatMap(c => [c.high, c.low]);
+  const minP    = Math.min(...prices), maxP = Math.max(...prices);
+  const pRange  = maxP - minP || 1;
+  const maxVol  = Math.max(...candles.map(c => c.volume), 1);
+  const chartW  = W - PAD_R;
+  const step    = chartW / candles.length;
+  const cw      = Math.max(1.5, Math.min(10, step * 0.75));
+
+  const sy  = p => H_C - 8 - ((p - minP) / pRange) * (H_C - 18);
+  const sv  = v => (v / maxVol) * (H_V - 6);
+
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map(t => ({
+    price: minP + t * pRange,
+    y:     H_C - 8 - t * (H_C - 18),
+  }));
+
+  const last  = candles[candles.length - 1];
+  const lastY = sy(last.close);
+  const isUp  = last.close >= candles[0].close;
 
   return (
-    <div onClick={onClick} style={{ background: selected ? "rgba(0,212,170,0.07)" : C.card, border: `1px solid ${selected ? C.accent : "rgba(255,255,255,0.07)"}`, borderRadius: 10, padding: 16, cursor: "pointer", transition: "all 0.15s" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 15, color: selected ? C.accent : "#e2e8f0" }}>{pair}</div>
-          <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>☕ {meta.name || ""}</div>
-        </div>
-        <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 12, background: isUp ? "rgba(14,203,129,0.12)" : "rgba(246,70,93,0.12)", color: isUp ? C.green : C.red, fontWeight: 700 }}>
-          {isUp ? "▲" : "▼"} {Math.abs(change).toFixed(1)}%
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H, display: "block" }}
+         preserveAspectRatio="none">
+      {/* Grid lines */}
+      {yTicks.map((t, i) => (
+        <line key={i} x1={0} y1={t.y} x2={chartW} y2={t.y}
+              stroke="rgba(255,255,255,0.04)" strokeDasharray="3,4" />
+      ))}
+
+      {/* Volume area separator */}
+      <line x1={0} y1={H_C} x2={W} y2={H_C} stroke="rgba(255,255,255,0.06)" />
+
+      {/* Candles */}
+      {candles.map((c, i) => {
+        const cx    = i * step + step / 2;
+        const isGreen = c.close >= c.open;
+        const col   = isGreen ? C.green : C.red;
+        const bTop  = sy(Math.max(c.open, c.close));
+        const bH    = Math.max(1, Math.abs(sy(c.open) - sy(c.close)));
+        const vH    = sv(c.volume);
+        return (
+          <g key={i}>
+            <line x1={cx} y1={sy(c.high)} x2={cx} y2={sy(c.low)}
+                  stroke={col} strokeWidth="0.9" opacity="0.75" />
+            <rect x={cx - cw / 2} y={bTop} width={cw} height={bH}
+                  fill={col} opacity={isGreen ? 0.88 : 0.8} />
+            <rect x={cx - cw / 2} y={H_C + H_V - 3 - vH} width={cw} height={vH}
+                  fill={col} opacity={0.38} />
+          </g>
+        );
+      })}
+
+      {/* Last price dashed line */}
+      <line x1={0} y1={lastY} x2={chartW} y2={lastY}
+            stroke={isUp ? C.green : C.red} strokeWidth="0.8"
+            strokeDasharray="4,3" opacity="0.55" />
+
+      {/* Y-axis labels */}
+      {yTicks.map((t, i) => (
+        <text key={i} x={W - 2} y={t.y + 3} textAnchor="end"
+              fill="#6b7a99" fontSize="8.5" fontFamily="monospace">
+          {fmt(t.price)}
+        </text>
+      ))}
+
+      {/* Last price pill */}
+      <rect x={chartW + 1} y={lastY - 7} width={PAD_R - 2} height={13}
+            fill={isUp ? C.green : C.red} rx="2" opacity="0.9" />
+      <text x={W - 3} y={lastY + 3} textAnchor="end" fill="#fff"
+            fontSize="8" fontFamily="monospace" fontWeight="bold">
+        {fmt(last.close)}
+      </text>
+
+      {/* Volume label */}
+      <text x={3} y={H - 2} fill="#6b7a99" fontSize="8">VOL</text>
+    </svg>
+  );
+}
+
+// ── Multi-token comparison line chart ─────────────────────────────────────────
+
+function MultiLineChart({ dataMap }) {
+  const W = 700, H = 270, PAD_R = 52, chartW = W - PAD_R;
+
+  const tokens = TOKEN_KEYS.filter(t => (dataMap[t] || []).length >= 2);
+  if (!tokens.length) {
+    return (
+      <div style={{ height: H, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        <div style={{ fontSize: 24 }}>📊</div>
+        <div style={{ fontSize: 12, color: C.muted }}>Đang tải dữ liệu biểu đồ…</div>
+      </div>
+    );
+  }
+
+  // Normalise to % change vs first close
+  const norm = {};
+  for (const t of tokens) {
+    const pts  = dataMap[t];
+    const base = pts[0].close || 1;
+    norm[t] = pts.map(p => ((p.close - base) / base) * 100);
+  }
+
+  const allPcts = Object.values(norm).flat();
+  const minPct  = Math.min(...allPcts), maxPct = Math.max(...allPcts);
+  const pRange  = maxPct - minPct || 1;
+
+  const sy = pct => H - 10 - ((pct - minPct) / pRange) * (H - 22);
+
+  // grid ticks at 5 levels
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map(t => ({
+    pct: minPct + t * pRange,
+    y:   H - 10 - t * (H - 22),
+  }));
+
+  // Zero line Y
+  const zeroY = minPct <= 0 && maxPct >= 0 ? sy(0) : null;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H, display: "block" }}
+         preserveAspectRatio="none">
+      {/* Grid */}
+      {yTicks.map((t, i) => (
+        <line key={i} x1={0} y1={t.y} x2={chartW} y2={t.y}
+              stroke="rgba(255,255,255,0.04)" strokeDasharray="3,4" />
+      ))}
+      {/* Zero line */}
+      {zeroY !== null && (
+        <line x1={0} y1={zeroY} x2={chartW} y2={zeroY}
+              stroke="rgba(255,255,255,0.13)" strokeDasharray="5,3" />
+      )}
+
+      {/* Lines per token */}
+      {tokens.map(t => {
+        const pcts  = norm[t];
+        const step  = chartW / (pcts.length - 1 || 1);
+        const pts   = pcts.map((p, i) => `${(i * step).toFixed(1)},${sy(p).toFixed(1)}`).join(" ");
+        const last  = pcts[pcts.length - 1];
+        const lastY = sy(last);
+        const col   = TOKEN_COLORS[t];
+
+        return (
+          <g key={t}>
+            <polyline fill="none" stroke={col} strokeWidth="1.8"
+                      points={pts} strokeLinejoin="round" strokeLinecap="round" />
+            {/* Last % pill */}
+            <rect x={chartW + 1} y={lastY - 7} width={PAD_R - 2} height={13}
+                  fill={col} rx="2" opacity="0.9" />
+            <text x={W - 3} y={lastY + 3} textAnchor="end" fill="#000"
+                  fontSize="8" fontFamily="monospace" fontWeight="bold">
+              {last >= 0 ? "+" : ""}{last.toFixed(1)}%
+            </text>
+          </g>
+        );
+      })}
+
+      {/* Y-axis pct labels */}
+      {yTicks.map((t, i) => (
+        <text key={i} x={chartW - 3} y={t.y - 2} textAnchor="end"
+              fill="#6b7a99" fontSize="8" fontFamily="monospace">
+          {t.pct >= 0 ? "+" : ""}{t.pct.toFixed(1)}%
+        </text>
+      ))}
+    </svg>
+  );
+}
+
+// ── Order book ────────────────────────────────────────────────────────────────
+
+function OrderBookPanel({ token }) {
+  const bookToken = token === "all" ? "CR1" : token;
+  const { data, isLoading } = useQuery({
+    queryKey: ["mkt-orderbook", bookToken],
+    queryFn:  () => getMockOrderbook(bookToken, 20),
+    refetchInterval: 4_000,
+    staleTime: 3_000,
+  });
+
+  const bids   = data?.bids || [];
+  const asks   = data?.asks || [];
+  const maxQty = Math.max(...[...bids, ...asks].map(r => r.qty), 1);
+  const spread = bids.length && asks.length
+    ? Number(asks[0].price) - Number(bids[0].price)
+    : null;
+
+  if (isLoading) {
+    return <div style={{ textAlign: "center", padding: 20, fontSize: 12, color: C.muted }}>Đang tải…</div>;
+  }
+
+  const Row = ({ row, side }) => {
+    const pct = (row.qty / maxQty) * 68;
+    return (
+      <div style={{ position: "relative", display: "grid", gridTemplateColumns: "1fr auto", gap: 0, padding: "2px 10px" }}>
+        <div style={{
+          position: "absolute", [side === "bid" ? "right" : "left"]: 0,
+          top: 0, bottom: 0,
+          background: side === "bid" ? C.green : C.red,
+          opacity: 0.07, width: `${pct}%`,
+        }} />
+        <span style={{ fontSize: 11, color: side === "bid" ? C.green : C.red, fontWeight: 600, position: "relative", fontFamily: "monospace" }}>
+          {fmt(row.price)}
+        </span>
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", position: "relative", textAlign: "right", fontFamily: "monospace", minWidth: 52 }}>
+          {fmt(row.qty, 1)}
         </span>
       </div>
-      <div style={{ fontSize: 18, fontWeight: 800, color: last ? "#fff" : C.muted, marginBottom: 8 }}>
-        {last ? fmt(last) + " ₫" : "Chưa có giao dịch"}
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-        <div style={{ fontSize: 11, color: C.muted }}>High: <span style={{ color: C.green }}>{high ? fmt(high) : "—"}</span></div>
-        <div style={{ fontSize: 11, color: C.muted }}>Low:  <span style={{ color: C.red }}>{low ? fmt(low) : "—"}</span></div>
-        <div style={{ fontSize: 11, color: C.muted, gridColumn: "1/-1" }}>Vol: <span style={{ color: "#e2e8f0" }}>{fmt(volume, 2)} kg</span></div>
-      </div>
-    </div>
-  );
-}
-
-function OrderBookPanel({ pair }) {
-  const { data, isLoading } = useQuery({
-    queryKey: ["orderbook", pair],
-    queryFn: () => getOrderbook(pair),
-    refetchInterval: 4000,
-  });
-  const bids = data?.data?.bids || [];
-  const asks = data?.data?.asks || [];
-  const maxAmt = Math.max(...[...bids, ...asks].map(r => r.amount), 1);
-
-  if (isLoading) return <div style={{ color: C.muted, fontSize: 12, padding: 14 }}>Đang tải sổ lệnh...</div>;
-
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
-      {/* Bids */}
-      <div style={{ padding: "10px 12px", borderRight: "1px solid rgba(255,255,255,0.05)" }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: C.green, marginBottom: 8 }}>BID — MUA</div>
-        {bids.length === 0 ? (
-          <div style={{ fontSize: 11, color: C.muted, textAlign: "center", padding: "12px 0" }}>Trống</div>
-        ) : (
-          bids.slice(0, 6).map((r, i) => {
-            const pct = (r.amount / maxAmt) * 100;
-            return (
-              <div key={i} style={{ position: "relative", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, padding: "3px 4px", borderRadius: 3, marginBottom: 2 }}>
-                <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, background: C.green, opacity: 0.06, borderRadius: 3, width: `${pct}%` }} />
-                <span style={{ fontSize: 12, color: C.green, fontWeight: 600, position: "relative" }}>{fmt(r.price)}</span>
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", position: "relative", textAlign: "right" }}>{fmt(r.amount, 1)}</span>
-              </div>
-            );
-          })
-        )}
-      </div>
-      {/* Asks */}
-      <div style={{ padding: "10px 12px" }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: C.red, marginBottom: 8 }}>ASK — BÁN</div>
-        {asks.length === 0 ? (
-          <div style={{ fontSize: 11, color: C.muted, textAlign: "center", padding: "12px 0" }}>Trống</div>
-        ) : (
-          asks.slice(0, 6).map((r, i) => {
-            const pct = (r.amount / maxAmt) * 100;
-            return (
-              <div key={i} style={{ position: "relative", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, padding: "3px 4px", borderRadius: 3, marginBottom: 2 }}>
-                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, background: C.red, opacity: 0.06, borderRadius: 3, width: `${pct}%` }} />
-                <span style={{ fontSize: 12, color: C.red, fontWeight: 600, position: "relative" }}>{fmt(r.price)}</span>
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", position: "relative", textAlign: "right" }}>{fmt(r.amount, 1)}</span>
-              </div>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RecentTradesPanel({ pair }) {
-  const { data } = useQuery({
-    queryKey: ["recent-trades", pair],
-    queryFn: () => getRecentTrades(pair),
-    refetchInterval: 5000,
-  });
-  const trades = (data?.data || []).filter(t => t.pair === pair).slice(0, 8);
-
-  if (!trades.length) return <div style={{ fontSize: 12, color: C.muted, textAlign: "center", padding: "14px 0" }}>Chưa có giao dịch</div>;
+    );
+  };
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", padding: "0 0 6px", borderBottom: "1px solid rgba(255,255,255,0.05)", marginBottom: 4 }}>
-        {["Giá", "SL (kg)", "Giờ"].map(h => (
-          <span key={h} style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>{h}</span>
+      {/* Header row */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", padding: "4px 10px 3px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+        <span style={{ fontSize: 10, color: C.muted, fontWeight: 700 }}>GIÁ (₫)</span>
+        <span style={{ fontSize: 10, color: C.muted, fontWeight: 700, minWidth: 52, textAlign: "right" }}>SL</span>
+      </div>
+
+      {/* Asks reversed — lowest ask near spread */}
+      <div style={{ padding: "3px 0 0" }}>
+        {[...asks].slice(0, 20).reverse().map((r, i) => <Row key={i} row={r} side="ask" />)}
+      </div>
+
+      {/* Spread */}
+      <div style={{ textAlign: "center", padding: "5px 0", fontSize: 10, color: C.muted, background: "rgba(255,255,255,0.02)", borderTop: "1px solid rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+        {spread !== null
+          ? <>Spread <span style={{ color: "#e2e8f0", fontWeight: 600 }}>{fmt(spread)} ₫</span></>
+          : "—"}
+      </div>
+
+      {/* Bids */}
+      <div style={{ padding: "0 0 3px" }}>
+        {bids.slice(0, 20).map((r, i) => <Row key={i} row={r} side="bid" />)}
+      </div>
+
+      {token === "all" && (
+        <div style={{ textAlign: "center", padding: "5px 0 3px", fontSize: 10, color: C.muted, borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+          ℹ Hiển thị sổ lệnh CaRo1
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Recent trades ─────────────────────────────────────────────────────────────
+
+function TradesPanel({ token }) {
+  const { data } = useQuery({
+    queryKey: ["mkt-trades", token],
+    queryFn:  () => getMockTrades(token === "all" ? "all" : token, 30),
+    refetchInterval: 5_000,
+    staleTime: 4_000,
+  });
+  const trades = data?.trades || [];
+
+  if (!trades.length) {
+    return <div style={{ textAlign: "center", padding: "16px 0", fontSize: 12, color: C.muted }}>Chưa có giao dịch</div>;
+  }
+
+  const showToken = token === "all";
+  const cols = showToken
+    ? ["Thời gian", "Token", "Giá (₫)", "SL", "Tổng (₫)", "Chiều"]
+    : ["Thời gian", "Giá (₫)", "SL", "Tổng (₫)", "Chiều"];
+  const gridCols = showToken ? "1fr 0.7fr 1fr 0.8fr 1.1fr 0.6fr" : "1fr 1fr 0.8fr 1.1fr 0.6fr";
+
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: gridCols, padding: "4px 14px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+        {cols.map(h => (
+          <span key={h} style={{ fontSize: 10, color: C.muted, fontWeight: 700 }}>{h}</span>
         ))}
       </div>
       {trades.map((t, i) => (
-        <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", padding: "3px 0" }}>
-          <span style={{ fontSize: 12, color: C.green, fontWeight: 600 }}>{fmt(t.price)}</span>
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>{fmt(t.amount, 2)}</span>
-          <span style={{ fontSize: 11, color: C.muted }}>{new Date(t.created_at).toLocaleTimeString("vi-VN")}</span>
+        <div key={i} style={{ display: "grid", gridTemplateColumns: gridCols, padding: "3px 14px", borderBottom: "1px solid rgba(255,255,255,0.02)" }}>
+          <span style={{ fontSize: 10, color: C.muted, fontFamily: "monospace" }}>
+            {t.executedAt ? new Date(t.executedAt).toLocaleTimeString("vi-VN") : "—"}
+          </span>
+          {showToken && (
+            <span style={{ fontSize: 10, fontWeight: 700, color: TOKEN_COLORS[t.token] || C.muted }}>
+              {TOKEN_LABELS[t.token] || t.token}
+            </span>
+          )}
+          <span style={{ fontSize: 11, color: t.side === "buy" ? C.green : C.red, fontWeight: 700, fontFamily: "monospace" }}>
+            {fmt(t.price)}
+          </span>
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", fontFamily: "monospace" }}>
+            {fmt(t.quantity, 2)}
+          </span>
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontFamily: "monospace" }}>
+            {fmt(t.value)}
+          </span>
+          <span style={{ fontSize: 10, fontWeight: 700, color: t.side === "buy" ? C.green : C.red }}>
+            {t.side === "buy" ? "MUA" : "BÁN"}
+          </span>
         </div>
       ))}
     </div>
   );
 }
 
+// ── Stats bar ─────────────────────────────────────────────────────────────────
+
+function StatsBar({ stats, token }) {
+  // All-token view: 3 mini cards
+  if (token === "all") {
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 14 }}>
+        {TOKEN_KEYS.map(t => {
+          const s   = stats.find(r => r.token === t) || {};
+          const chg = Number(s.change_24h || 0);
+          return (
+            <div key={t} style={{ background: C.card, borderRadius: 8, border: `1px solid rgba(255,255,255,0.07)`, padding: "10px 14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: TOKEN_COLORS[t] }}>{TOKEN_LABELS[t]}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: chg >= 0 ? C.green : C.red }}>
+                  {chg >= 0 ? "▲" : "▼"}{Math.abs(chg).toFixed(2)}%
+                </span>
+              </div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", marginBottom: 6 }}>
+                {s.last_price ? fmt(s.last_price) + " ₫" : "—"}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, fontSize: 10, color: C.muted }}>
+                <span>24H H: <span style={{ color: C.green }}>{s.high_24h ? fmt(s.high_24h) : "—"}</span></span>
+                <span>24H L: <span style={{ color: C.red }}>{s.low_24h ? fmt(s.low_24h) : "—"}</span></span>
+                <span style={{ gridColumn: "1/-1" }}>Vol: <span style={{ color: "#e2e8f0" }}>{s.volume_24h ? fmt(Number(s.volume_24h), 0) : "—"} token</span></span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Single token view: inline bar
+  const s   = stats.find(r => r.token === token) || {};
+  const chg = Number(s.change_24h || 0);
+  const last = Number(s.last_price || 0);
+
+  return (
+    <div style={{ display: "flex", gap: 20, alignItems: "baseline", marginBottom: 14, flexWrap: "wrap", padding: "10px 16px", background: C.card, borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
+      <div>
+        <div style={{ fontSize: 11, color: C.muted, marginBottom: 2, fontWeight: 600 }}>Last Price</div>
+        <span style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{last ? fmt(last) + " ₫" : "—"}</span>
+      </div>
+      <div>
+        <div style={{ fontSize: 11, color: C.muted, marginBottom: 2 }}>24H Change</div>
+        <span style={{ fontSize: 14, fontWeight: 700, color: chg >= 0 ? C.green : C.red }}>
+          {chg >= 0 ? "▲" : "▼"} {Math.abs(chg).toFixed(2)}%
+        </span>
+      </div>
+      {[
+        ["24H High",  s.high_24h,   C.green],
+        ["24H Low",   s.low_24h,    C.red],
+        ["Volume",    s.volume_24h  ? fmt(Number(s.volume_24h), 0) + " token" : null, null],
+        ["Market Cap",s.market_cap  ? fmt(Number(s.market_cap)) + " ₫"        : null, null],
+      ].filter(([, v]) => v).map(([label, val, col]) => (
+        <div key={label}>
+          <div style={{ fontSize: 11, color: C.muted, marginBottom: 2 }}>{label}</div>
+          <span style={{ fontSize: 13, fontWeight: 600, color: col || "#e2e8f0" }}>
+            {typeof val === "string" ? val : fmt(val)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
 export default function FarmerMarketplace() {
   const navigate = useNavigate();
-  const [selectedPair, setSelectedPair] = useState("CR1/VND");
+  const [token, setToken] = useState("all");
+  const [time,  setTime]  = useState("24h");
 
-  const { data: tickerData, isLoading } = useQuery({
-    queryKey: ["tickers"],
-    queryFn: getTickers,
-    refetchInterval: 10000,
+  // Market stats (all tokens)
+  const { data: statsData } = useQuery({
+    queryKey: ["mkt-stats"],
+    queryFn:  getMarketStats,
+    refetchInterval: 10_000,
+    staleTime: 8_000,
   });
+  const stats = statsData?.stats || [];
 
-  const tickers = tickerData?.data || [];
-  const tickerMap = Object.fromEntries(tickers.map(t => [t.pair, t]));
+  // Chart data — refreshes automatically when token or time changes
+  const { data: chartData, isLoading: chartLoading } = useQuery({
+    queryKey: ["mkt-chart", token, time],
+    queryFn:  () => getChart(token, time),
+    refetchInterval: 15_000,
+    staleTime: 10_000,
+  });
+  const dataMap      = chartData?.data || {};
+  const singleCandles = token !== "all" ? (dataMap[token] || []) : [];
 
-  const selectedMeta = GRADE_DESC[selectedPair] || {};
+  const btnStyle = (active, color = C.accent) => ({
+    padding: "5px 12px",
+    borderRadius: 6,
+    border: `1px solid ${active ? color : "rgba(255,255,255,0.08)"}`,
+    background: active ? `${color}18` : "transparent",
+    color:  active ? color : C.muted,
+    fontWeight: 700,
+    fontSize: 12,
+    cursor: "pointer",
+    transition: "all 0.12s",
+  });
 
   return (
     <FarmerLayout title="Marketplace">
-      <div style={{ maxWidth: 1000 }}>
+      <div style={{ maxWidth: 1120 }}>
 
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
+        {/* ── Header ── */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>🏪 Marketplace — Cà Phê Robusta</h2>
-            <p style={{ margin: "3px 0 0", color: C.muted, fontSize: 13 }}>Xem giá thị trường · Sổ lệnh · Giao dịch gần đây</p>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>🏪 Marketplace — CaRo Token</h2>
+            <p style={{ margin: "3px 0 0", color: C.muted, fontSize: 13 }}>
+              Biểu đồ thời gian thực · Sổ lệnh 20 cấp · Giao dịch gần đây
+            </p>
           </div>
           <button onClick={() => navigate("/farmer/orders")}
             style={{ padding: "9px 20px", background: C.accent, border: "none", borderRadius: 8, color: "#000", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
@@ -163,74 +464,119 @@ export default function FarmerMarketplace() {
           </button>
         </div>
 
-        {/* Pair cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
-          {isLoading
-            ? PAIRS.map(p => <div key={p} style={{ background: C.card, borderRadius: 10, height: 130, border: "1px solid rgba(255,255,255,0.07)" }} />)
-            : PAIRS.map(p => (
-                <PairCard key={p} ticker={tickerMap[p] || { pair: p }} selected={selectedPair === p} onClick={() => setSelectedPair(p)} />
-              ))}
-        </div>
-
-        {/* Detail: order book + recent trades */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-
-          {/* Order Book */}
-          <div style={{ background: C.card, borderRadius: 10, border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden" }}>
-            <div style={{ padding: "11px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 13, fontWeight: 700 }}>📖 Sổ Lệnh — {selectedPair}</span>
-              <span style={{ fontSize: 11, color: C.muted }}>Cập nhật mỗi 4s</span>
-            </div>
-            <div style={{ padding: "4px 0" }}>
-              <OrderBookPanel pair={selectedPair} />
-            </div>
-            <div style={{ padding: "10px 16px", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-              <button onClick={() => navigate("/farmer/orders")}
-                style={{ width: "100%", padding: "9px 0", background: "rgba(0,212,170,0.1)", border: "1px solid rgba(0,212,170,0.2)", borderRadius: 7, color: C.accent, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
-                Giao dịch {selectedPair} →
+        {/* ── Filter row ── */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
+          {/* Token filter */}
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <span style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginRight: 2 }}>Token:</span>
+            <button onClick={() => setToken("all")} style={btnStyle(token === "all")}>All</button>
+            {TOKEN_KEYS.map(t => (
+              <button key={t} onClick={() => setToken(t)}
+                style={btnStyle(token === t, TOKEN_COLORS[t])}>
+                {TOKEN_LABELS[t]}
               </button>
+            ))}
+          </div>
+
+          {/* Time filter */}
+          <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+            <span style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginRight: 2 }}>Time:</span>
+            {TIME_OPTIONS.map(({ key, label }) => (
+              <button key={key} onClick={() => setTime(key)}
+                style={btnStyle(time === key)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Stats ── */}
+        <StatsBar stats={stats} token={token} />
+
+        {/* ── Chart + Order book ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 250px", gap: 12, marginBottom: 12 }}>
+
+          {/* Chart panel */}
+          <div style={{ background: C.card, borderRadius: 10, border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden" }}>
+            {/* Chart header */}
+            <div style={{ padding: "10px 14px 9px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 12, fontWeight: 700 }}>
+                📊{" "}
+                {token === "all"
+                  ? "So sánh CaRo1 / CaRo2 / CaRo3 (%)"
+                  : `${TOKEN_LABELS[token]}/VND · Candlestick`}
+                {" · "}
+                <span style={{ color: C.muted, fontWeight: 400 }}>{time.toUpperCase()}</span>
+              </span>
+
+              {/* Legend for All mode */}
+              {token === "all" && (
+                <div style={{ display: "flex", gap: 12 }}>
+                  {TOKEN_KEYS.map(t => (
+                    <span key={t} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11 }}>
+                      <span style={{ display: "inline-block", width: 14, height: 2.5, background: TOKEN_COLORS[t], borderRadius: 2 }} />
+                      <span style={{ color: TOKEN_COLORS[t], fontWeight: 700 }}>{TOKEN_LABELS[t]}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* OHLC summary for individual token */}
+              {token !== "all" && singleCandles.length > 0 && (() => {
+                const last = singleCandles[singleCandles.length - 1];
+                return (
+                  <div style={{ display: "flex", gap: 14, fontSize: 11 }}>
+                    <span>O: <span style={{ color: "#e2e8f0" }}>{fmt(last.open)}</span></span>
+                    <span>H: <span style={{ color: C.green }}>{fmt(last.high)}</span></span>
+                    <span>L: <span style={{ color: C.red }}>{fmt(last.low)}</span></span>
+                    <span>C: <span style={{ color: C.accent }}>{fmt(last.close)}</span></span>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div style={{ padding: "6px 4px 2px" }}>
+              {chartLoading ? (
+                <div style={{ height: 260, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: 12, color: C.muted }}>Đang tải dữ liệu…</span>
+                </div>
+              ) : token === "all" ? (
+                <MultiLineChart dataMap={dataMap} />
+              ) : (
+                <CandleChart candles={singleCandles} />
+              )}
             </div>
           </div>
 
-          {/* Recent trades + info */}
-          <div style={{ display: "grid", gap: 12 }}>
-            <div style={{ background: C.card, borderRadius: 10, border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden" }}>
-              <div style={{ padding: "11px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", fontSize: 13, fontWeight: 700 }}>
-                🔄 Giao Dịch Gần Đây — {selectedPair}
-              </div>
-              <div style={{ padding: "8px 14px" }}>
-                <RecentTradesPanel pair={selectedPair} />
-              </div>
+          {/* Order book panel */}
+          <div style={{ background: C.card, borderRadius: 10, border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden" }}>
+            <div style={{ padding: "10px 12px 9px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 12, fontWeight: 700 }}>📖 Sổ Lệnh</span>
+              <span style={{ fontSize: 10, color: C.muted }}>20 + 20 · 4s</span>
             </div>
-
-            <div style={{ background: C.card, borderRadius: 10, border: "1px solid rgba(255,255,255,0.07)", padding: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>ℹ️ Về {selectedPair}</div>
-              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7, marginBottom: 12 }}>{selectedMeta.desc}</div>
-              <div style={{ display: "grid", gap: 6 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                  <span style={{ color: C.muted }}>Giá hiện tại</span>
-                  <span style={{ color: "#e2e8f0", fontWeight: 600 }}>
-                    {tickerMap[selectedPair]?.last_price ? fmt(tickerMap[selectedPair].last_price) + " VND/kg" : "Chưa có"}
-                  </span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                  <span style={{ color: C.muted }}>Khối lượng 24h</span>
-                  <span style={{ color: "#e2e8f0", fontWeight: 600 }}>
-                    {tickerMap[selectedPair]?.volume ? fmt(tickerMap[selectedPair].volume, 2) + " kg" : "—"}
-                  </span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                  <span style={{ color: C.muted }}>Loại</span>
-                  <span style={{ color: C.accent, fontWeight: 600 }}>☕ Robusta — {selectedMeta.name}</span>
-                </div>
-              </div>
+            <div style={{ maxHeight: 420, overflowY: "auto" }}>
+              <OrderBookPanel token={token} />
             </div>
           </div>
         </div>
 
-        {/* Bottom info */}
-        <div style={{ marginTop: 16, padding: "12px 18px", background: "rgba(0,212,170,0.04)", border: "1px solid rgba(0,212,170,0.1)", borderRadius: 8, fontSize: 12, color: C.muted, lineHeight: 1.7 }}>
-          📋 Giá và sổ lệnh được cập nhật real-time từ matching engine. Để đặt lệnh mua/bán, nhấn <strong style={{ color: C.accent }}>Đặt lệnh →</strong> hoặc vào menu <strong style={{ color: "#e2e8f0" }}>Orders</strong>.
+        {/* ── Recent trades ── */}
+        <div style={{ background: C.card, borderRadius: 10, border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden" }}>
+          <div style={{ padding: "10px 14px 9px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 12, fontWeight: 700 }}>
+              🔄 Giao Dịch Gần Đây{token !== "all" ? ` — ${TOKEN_LABELS[token]}` : " — Tất cả"}
+            </span>
+            <span style={{ fontSize: 10, color: C.muted }}>Cập nhật mỗi 5s</span>
+          </div>
+          <div style={{ maxHeight: 230, overflowY: "auto" }}>
+            <TradesPanel token={token} />
+          </div>
+        </div>
+
+        {/* ── Footer note ── */}
+        <div style={{ marginTop: 14, padding: "11px 16px", background: "rgba(0,212,170,0.04)", border: "1px solid rgba(0,212,170,0.1)", borderRadius: 8, fontSize: 12, color: C.muted }}>
+          📋 Dữ liệu được tạo tự động bởi <strong style={{ color: C.accent }}>Mock Market Engine</strong> (MARKET_MODE=MOCK).
+          Biểu đồ, sổ lệnh và giao dịch cập nhật real-time. Để đặt lệnh thực, nhấn <strong style={{ color: C.accent }}>Đặt lệnh →</strong>.
         </div>
 
       </div>
