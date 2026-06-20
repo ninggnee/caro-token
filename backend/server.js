@@ -20,8 +20,11 @@ import migrateRoutes    from './routes/migrateRoutes.js';
 import adminSetupRoutes from './routes/adminSetupRoutes.js';
 import orderRoutes      from './routes/orderRoutes.js';
 import walletRoutes     from './routes/walletRoutes.js';
-import custodianRoutes  from './routes/custodianRoutes.js';
-import assetBatchRoutes from './routes/assetBatchRoutes.js';
+import custodianRoutes         from './routes/custodianRoutes.js';
+import assetBatchRoutes        from './routes/assetBatchRoutes.js';
+import warehouseDocumentRoutes from './routes/warehouseDocumentRoutes.js';
+import mockMarketRoutes        from './routes/mockMarketRoutes.js';
+import MockMarketEngine        from './services/MockMarketEngine.js';
 
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
@@ -31,7 +34,7 @@ app.use(cors());
 app.use(express.json());
 
 // Ensure upload directories exist
-['uploads/kyc', 'uploads/deposits', 'uploads/batches'].forEach(dir => {
+['uploads/kyc', 'uploads/deposits', 'uploads/batches', 'uploads/warehouse-docs'].forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -46,7 +49,8 @@ app.use('/api/admin/users',  adminUsersRoutes);
 app.use('/api/admin',        adminSummaryRoutes);
 app.use('/api/admin/logs',   adminLogsRoutes);
 app.use('/api/token',        tokenRoutes);
-app.use('/api/market',       marketRoutes);       // legacy market (backward compat)
+app.use('/api/market',       mockMarketRoutes);   // mock market engine (MARKET_MODE=MOCK)
+app.use('/api/market-legacy', marketRoutes);     // legacy market (kept for backward compat)
 app.use('/api/redeem',       redeemRoutes);
 app.use('/api/migrate',      migrateRoutes);
 app.use('/api/admin/setup',  adminSetupRoutes);
@@ -54,8 +58,9 @@ app.use('/api/admin/setup',  adminSetupRoutes);
 // ── New routes (Parts 4, 5, 8, 11) ───────────────────────────────────────────
 app.use('/api/orders',       orderRoutes);        // matching engine
 app.use('/api/wallet',       walletRoutes);       // VND deposit/withdraw
-app.use('/api/custodian',    custodianRoutes);    // RWA custodian flow
-app.use('/api/batches',     assetBatchRoutes);   // Asset batch mint workflow
+app.use('/api/custodian',            custodianRoutes);         // RWA custodian flow
+app.use('/api/batches',             assetBatchRoutes);         // Asset batch mint workflow
+app.use('/api/warehouse-documents', warehouseDocumentRoutes);  // Warehouse document IPFS storage
 
 app.get('/', (_, res) => res.json({ message: 'CaRo Backend Running' }));
 
@@ -73,5 +78,15 @@ app.listen(PORT, async () => {
   } catch (err) {
     console.error(`❌ DB connection FAILED: ${err.message}`);
     console.error('   Check DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME in .env');
+  }
+
+  // Start mock market engine unless explicitly in LIVE mode
+  if (process.env.MARKET_MODE !== 'LIVE') {
+    try {
+      await MockMarketEngine.initialize();
+      MockMarketEngine.start();
+    } catch (err) {
+      console.warn('⚠️  MockMarketEngine failed to start:', err.message);
+    }
   }
 });

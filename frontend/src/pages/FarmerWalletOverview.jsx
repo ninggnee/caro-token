@@ -17,6 +17,11 @@ function useBalances(walletAddress) {
   });
 }
 
+function extractBal(bals, key) {
+  const v = bals[key];
+  return Number(v?.total ?? v ?? 0);
+}
+
 function BalCard({ label, value, sub, accent, action, onAction }) {
   return (
     <div style={{ background: C.card, borderRadius: 10, padding: "20px", border: `1px solid ${C.border}` }}>
@@ -102,7 +107,7 @@ export default function FarmerWalletOverview() {
                 <tr><td colSpan={5} style={{ padding: 30, textAlign: "center", color: C.muted, fontSize: 13 }}>Đang tải số dư…</td></tr>
               )}
               {tokens.map(t => {
-                const bal = Number(bals[t] || 0);
+                const bal = extractBal(bals, t);
                 const val = bal * PRICE[t];
                 return (
                   <tr key={t} style={{ borderBottom: `1px solid ${C.border}` }}>

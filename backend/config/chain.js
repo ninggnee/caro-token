@@ -16,6 +16,17 @@ export const CONTRACT_ADDRESSES = {
   CR3: process.env.CA_RO_CR3 || '0xDD4861C50D600B76F3fc0Ed5b247b8959b8A0d27',
 };
 
+// WarehouseDocumentRegistry.sol — optional, set after deployment
+export const WAREHOUSE_DOC_REGISTRY_ADDRESS = process.env.WAREHOUSE_DOC_REGISTRY_ADDRESS || null;
+
+// ABI for WarehouseDocumentRegistry.sol
+export const WAREHOUSE_DOC_REGISTRY_ABI = [
+  'function addWarehouseDocument(uint256 warehouseId, string memory cid, string memory documentType, string memory documentName, uint256 dbRecordId) external',
+  'function cidExists(string memory cid) view returns (bool)',
+  'function getWarehouseDocs(uint256 warehouseId) view returns (tuple(uint256 warehouseId, string cid, string documentType, string documentName, uint256 timestamp, address recordedBy, uint256 dbRecordId)[])',
+  'function totalDocuments() view returns (uint256)',
+];
+
 // Singleton provider — reuse one instance to avoid EventEmitter listener leaks
 let _provider = null;
 export const getProvider = () => {
@@ -45,5 +56,7 @@ export default {
   CONTRACT_ADDRESSES,
   COFFEE_TOKEN_ABI,
   LEGACY_TOKEN_ABI,
+  WAREHOUSE_DOC_REGISTRY_ADDRESS,
+  WAREHOUSE_DOC_REGISTRY_ABI,
   getProvider,
 };

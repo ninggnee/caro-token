@@ -6,10 +6,7 @@ import { logAction, auditMeta } from '../services/AuditService.js';
 
 // Document categories that are required before a batch can be submitted
 const REQUIRED_DOC_TYPES = [
-  'farmer_identity',
-  'farm_ownership',
   'harvest_certificate',
-  'warehouse_receipt',
   'quality_inspection',
   'coffee_photos',
 ];
@@ -27,13 +24,10 @@ export const createBatch = async (req, res) => {
     const farmerId = req.user?.id;
     if (!farmerId) return res.status(401).json({ message: 'Unauthorized' });
 
-    const { quantity, quality_grade, harvest_date, storage_location, estimated_value, batch_description } = req.body;
+    const { quantity, harvest_date, storage_location, batch_description } = req.body;
 
     if (!quantity || Number(quantity) <= 0) {
       return res.status(400).json({ message: 'Khối lượng (quantity) phải lớn hơn 0' });
-    }
-    if (!['CR1','CR2','CR3'].includes(quality_grade)) {
-      return res.status(400).json({ message: 'quality_grade phải là CR1, CR2 hoặc CR3' });
     }
 
     // Validate all required document types are present
@@ -50,12 +44,13 @@ export const createBatch = async (req, res) => {
     // ── Persist batch record ──────────────────────────────────────────────
     await db.execute(
       `INSERT INTO asset_batches
-         (batch_id, farmer_id, coffee_type, quantity, quality_grade,
-          harvest_date, storage_location, estimated_value, batch_description, status)
-       VALUES (?, ?, 'ROBUSTA', ?, ?, ?, ?, ?, ?, 'PENDING_MINT_APPROVAL')`,
-      [batchId, farmerId, quantity, quality_grade,
+         (batch_id, farmer_id, coffee_type, quantity,
+          harvest_date, storage_location, batch_description, status)
+       VALUES (?, ?, 'ROBUSTA', ?,
+               ?, ?, ?, 'PENDING_MINT_APPROVAL')`,
+      [batchId, farmerId, quantity,
        harvest_date || null, storage_location || null,
-       estimated_value || null, batch_description || null]
+       batch_description || null]
     );
 
     // ── Upload each file to IPFS and store document records ───────────────
@@ -88,7 +83,7 @@ export const createBatch = async (req, res) => {
 
     await logAction({
       actorId: farmerId, action: 'batch:create', entityType: 'asset_batch', entityId: null,
-      newData: { batchId, quantity, quality_grade, docCount: allFiles.length },
+      newData: { batchId, quantity, docCount: allFiles.length },
       ...auditMeta(req),
     });
 
@@ -166,12 +161,26 @@ export const getBatchById = async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    // Attach documents
+    // Attach batch documents
     const [docs] = await db.execute(
       `SELECT * FROM batch_documents WHERE batch_id = ? ORDER BY document_type, uploaded_at`,
       [batch.batch_id]
     );
     batch.documents = docs;
+
+    // Attach farmer's warehouse documents
+    try {
+      const [warehouseDocs] = await db.execute(
+        `SELECT id, document_type, document_name, cid, file_size, mime_type, created_at
+         FROM warehouse_documents
+         WHERE uploaded_by = ? AND status = 'active'
+         ORDER BY document_type, created_at DESC`,
+        [batch.farmer_id]
+      );
+      batch.warehouse_documents = warehouseDocs;
+    } catch (_) {
+      batch.warehouse_documents = [];
+    }
 
     res.json({ success: true, batch });
   } catch (err) {
@@ -207,7 +216,7 @@ export const getAllBatches = async (req, res) => {
     );
 
     const [rows] = await db.execute(
-      `SELECT b.*, u.full_name as farmer_name, u.email as farmer_email
+      `SELECT b.*, u.full_name as farmer_name, u.email as farmer_email, u.wallet_address as farmer_wallet
        FROM asset_batches b
        LEFT JOIN users u ON u.id = b.farmer_id
        ${where} ORDER BY b.created_at DESC LIMIT ${lim} OFFSET ${off}`,
@@ -256,10 +265,45 @@ export const getBatchDocuments = async (req, res) => {
   }
 };
 
+// ── Admin: set grade (A→CR1, B→CR2, C→CR3) ──────────────────────────────
+export const updateGrade = async (req, res) => {
+  const { id } = req.params;
+  const { grade } = req.body; // 'A' | 'B' | 'C'
+
+  const GRADE_MAP = { A: 'CR1', B: 'CR2', C: 'CR3' };
+  if (!GRADE_MAP[grade]) {
+    return res.status(400).json({ message: 'grade must be A, B, or C' });
+  }
+
+  try {
+    const [[batch]] = await db.execute(
+      `SELECT id, status FROM asset_batches WHERE id = ? LIMIT 1`, [id]
+    );
+    if (!batch) return res.status(404).json({ message: 'Batch not found' });
+    if (!['PENDING_MINT_APPROVAL', 'APPROVED'].includes(batch.status)) {
+      return res.status(422).json({ message: 'Grade can only be changed on pending batches' });
+    }
+
+    await db.execute(
+      `UPDATE asset_batches SET quality_grade = ? WHERE id = ?`,
+      [GRADE_MAP[grade], id]
+    );
+
+    res.json({ success: true, grade, quality_grade: GRADE_MAP[grade] });
+  } catch (err) {
+    console.error('updateGrade error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // ── Admin: approve & mint to internal wallet ──────────────────────────────
 export const approveBatch = async (req, res) => {
   const adminId = req.user?.id;
   const { id }  = req.params;
+  const { grade } = req.body; // optional: 'A' | 'B' | 'C'
+
+  // If grade provided in approve call, apply it first
+  const GRADE_MAP = { A: 'CR1', B: 'CR2', C: 'CR3' };
 
   try {
     const [[batch]] = await db.execute(
@@ -272,6 +316,12 @@ export const approveBatch = async (req, res) => {
     if (!batch) return res.status(404).json({ message: 'Batch not found' });
     if (batch.status !== 'PENDING_MINT_APPROVAL') {
       return res.status(422).json({ message: `Không thể duyệt batch đang ở trạng thái: ${batch.status}` });
+    }
+
+    // Apply grade if provided in the approve call
+    if (grade && GRADE_MAP[grade]) {
+      await db.execute(`UPDATE asset_batches SET quality_grade = ? WHERE id = ?`, [GRADE_MAP[grade], id]);
+      batch.quality_grade = GRADE_MAP[grade];
     }
 
     // Verify required documents are uploaded
@@ -297,33 +347,41 @@ export const approveBatch = async (req, res) => {
       [adminId, id]
     );
 
-    // ── Optional blockchain mint (to platform treasury) ───────────────────
+    // ── Mint directly to farmer's blockchain wallet ───────────────────────
+    const farmerWallet = batch.farmer_ext_wallet;
+    if (!farmerWallet || !/^0x[0-9a-fA-F]{40}$/.test(farmerWallet)) {
+      await db.execute(
+        `UPDATE asset_batches SET status='PENDING_MINT_APPROVAL', reviewed_by=NULL, approved_at=NULL WHERE id=?`,
+        [id]
+      );
+      return res.status(422).json({ success: false, message: 'Farmer chưa có ví blockchain hợp lệ. Vui lòng yêu cầu farmer cập nhật wallet address trước khi duyệt.' });
+    }
+
+    // Determine token type: use quality_grade if set, otherwise default to CR1
+    const tokenType = batch.quality_grade || 'CR1';
+
     let txHash = null;
     let blockNumber = null;
-    const treasuryAddr = process.env.PLATFORM_TREASURY_ADDRESS;
-    const isValidAddr = /^0x[0-9a-fA-F]{40}$/.test(treasuryAddr || '');
 
-    if (isValidAddr) {
-      try {
-        const result = await mintToken({
-          tokenType: batch.quality_grade,
-          toAddress:  treasuryAddr,
-          amount:     Number(batch.quantity),
-          lotCode:    batch.batch_id,
-          requestId:  String(batch.id),
-        });
-        txHash      = result.txHash;
-        blockNumber = result.blockNumber;
-      } catch (chainErr) {
-        // Rollback batch status
-        await db.execute(
-          `UPDATE asset_batches
-           SET status='PENDING_MINT_APPROVAL', reviewed_by=NULL, approved_at=NULL
-           WHERE id=?`,
-          [id]
-        );
-        return res.status(500).json({ success: false, message: `Blockchain mint thất bại: ${chainErr.message}` });
-      }
+    try {
+      const result = await mintToken({
+        tokenType,
+        toAddress: farmerWallet,
+        amount:    Number(batch.quantity),
+        lotCode:   batch.batch_id,
+        requestId: String(batch.id),
+      });
+      txHash      = result.txHash;
+      blockNumber = result.blockNumber;
+    } catch (chainErr) {
+      // Rollback batch status
+      await db.execute(
+        `UPDATE asset_batches
+         SET status='PENDING_MINT_APPROVAL', reviewed_by=NULL, approved_at=NULL
+         WHERE id=?`,
+        [id]
+      );
+      return res.status(500).json({ success: false, message: `Blockchain mint thất bại: ${chainErr.message}` });
     }
 
     // ── Credit farmer's internal exchange wallet ───────────────────────────
@@ -331,14 +389,14 @@ export const approveBatch = async (req, res) => {
     try {
       await conn.beginTransaction();
 
-      // Upsert user_balances for this token type
+      // Upsert user_balances for this token type (internal exchange record)
       await conn.execute(
         `INSERT INTO user_balances (user_id, token_type, balance, available_balance, locked_balance)
          VALUES (?, ?, ?, ?, 0)
          ON DUPLICATE KEY UPDATE
            balance           = balance           + VALUES(balance),
            available_balance = available_balance + VALUES(available_balance)`,
-        [batch.farmer_id, batch.quality_grade, batch.quantity, batch.quantity]
+        [batch.farmer_id, tokenType, batch.quantity, batch.quantity]
       );
 
       // Update batch to MINTED
@@ -363,17 +421,18 @@ export const approveBatch = async (req, res) => {
 
     await logAction({
       actorId: adminId, action: 'batch:mint', entityType: 'asset_batch', entityId: batch.id,
-      newData: { txHash, blockNumber, mintedAmount: batch.quantity, tokenType: batch.quality_grade },
+      newData: { txHash, blockNumber, mintedAmount: batch.quantity, tokenType, farmerWallet },
       ...auditMeta(req),
     });
 
     res.json({
-      success:      true,
-      message:      `Đã mint ${Number(batch.quantity).toLocaleString()} ${batch.quality_grade} vào ví nội bộ của farmer`,
-      tx_hash:      txHash,
-      block_number: blockNumber,
+      success:       true,
+      message:       `Đã mint ${Number(batch.quantity).toLocaleString()} ${tokenType} trực tiếp vào ví của farmer (${farmerWallet})`,
+      tx_hash:       txHash,
+      block_number:  blockNumber,
       minted_amount: batch.quantity,
-      token_type:   batch.quality_grade,
+      token_type:    tokenType,
+      farmer_wallet: farmerWallet,
     });
   } catch (err) {
     console.error('approveBatch error:', err);

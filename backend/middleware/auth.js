@@ -17,9 +17,11 @@ export const verifyToken = (req, res, next) => {
   }
 };
 
-export const requireRole = (role) => (req, res, next) => {
+// Accepts a single role string or multiple role strings
+export const requireRole = (...roles) => (req, res, next) => {
   const user = req.user;
   if (!user) return res.status(401).json({ message: "Unauthorized" });
-  if (user.role !== role) return res.status(403).json({ message: "Forbidden" });
+  const allowed = roles.flat();
+  if (!allowed.includes(user.role)) return res.status(403).json({ message: "Forbidden" });
   next();
 };

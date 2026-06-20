@@ -16,7 +16,7 @@ import crypto from 'crypto';
 import db     from '../config/db.js';
 import { logAction, auditMeta } from '../services/AuditService.js';
 
-const ACCESS_EXPIRES  = '15m';
+const ACCESS_EXPIRES  = '8h';
 const REFRESH_DAYS    = 30;
 
 function signAccess(payload) {

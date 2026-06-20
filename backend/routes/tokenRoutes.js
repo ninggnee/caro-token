@@ -7,8 +7,11 @@ const router = express.Router();
 router.post('/requests', verifyToken, requireRole('farmer'), createTokenRequest);
 router.get('/requests', verifyToken, requireRole('farmer'), listTokenRequestsForUser);
 
-// balances
+// balances — internal DB
 router.get('/balances', verifyToken, requireRole('farmer'), getUserBalances);
+router.get('/balances/onchain', verifyToken, requireRole('farmer'), getOnChainBalances);
+
+// on-chain balance (live from blockchain)
 router.get('/balances/onchain', verifyToken, requireRole('farmer'), getOnChainBalances);
 
 // admin

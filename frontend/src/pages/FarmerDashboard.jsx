@@ -18,6 +18,11 @@ function useBalances(walletAddress) {
   });
 }
 
+function extractBal(bals, key) {
+  const v = bals[key];
+  return Number(v?.total ?? v ?? 0);
+}
+
 function StatCard({ label, value, sub, accent, icon }) {
   return (
     <div style={{ background: "#172524", borderRadius: 10, padding: "18px 20px", border: "1px solid rgba(72,117,115,0.15)", display: "flex", flexDirection: "column", gap: 6 }}>

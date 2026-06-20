@@ -14,7 +14,7 @@
  */
 
 import db                from '../config/db.js';
-import { mintToken as mintTokenOnChain } from '../services/BlockchainService.js';
+import { mintToken as mintTokenOnChain, getOnChainBalance } from '../services/BlockchainService.js';
 import { creditMint }    from '../services/BalanceService.js';
 import { logAction, auditMeta } from '../services/AuditService.js';
 import chain             from '../config/chain.js';
@@ -198,10 +198,11 @@ export const mintToken = async (req, res) => {
     const id      = req.params.id;
     const adminId = req.user?.id;
 
-    // Load request with farmer wallet
+    // Load request with farmer wallet — prefer user_wallets, fall back to users.wallet_address
     const [[row]] = await db.execute(
-      `SELECT tr.*, uw.wallet_address AS farmer_wallet, cl.lot_code
+      `SELECT tr.*, COALESCE(uw.wallet_address, u.wallet_address) AS farmer_wallet, cl.lot_code
        FROM token_requests tr
+       LEFT JOIN users u ON u.id = tr.user_id
        LEFT JOIN user_wallets uw ON uw.user_id = tr.user_id AND uw.role = 'farmer'
        LEFT JOIN coffee_lots cl ON tr.lot_id_ref = cl.id
        WHERE tr.id = ? LIMIT 1`,

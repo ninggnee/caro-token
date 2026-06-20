@@ -17,6 +17,11 @@ function useOnChainBalances(walletAddress) {
   });
 }
 
+function extractBal(bals, key) {
+  const v = bals[key];
+  return Number(v?.total ?? v ?? 0);
+}
+
 function StatCard({ label, value, sub, color }) {
   return (
     <div style={{ background: C.card, borderRadius: 10, padding: "20px 22px", border: `1px solid ${C.border}` }}>
@@ -35,7 +40,7 @@ export default function FarmerTokenHoldings() {
   const balances = balQ.data?.balances || {};
   const walletAddr = account || balQ.data?.wallet_address || user?.wallet_address;
 
-  const totalCaRo = TOKEN_TYPES.reduce((s, t) => s + Number(balances[t] || 0), 0);
+  const totalCaRo = TOKEN_TYPES.reduce((s, t) => s + extractBal(balances, t), 0);
   const hasWallet = walletAddr && /^0x[0-9a-fA-F]{40}$/.test(walletAddr);
 
   return (
@@ -130,7 +135,7 @@ export default function FarmerTokenHoldings() {
                   </tr>
                 )}
                 {!balQ.isLoading && TOKEN_TYPES.map(t => {
-                  const bal = Number(balances[t] || 0);
+                  const bal = extractBal(balances, t);
                   const contractAddr = balQ.data?.contracts?.[t];
                   return (
                     <tr key={t} style={{ borderBottom: `1px solid ${C.border}` }}>
@@ -178,6 +183,7 @@ export default function FarmerTokenHoldings() {
                     <td />
                   </tr>
                 )}
+
               </tbody>
             </table>
           )}
