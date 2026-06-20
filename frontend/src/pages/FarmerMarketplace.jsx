@@ -459,7 +459,7 @@ export default function FarmerMarketplace() {
             </p>
           </div>
           <button onClick={() => navigate("/farmer/orders")}
-            style={{ padding: "9px 20px", background: C.accent, border: "none", borderRadius: 8, color: "#000", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+            style={{ padding: "9px 20px", background: C.accent, border: "none", borderRadius: 8, color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
             📈 Đặt lệnh →
           </button>
         </div>

@@ -25,7 +25,7 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ storage, fileFilter, limits: { fileSize: 2 * 1024 * 1024 } }); // 2MB
 
-router.post("/ocr", upload.single("image"), processOcr);
+router.post("/ocr", upload.fields([{ name: "front" }, { name: "back" }]), processOcr);
 router.post("/submit", verifyToken, upload.fields([{ name: "front" }, { name: "back" }]), submitKyc);
 
 export default router;

@@ -62,10 +62,10 @@ export default function KycAdmin() {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          background: "#131b24",
+          background: "#172524",
           padding: "20px 24px",
           borderRadius: 16,
-          border: "1px solid rgba(255,255,255,0.06)",
+          border: "1px solid rgba(72,117,115,0.15)",
         }}>
           <div>
             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800 }}>Duyệt danh tính KYC</h1>
@@ -74,13 +74,13 @@ export default function KycAdmin() {
             </p>
           </div>
           <div style={{
-            background: "#1e293b",
-            color: "#38bdf8",
+            background: "rgba(72, 117, 115, 0.08)",
+            color: "#7fe0c9",
             padding: "8px 16px",
             borderRadius: 12,
             fontWeight: 600,
             fontSize: 14,
-            border: "1px solid rgba(56, 189, 248, 0.2)"
+            border: "1px solid rgba(72, 117, 115, 0.3)"
           }}>
             ⏳ Đang chờ duyệt: {items.length}
           </div>
@@ -97,9 +97,9 @@ export default function KycAdmin() {
           <div style={{
             textAlign: "center",
             padding: "60px 20px",
-            background: "#131b24",
+            background: "#172524",
             borderRadius: 16,
-            border: "1px solid rgba(255,255,255,0.06)",
+            border: "1px solid rgba(72,117,115,0.15)",
             color: "#9ca3af",
           }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
@@ -111,37 +111,37 @@ export default function KycAdmin() {
         {/* LIST TABLE */}
         {!loading && items.length > 0 && (
           <div style={{
-            background: "#131b24",
+            background: "#172524",
             borderRadius: 16,
-            border: "1px solid rgba(255,255,255,0.06)",
+            border: "1px solid rgba(72,117,115,0.15)",
             overflow: "hidden",
           }}>
             <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
               <thead>
-                <tr style={{ background: "#1a232d", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                  <th style={{ padding: "16px 20px", color: "#9ca3af", fontWeight: 600 }}>Khách hàng</th>
-                  <th style={{ padding: "16px 20px", color: "#9ca3af", fontWeight: 600 }}>Số CCCD</th>
-                  <th style={{ padding: "16px 20px", color: "#9ca3af", fontWeight: 600 }}>Thời gian gửi</th>
-                  <th style={{ padding: "16px 20px", color: "#9ca3af", fontWeight: 600 }}>Hình ảnh CCCD</th>
-                  <th style={{ padding: "16px 20px", color: "#9ca3af", fontWeight: 600, textAlign: "right" }}>Thao tác</th>
+                <tr style={{ background: "transparent", borderBottom: "1px solid rgba(72,117,115,0.15)" }}>
+                  <th style={{ padding: "16px 20px", color: "#9ca3af", fontWeight: 600, fontSize: 13 }}>Khách hàng</th>
+                  <th style={{ padding: "16px 20px", color: "#9ca3af", fontWeight: 600, fontSize: 13 }}>Số CCCD</th>
+                  <th style={{ padding: "16px 20px", color: "#9ca3af", fontWeight: 600, fontSize: 13 }}>Thời gian gửi</th>
+                  <th style={{ padding: "16px 20px", color: "#9ca3af", fontWeight: 600, fontSize: 13 }}>Hình ảnh CCCD</th>
+                  <th style={{ padding: "16px 20px", color: "#9ca3af", fontWeight: 600, fontSize: 13, textAlign: "right" }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((it) => (
-                  <tr key={it.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                  <tr key={it.id} style={{ borderBottom: "1px solid rgba(72,117,115,0.1)" }}>
                     <td style={{ padding: "16px 20px" }}>
                       <div style={{ fontWeight: 700, fontSize: 15, color: "#fff" }}>{it.full_name}</div>
                       <div style={{ fontSize: 13, color: "#9ca3af", marginTop: 2 }}>{it.email}</div>
                     </td>
                     <td style={{ padding: "16px 20px" }}>
                       <span style={{
-                        background: it.id_number ? "rgba(56, 189, 248, 0.1)" : "rgba(239, 68, 68, 0.1)",
-                        color: it.id_number ? "#38bdf8" : "#ef4444",
+                        background: it.id_number ? "rgba(72, 117, 115, 0.08)" : "rgba(246, 70, 93, 0.12)",
+                        color: it.id_number ? "#7fe0c9" : "#f6465d",
                         padding: "4px 10px",
                         borderRadius: 6,
                         fontSize: 13,
                         fontWeight: 600,
-                        border: it.id_number ? "1px solid rgba(56, 189, 248, 0.2)" : "1px solid rgba(239, 68, 68, 0.2)"
+                        border: it.id_number ? "1px solid rgba(72, 117, 115, 0.2)" : "1px solid rgba(246, 70, 93, 0.2)"
                       }}>
                         {it.id_number || "Không có số"}
                       </span>
@@ -155,7 +155,7 @@ export default function KycAdmin() {
                           <img
                             src={it.front_path}
                             alt="Front"
-                            style={{ width: 60, height: 40, objectFit: "cover", borderRadius: 4, cursor: "pointer", border: "1px solid rgba(255,255,255,0.1)" }}
+                            style={{ width: 60, height: 40, objectFit: "cover", borderRadius: 4, cursor: "pointer", border: "1px solid rgba(72,117,115,0.2)" }}
                             onClick={() => setLightbox({ src: it.front_path, title: `Mặt trước CCCD - ${it.full_name}` })}
                           />
                         )}
@@ -163,7 +163,7 @@ export default function KycAdmin() {
                           <img
                             src={it.back_path}
                             alt="Back"
-                            style={{ width: 60, height: 40, objectFit: "cover", borderRadius: 4, cursor: "pointer", border: "1px solid rgba(255,255,255,0.1)" }}
+                            style={{ width: 60, height: 40, objectFit: "cover", borderRadius: 4, cursor: "pointer", border: "1px solid rgba(72,117,115,0.2)" }}
                             onClick={() => setLightbox({ src: it.back_path, title: `Mặt sau CCCD - ${it.full_name}` })}
                           />
                         )}
@@ -175,8 +175,8 @@ export default function KycAdmin() {
                           onClick={() => setSelectedItem(it)}
                           style={{
                             background: "transparent",
-                            color: "#e2e8f0",
-                            border: "1px solid #475569",
+                            color: "#7fe0c9",
+                            border: "1px solid rgba(72,117,115,0.3)",
                             padding: "6px 12px",
                             borderRadius: 8,
                             fontSize: 13,
@@ -189,7 +189,7 @@ export default function KycAdmin() {
                         <button
                           onClick={() => review(it.id, "approve")}
                           style={{
-                            background: "#22c55e",
+                            background: "#0ecb81",
                             color: "#fff",
                             border: "none",
                             padding: "6px 12px",
@@ -204,7 +204,7 @@ export default function KycAdmin() {
                         <button
                           onClick={() => review(it.id, "reject")}
                           style={{
-                            background: "#ef4444",
+                            background: "#f6465d",
                             color: "#fff",
                             border: "none",
                             padding: "6px 12px",
@@ -278,9 +278,9 @@ export default function KycAdmin() {
           >
             <div
               style={{
-                background: "#131b24",
+                background: "#172524",
                 borderRadius: 16,
-                border: "1px solid rgba(255,255,255,0.08)",
+                border: "1px solid rgba(72,117,115,0.2)",
                 width: 700,
                 maxHeight: "90vh",
                 overflowY: "auto",
@@ -291,12 +291,12 @@ export default function KycAdmin() {
               {/* Modal Header */}
               <div style={{
                 padding: "20px 24px",
-                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                borderBottom: "1px solid rgba(72,117,115,0.15)",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center"
               }}>
-                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Chi tiết yêu cầu KYC</h3>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#7fe0c9" }}>Chi tiết yêu cầu KYC</h3>
                 <button
                   onClick={() => setSelectedItem(null)}
                   style={{ background: "transparent", border: "none", color: "#9ca3af", fontSize: 20, cursor: "pointer" }}
@@ -322,7 +322,7 @@ export default function KycAdmin() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                   <div>
                     <label style={{ color: "#9ca3af", fontSize: 12, fontWeight: 600 }}>Số CCCD trích xuất</label>
-                    <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4, color: "#38bdf8" }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4, color: "#7fe0c9" }}>
                       {selectedItem.id_number || "Không có dữ liệu"}
                     </div>
                   </div>
@@ -345,7 +345,7 @@ export default function KycAdmin() {
                       <img
                         src={selectedItem.front_path}
                         alt="Front card"
-                        style={{ width: "100%", height: 180, objectFit: "contain", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", background: "#0b1113", cursor: "zoom-in" }}
+                        style={{ width: "100%", height: 180, objectFit: "contain", borderRadius: 8, border: "1px solid rgba(72,117,115,0.15)", background: "#0d1413", cursor: "zoom-in" }}
                         onClick={() => setLightbox({ src: selectedItem.front_path, title: `Mặt trước CCCD - ${selectedItem.full_name}` })}
                       />
                     </div>
@@ -354,7 +354,7 @@ export default function KycAdmin() {
                       <img
                         src={selectedItem.back_path}
                         alt="Back card"
-                        style={{ width: "100%", height: 180, objectFit: "contain", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", background: "#0b1113", cursor: "zoom-in" }}
+                        style={{ width: "100%", height: 180, objectFit: "contain", borderRadius: 8, border: "1px solid rgba(72,117,115,0.15)", background: "#0d1413", cursor: "zoom-in" }}
                         onClick={() => setLightbox({ src: selectedItem.back_path, title: `Mặt sau CCCD - ${selectedItem.full_name}` })}
                       />
                     </div>
@@ -365,7 +365,7 @@ export default function KycAdmin() {
               {/* Modal Footer */}
               <div style={{
                 padding: "16px 24px",
-                borderTop: "1px solid rgba(255,255,255,0.06)",
+                borderTop: "1px solid rgba(72,117,115,0.15)",
                 display: "flex",
                 justifyContent: "flex-end",
                 gap: 12
@@ -374,8 +374,8 @@ export default function KycAdmin() {
                   onClick={() => setSelectedItem(null)}
                   style={{
                     background: "transparent",
-                    color: "#e2e8f0",
-                    border: "1px solid #475569",
+                    color: "#7fe0c9",
+                    border: "1px solid rgba(72,117,115,0.3)",
                     padding: "8px 16px",
                     borderRadius: 8,
                     fontSize: 14,
@@ -388,7 +388,7 @@ export default function KycAdmin() {
                 <button
                   onClick={() => review(selectedItem.id, "reject")}
                   style={{
-                    background: "#ef4444",
+                    background: "#f6465d",
                     color: "#fff",
                     border: "none",
                     padding: "8px 16px",
@@ -403,7 +403,7 @@ export default function KycAdmin() {
                 <button
                   onClick={() => review(selectedItem.id, "approve")}
                   style={{
-                    background: "#22c55e",
+                    background: "#0ecb81",
                     color: "#fff",
                     border: "none",
                     padding: "8px 16px",

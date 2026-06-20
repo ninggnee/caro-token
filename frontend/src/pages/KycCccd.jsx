@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import axios from "../utils/axiosClient";
 import { useAuth } from "../context/AuthContext";
 import "../styles/kyc.css";
@@ -27,17 +27,20 @@ export default function KycCccd() {
     const f = e.target.files[0];
 
     if (f) {
-      setter(
-        Object.assign(f, {
-          preview: URL.createObjectURL(f),
-        })
-      );
+      const updatedFile = Object.assign(f, {
+        preview: URL.createObjectURL(f),
+      });
+      setter(updatedFile);
 
-      if (isFront) {
+      const currentFront = isFront ? updatedFile : front;
+      const currentBack = !isFront ? updatedFile : back;
+
+      if (currentFront && currentBack) {
         setLoading(true);
         try {
           const fd = new FormData();
-          fd.append("image", f);
+          fd.append("front", currentFront);
+          fd.append("back", currentBack);
 
           const res = await axios.post("/kyc/ocr", fd, {
             headers: {
@@ -97,15 +100,17 @@ export default function KycCccd() {
       );
 
       if (res.data?.success) {
-        alert(
-          "KYC đã gửi. Trạng thái: Chờ duyệt"
-        );
+        alert("KYC đã gửi. Trạng thái: Chờ duyệt");
 
-        if (role === "trader") {
-          navigate("/trader/connect-wallet");
-        } else {
-          navigate("/farmer/wallet");
+        if (auth.refreshUser) {
+          try {
+            await auth.refreshUser();
+          } catch (e) {
+            console.error("Refresh user error:", e);
+          }
         }
+
+        navigate("/register-wallet");
       } else {
         alert(
           res.data?.message ||
@@ -134,319 +139,212 @@ export default function KycCccd() {
           Real World Asset • Coffee Tokenization
         </div>
 
-        <h1>KYC Verification</h1>
+        <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
+          <h1>CaRo Exchange</h1>
+        </Link>
 
-        <p>
-          Xác thực danh tính bằng CCCD để tham
-          gia giao dịch tài sản số hóa trên
-          CaRo Exchange.
+        <p style={{ marginTop: 8 }}>
+          Xác thực danh tính bằng CCCD để tham gia giao dịch tài sản số hóa trên CaRo Exchange.
         </p>
 
         <div className="kyc-features">
           <div>
-            ✓ Đối chiếu thông tin CCCD
+            🪪 Đối chiếu thông tin CCCD
           </div>
-
           <div>
-            ✓ Xác thực danh tính số
+            🛡️ Xác thực danh tính số
           </div>
-
           <div>
-            ✓ Phê duyệt tham gia hệ sinh thái
+            🌱 Phê duyệt tham gia hệ sinh thái
           </div>
-
           <div>
-            ✓ Tuân thủ quy định KYC/AML
+            ⚖️ Tuân thủ quy định KYC/AML
           </div>
         </div>
       </div>
 
       {/* RIGHT */}
+      <div className="kyc-right">
+        <div className="kyc-card">
+          {/* STEPPER */}
 
-      <div className="kyc-card">
-        {/* STEPPER */}
-
-        <div className="stepper">
-          <div className="step-item">
-            <div className="step">
-              1
+          <div className="stepper">
+            <div className="step-item">
+              <div className="step">1</div>
+              <span>Tài khoản</span>
             </div>
 
-            <span>Tài khoản</span>
-          </div>
+            <div className="line"></div>
 
-          <div className="line"></div>
-
-          <div className="step-item">
-            <div className="step active">
-              2
+            <div className="step-item">
+              <div className="step active">2</div>
+              <span>KYC</span>
             </div>
 
-            <span>KYC</span>
-          </div>
+            <div className="line"></div>
 
-          <div className="line"></div>
-
-          <div className="step-item">
-            <div className="step">
-              3
+            <div className="step-item">
+              <div className="step">3</div>
+              <span>Kết nối ví</span>
             </div>
-
-            <span>Kết nối ví</span>
           </div>
-        </div>
 
-        <h2>Xác minh CCCD</h2>
+          <h2>Xác minh CCCD</h2>
 
-        <div className="kyc-subtitle">
-          Tải ảnh CCCD để hệ thống nhận diện
-          thông tin
-        </div>
+          <div className="kyc-subtitle">
+            Tải ảnh CCCD để hệ thống nhận diện thông tin
+          </div>
 
-        {/* UPLOAD */}
+          {/* UPLOAD */}
 
-        <div className="upload-grid">
-          <label className="upload-box">
-            <input
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={(e) =>
-                handleFile(
-                  e,
-                  setFront,
-                  true
-                )
-              }
-            />
-
-            {front ? (
-              <img
-                src={front.preview}
-                alt="front"
+          <div className="upload-grid">
+            <label className="upload-box">
+              <input
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => handleFile(e, setFront, true)}
               />
-            ) : (
-              <>
-                <div className="upload-icon">
-                  📷
-                </div>
 
-                <div className="upload-label">
-                  CCCD mặt trước
-                </div>
+              {front ? (
+                <img src={front.preview} alt="front" />
+              ) : (
+                <>
+                  <div className="upload-icon">📷</div>
+                  <div className="upload-label">CCCD mặt trước</div>
+                  <div className="upload-note">JPG, PNG tối đa 5MB</div>
+                </>
+              )}
+            </label>
 
-                <div className="upload-note">
-                  JPG, PNG tối đa 5MB
-                </div>
-              </>
-            )}
-          </label>
-
-          <label className="upload-box">
-            <input
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={(e) =>
-                handleFile(
-                  e,
-                  setBack
-                )
-              }
-            />
-
-            {back ? (
-              <img
-                src={back.preview}
-                alt="back"
+            <label className="upload-box">
+              <input
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => handleFile(e, setBack)}
               />
-            ) : (
-              <>
-                <div className="upload-icon">
-                  📷
-                </div>
 
-                <div className="upload-label">
-                  CCCD mặt sau
-                </div>
-
-                <div className="upload-note">
-                  JPG, PNG tối đa 5MB
-                </div>
-              </>
-            )}
-          </label>
-        </div>
-
-        {/* OCR */}
-
-        <div className="ocr-section">
-          <div className="ocr-title">
-            Thông tin OCR
+              {back ? (
+                <img src={back.preview} alt="back" />
+              ) : (
+                <>
+                  <div className="upload-icon">📷</div>
+                  <div className="upload-label">CCCD mặt sau</div>
+                  <div className="upload-note">JPG, PNG tối đa 5MB</div>
+                </>
+              )}
+            </label>
           </div>
 
-          <div className="ocr-card">
-            <div className="ocr-grid">
-              <div className="form-group">
-                <label>
-                  Họ và tên
-                </label>
+          {/* OCR */}
 
-                <input
-                  value={
-                    ocr.fullname
-                  }
-                  onChange={(e) =>
-                    setOcr({
-                      ...ocr,
-                      fullname:
-                        e.target
-                          .value,
-                    })
-                  }
-                />
+          <div className="ocr-section">
+            <div className="ocr-title">Thông tin OCR</div>
+
+            <div className="ocr-card">
+              <div className="ocr-grid">
+                <div className="form-group">
+                  <label>Họ và tên</label>
+                  <input
+                    value={ocr.fullname}
+                    onChange={(e) =>
+                      setOcr({
+                        ...ocr,
+                        fullname: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Số CCCD</label>
+                  <input
+                    value={ocr.id}
+                    onChange={(e) =>
+                      setOcr({
+                        ...ocr,
+                        id: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Ngày sinh</label>
+                  <input
+                    value={ocr.dob}
+                    onChange={(e) =>
+                      setOcr({
+                        ...ocr,
+                        dob: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Giới tính</label>
+                  <input
+                    value={ocr.gender}
+                    onChange={(e) =>
+                      setOcr({
+                        ...ocr,
+                        gender: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Quốc tịch</label>
+                  <input
+                    value={ocr.nationality}
+                    onChange={(e) =>
+                      setOcr({
+                        ...ocr,
+                        nationality: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Địa chỉ thường trú</label>
+                  <input
+                    value={ocr.address}
+                    onChange={(e) =>
+                      setOcr({
+                        ...ocr,
+                        address: e.target.value,
+                      })
+                    }
+                  />
+                </div>
               </div>
 
-              <div className="form-group">
-                <label>
-                  Số CCCD
-                </label>
-
-                <input
-                  value={ocr.id}
-                  onChange={(e) =>
-                    setOcr({
-                      ...ocr,
-                      id: e.target
-                        .value,
-                    })
-                  }
-                />
+              <div className="kyc-role-card">
+                🌱 Vai trò đăng ký:
+                <strong>{role}</strong>
               </div>
-
-              <div className="form-group">
-                <label>
-                  Ngày sinh
-                </label>
-
-                <input
-                  value={ocr.dob}
-                  onChange={(e) =>
-                    setOcr({
-                      ...ocr,
-                      dob: e.target
-                        .value,
-                    })
-                  }
-                />
-              </div>
-
-              <div className="form-group">
-                <label>
-                  Giới tính
-                </label>
-
-                <input
-                  value={
-                    ocr.gender
-                  }
-                  onChange={(e) =>
-                    setOcr({
-                      ...ocr,
-                      gender:
-                        e.target
-                          .value,
-                    })
-                  }
-                />
-              </div>
-
-              <div className="form-group">
-                <label>
-                  Quốc tịch
-                </label>
-
-                <input
-                  value={
-                    ocr.nationality
-                  }
-                  onChange={(e) =>
-                    setOcr({
-                      ...ocr,
-                      nationality:
-                        e.target
-                          .value,
-                    })
-                  }
-                />
-              </div>
-
-              <div className="form-group">
-                <label>
-                  Địa chỉ thường trú
-                </label>
-
-                <input
-                  value={
-                    ocr.address
-                  }
-                  onChange={(e) =>
-                    setOcr({
-                      ...ocr,
-                      address:
-                        e.target
-                          .value,
-                    })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="role-card">
-              🌱 Vai trò đăng ký:
-              <strong>
-                {role}
-              </strong>
             </div>
           </div>
-        </div>
 
-        {/* BUTTONS */}
+          {/* BUTTONS */}
 
-        <div className="action-buttons">
-          <button
-            className="secondary-btn"
-            onClick={() =>
-              navigate(
-                "/register"
-              )
-            }
-          >
-            Quay lại
-          </button>
+          <div className="action-buttons">
+            <button className="secondary-btn" onClick={() => navigate("/register")}>
+              Quay lại
+            </button>
 
-          <button
-            className="secondary-btn"
-            onClick={() =>
-              alert(
-                "Lưu nháp (placeholder)"
-              )
-            }
-          >
-            Lưu nháp
-          </button>
+            <button className="secondary-btn" onClick={() => alert("Lưu nháp (placeholder)")}>
+              Lưu nháp
+            </button>
 
-          <button
-            className="primary-btn"
-            onClick={
-              handleSubmit
-            }
-            disabled={loading}
-          >
-            {loading
-              ? "Đang gửi..."
-              : "Gửi xác thực"}
-          </button>
+            <button className="primary-btn" onClick={handleSubmit} disabled={loading}>
+              {loading ? "Đang gửi..." : "Gửi xác thực"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

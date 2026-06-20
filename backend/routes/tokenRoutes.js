@@ -9,6 +9,7 @@ router.get('/requests', verifyToken, requireRole('farmer'), listTokenRequestsFor
 
 // balances — internal DB
 router.get('/balances', verifyToken, requireRole('farmer'), getUserBalances);
+router.get('/balances/onchain', verifyToken, requireRole('farmer'), getOnChainBalances);
 
 // on-chain balance (live from blockchain)
 router.get('/balances/onchain', verifyToken, requireRole('farmer'), getOnChainBalances);

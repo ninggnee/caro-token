@@ -27,16 +27,16 @@ const I = {
 };
 
 const MENU = [
-  { id: "dash",    label: "Dashboard",    icon: "home",  path: "/admin"          },
-  { id: "kyc",     label: "KYC Approval", icon: "check", path: "/admin/kyc"      },
-  { id: "users",   label: "Users",        icon: "users", path: "/admin/users"    },
-  { id: "batches", label: "Asset Batches",icon: "box",   path: "/admin/batches"  },
-  { id: "minted",  label: "Minted",       icon: "medal", path: "/admin/minted"   },
-  { id: "logs",    label: "Audit Logs",   icon: "list",  path: "/admin/logs"     },
+  { id: "dash",    label: "Bảng điều khiển",    icon: "home",  path: "/admin"          },
+  { id: "kyc",     label: "Duyệt danh tính KYC", icon: "check", path: "/admin/kyc"      },
+  { id: "users",   label: "Quản lý người dùng",  icon: "users", path: "/admin/users"    },
+  { id: "batches", label: "Lô hàng Farmer",      icon: "box",   path: "/admin/batches"  },
+  { id: "minted",  label: "Lịch sử Mint",        icon: "medal", path: "/admin/minted"   },
+  { id: "logs",    label: "Nhật ký hệ thống",    icon: "list",  path: "/admin/logs"     },
 ];
 
-const A   = "#00d4aa";
-const ABG = "rgba(0,212,170,0.08)";
+const A   = "#487573";
+const ABG = "rgba(72, 117, 115, 0.08)";
 
 export default function DashboardLayout({ title = "Admin", children }) {
   const { user, logout } = useAuth();
@@ -60,8 +60,8 @@ export default function DashboardLayout({ title = "Admin", children }) {
     background: active ? ABG : "transparent",
     borderWidth: "0 0 0 2px",
     borderStyle: "solid",
-    borderColor: active ? A : "transparent",
-    color: active ? A : "#9aa5b4",
+    borderColor: active ? "#7fe0c9" : "transparent",
+    color: active ? "#7fe0c9" : "#9aa5b4",
     textDecoration: "none",
     fontSize: 13,
     fontWeight: active ? 600 : 400,
@@ -74,9 +74,8 @@ export default function DashboardLayout({ title = "Admin", children }) {
 
   return (
     <div style={{
-      display: "flex",
       minHeight: "100vh",
-      background: "#0b1117",
+      background: "#0d1413",
       color: "#e2e8f0",
       fontFamily: "Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
     }}>
@@ -85,8 +84,8 @@ export default function DashboardLayout({ title = "Admin", children }) {
       <aside style={{
         width: SW,
         flexShrink: 0,
-        background: "#0d1421",
-        borderRight: "1px solid rgba(255,255,255,0.06)",
+        background: "#172524",
+        borderRight: "1px solid rgba(72, 117, 115, 0.15)",
         display: "flex",
         flexDirection: "column",
         position: "fixed",
@@ -98,24 +97,15 @@ export default function DashboardLayout({ title = "Admin", children }) {
       }}>
 
         {/* Brand */}
-        <div style={{ height: HH, display: "flex", alignItems: "center", padding: "0 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 7, background: "linear-gradient(135deg,#00d4aa,#0095ff)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, marginRight: 10 }}>☕</div>
+        <div style={{ height: HH, display: "flex", alignItems: "center", padding: "0 16px", borderBottom: "1px solid rgba(72, 117, 115, 0.15)", flexShrink: 0 }}>
+          <div style={{ width: 30, height: 30, borderRadius: 7, background: "linear-gradient(135deg,#487573,#2d4d4b)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, marginRight: 10 }}>🫘</div>
           <div>
             <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: "0.3px", color: "#fff", lineHeight: 1.1 }}>CaRo</div>
             <div style={{ fontSize: 9, color: "#6b7a99", letterSpacing: "2px", fontWeight: 600 }}>ADMIN</div>
           </div>
         </div>
 
-        {/* User mini */}
-        <div style={{ padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)", flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#0095ff,#7b2ff7)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, color: "#fff", flexShrink: 0 }}>{initials}</div>
-            <div style={{ overflow: "hidden", flex: 1 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#e2e8f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user?.full_name || "Admin"}</div>
-              <div style={{ fontSize: 10, color: "#6b7a99", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user?.email}</div>
-            </div>
-          </div>
-        </div>
+
 
         {/* Nav */}
         <nav style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" }}>
@@ -133,13 +123,13 @@ export default function DashboardLayout({ title = "Admin", children }) {
         </nav>
 
         {/* Sign out */}
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
+        <div style={{ borderTop: "1px solid rgba(72, 117, 115, 0.15)", flexShrink: 0 }}>
           <button onClick={() => { logout(); nav("/"); }}
             style={{ width: "100%", display: "flex", alignItems: "center", gap: 9, padding: "12px 16px", background: "transparent", border: "none", color: "#6b7a99", cursor: "pointer", fontSize: 13, textAlign: "left" }}
             onMouseEnter={e => { e.currentTarget.style.color = "#f6465d"; e.currentTarget.style.background = "rgba(246,70,93,0.08)"; }}
             onMouseLeave={e => { e.currentTarget.style.color = "#6b7a99"; e.currentTarget.style.background = "transparent"; }}>
             <Ico d={I.out} />
-            Sign Out
+            Đăng xuất
           </button>
         </div>
       </aside>
@@ -150,8 +140,8 @@ export default function DashboardLayout({ title = "Admin", children }) {
         {/* Header (sticky) */}
         <header style={{
           height: HH,
-          background: "#0d1421",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          background: "#172524",
+          borderBottom: "1px solid rgba(72, 117, 115, 0.15)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -163,10 +153,26 @@ export default function DashboardLayout({ title = "Admin", children }) {
         }}>
           <div style={{ fontSize: 15, fontWeight: 600, color: "#e2e8f0" }}>{title}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 11, padding: "3px 9px", borderRadius: 5, background: "rgba(0,212,170,0.1)", color: "#00d4aa", fontWeight: 700, letterSpacing: "0.5px" }}>
-              ADMIN
-            </span>
-            <span style={{ fontSize: 12, color: "#6b7a99" }}>{user?.email}</span>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{
+                  fontSize: 9,
+                  padding: "2px 6px",
+                  borderRadius: 4,
+                  background: "rgba(72, 117, 115, 0.12)",
+                  color: "#7fe0c9",
+                  fontWeight: 700,
+                  letterSpacing: "0.5px"
+                }}>
+                  QUẢN TRỊ VIÊN
+                </span>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{user?.full_name || "Admin"}</div>
+              </div>
+              <span style={{ fontSize: 10, color: "#6b7a99" }}>{user?.email}</span>
+            </div>
+            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#203433,#487573)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, color: "#fff", flexShrink: 0 }}>
+              {initials}
+            </div>
           </div>
         </header>
 

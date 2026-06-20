@@ -320,47 +320,55 @@ export const getUserBalances = async (req, res) => {
   }
 };
 
-// ── User: get on-chain balances from blockchain ──────────────────────────────
+// ── User: get on-chain balances ──────────────────────────────────────────────
 
 export const getOnChainBalances = async (req, res) => {
   try {
     const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    // Resolve farmer's wallet address from users table
-    const [[user]] = await db.execute(
-      `SELECT wallet_address FROM users WHERE id = ? LIMIT 1`,
-      [userId]
-    );
-    const walletAddress = user?.wallet_address;
+    let wallet = null;
+    try {
+      const [w] = await db.execute(
+        `SELECT wallet_address FROM user_wallets WHERE user_id = ? AND role = ? LIMIT 1`,
+        [userId, req.user.role]
+      );
+      if (w.length > 0) wallet = w[0].wallet_address;
+    } catch (_) { /* ignore */ }
 
-    if (!walletAddress || !/^0x[0-9a-fA-F]{40}$/.test(walletAddress)) {
-      return res.json({
-        success: true,
-        wallet_address: walletAddress || null,
-        balances: { CR1: '0', CR2: '0', CR3: '0' },
-        contracts: chain.CONTRACT_ADDRESSES,
-      });
+    // Fallback to user table
+    if (!wallet) {
+      try {
+        const [[user]] = await db.execute(
+          `SELECT wallet_address FROM users WHERE id = ? LIMIT 1`,
+          [userId]
+        );
+        if (user) wallet = user.wallet_address;
+      } catch (_) { /* ignore */ }
     }
 
-    // Query balanceOf for each token type in parallel
-    const tokenTypes = ['CR1', 'CR2', 'CR3'];
-    const results = await Promise.allSettled(
-      tokenTypes.map(t => getOnChainBalance(t, walletAddress))
-    );
-
-    const balances = {};
-    tokenTypes.forEach((t, i) => {
-      balances[t] = results[i].status === 'fulfilled' ? results[i].value : '0';
-    });
+    const balances = { CR1: '0.0', CR2: '0.0', CR3: '0.0' };
+    if (wallet && /^0x[0-9a-fA-F]{40}$/.test(wallet)) {
+      const { getOnChainBalance } = await import('../services/BlockchainService.js');
+      for (const t of ['CR1', 'CR2', 'CR3']) {
+        try {
+          const bal = await getOnChainBalance(t, wallet);
+          balances[t] = bal;
+        } catch (err) {
+          console.error(`Error fetching on-chain balance for ${t} for wallet ${wallet}:`, err);
+          balances[t] = '0.0';
+        }
+      }
+    }
 
     res.json({
       success: true,
-      wallet_address: walletAddress,
       balances,
-      contracts: chain.CONTRACT_ADDRESSES,
+      wallet_address: wallet,
+      contracts: chain.CONTRACT_ADDRESSES
     });
   } catch (err) {
     console.error('getOnChainBalances error:', err);
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };

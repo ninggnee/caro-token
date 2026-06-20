@@ -103,6 +103,10 @@ export default function Register() {
           <h1>CaRo Exchange</h1>
         </Link>
 
+        <p style={{ marginTop: 8 }}>
+          Nền tảng giao dịch tài sản số hóa từ cà phê Robusta Việt Nam
+        </p>
+
         <div className="feature-grid">
           <div className="feature-card">
             <div className="feature-icon">🪪</div>
@@ -127,124 +131,127 @@ export default function Register() {
         </div>
       </div>
 
-      {/* Right panel */}
-      <div className="login-card" style={{ width: 500, overflowY: "auto", justifyContent: "flex-start", paddingTop: 48, paddingBottom: 48 }}>
-        <h2>Tạo tài khoản</h2>
+      {/* Right panel - 50% Full white */}
+      <div className="register-right">
+        <div className="register-card">
+          <h2>Tạo tài khoản</h2>
 
-        {error && (
-          <div style={{ background: "#fff0f0", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", color: "#b91c1c", fontSize: 14 }}>
-            {error}
+          {error && (
+            <div style={{ background: "#fff0f0", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", color: "#b91c1c", fontSize: 14, marginBottom: 8 }}>
+              {error}
+            </div>
+          )}
+
+          <label>Họ và tên</label>
+          <input
+            placeholder="Nguyễn Văn A"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+          />
+
+          <label>Email</label>
+          <input
+            type="email"
+            placeholder="example@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+
+          <label>Số điện thoại</label>
+          <input
+            type="tel"
+            placeholder="0901234567"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+
+          <label>Mật khẩu</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              type={showPass ? "text" : "password"}
+              placeholder="Tối thiểu 8 ký tự"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPass(!showPass)}
+              style={{ minWidth: 80 }}
+            >
+              {showPass ? "Ẩn" : "Hiện"}
+            </button>
           </div>
-        )}
 
-        <label>Họ và tên</label>
-        <input
-          placeholder="Nguyễn Văn A"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-        />
-
-        <label>Email</label>
-        <input
-          type="email"
-          placeholder="example@email.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-
-        <label>Số điện thoại</label>
-        <input
-          type="tel"
-          placeholder="0901234567"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-        />
-
-        <label>Mật khẩu</label>
-        <div style={{ display: "flex", gap: 8 }}>
+          <label>Xác nhận mật khẩu</label>
           <input
             type={showPass ? "text" : "password"}
-            placeholder="Tối thiểu 8 ký tự"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={{ flex: 1 }}
+            placeholder="Nhập lại mật khẩu"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
           />
+
+          <label>Vai trò</label>
+          <div style={{ display: "flex", gap: 16 }}>
+            {["farmer", "trader"].map((r) => (
+              <label
+                key={r}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
+                  padding: "10px 20px", borderRadius: 10, border: "1.5px solid",
+                  borderColor: role === r ? "#487573" : "#d8e0e0",
+                  background: role === r ? "rgba(72,117,115,0.08)" : "#fafcfc",
+                  color: "#243b3a", fontWeight: 600, fontSize: 15, transition: ".2s",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="role"
+                  value={r}
+                  checked={role === r}
+                  onChange={() => setRole(r)}
+                  style={{ accentColor: "#487573" }}
+                />
+                {r === "farmer" ? "🌱 Farmer" : "📊 Trader"}
+              </label>
+            ))}
+          </div>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontWeight: 500, fontSize: 14, color: "#365f5d", marginTop: 8 }}>
+            <input
+              type="checkbox"
+              checked={agree}
+              onChange={(e) => setAgree(e.target.checked)}
+              style={{ width: 16, height: 16, accentColor: "#487573" }}
+            />
+            Tôi đồng ý với{" "}
+            <span style={{ color: "#487573", fontWeight: 700 }}>Điều khoản sử dụng</span>{" "}
+            và{" "}
+            <span style={{ color: "#487573", fontWeight: 700 }}>Chính sách bảo mật</span>
+          </label>
+
+          <button
+            onClick={handleRegister}
+            className="btn"
+            disabled={loading}
+            style={{ opacity: loading ? 0.7 : 1, cursor: loading ? "not-allowed" : "pointer" }}
+          >
+            {loading ? "Đang xử lý..." : "Đăng ký"}
+          </button>
+
           <button
             type="button"
-            onClick={() => setShowPass(!showPass)}
-            style={{ minWidth: 72, padding: "0 12px" }}
+            onClick={() => navigate("/vneid-login")}
+            className="vneid-btn"
+            style={{ background: "transparent", border: "1.5px solid #487573", color: "#487573" }}
           >
-            {showPass ? "Ẩn" : "Hiện"}
+            Đăng ký bằng VNeID
           </button>
-        </div>
 
-        <label>Xác nhận mật khẩu</label>
-        <input
-          type={showPass ? "text" : "password"}
-          placeholder="Nhập lại mật khẩu"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-        />
-
-        <label>Vai trò</label>
-        <div style={{ display: "flex", gap: 16 }}>
-          {["farmer", "trader"].map((r) => (
-            <label
-              key={r}
-              style={{
-                display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
-                padding: "10px 20px", borderRadius: 10, border: "1.5px solid",
-                borderColor: role === r ? "#487573" : "#d8e0e0",
-                background: role === r ? "rgba(72,117,115,0.08)" : "#fafcfc",
-                color: "#243b3a", fontWeight: 600, fontSize: 15, transition: ".2s",
-              }}
-            >
-              <input
-                type="radio"
-                name="role"
-                value={r}
-                checked={role === r}
-                onChange={() => setRole(r)}
-                style={{ accentColor: "#487573" }}
-              />
-              {r === "farmer" ? "🌱 Farmer" : "📊 Trader"}
-            </label>
-          ))}
-        </div>
-
-        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontWeight: 500, fontSize: 14, color: "#365f5d" }}>
-          <input
-            type="checkbox"
-            checked={agree}
-            onChange={(e) => setAgree(e.target.checked)}
-            style={{ width: 16, height: 16, accentColor: "#487573" }}
-          />
-          Tôi đồng ý với{" "}
-          <span style={{ color: "#487573", fontWeight: 700 }}>Điều khoản sử dụng</span>{" "}
-          và{" "}
-          <span style={{ color: "#487573", fontWeight: 700 }}>Chính sách bảo mật</span>
-        </label>
-
-        <button
-          onClick={handleRegister}
-          className="btn"
-          disabled={loading}
-          style={{ opacity: loading ? 0.7 : 1, cursor: loading ? "not-allowed" : "pointer" }}
-        >
-          {loading ? "Đang xử lý..." : "Đăng ký"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => navigate("/vneid-login")}
-          style={{ background: "transparent", border: "1.5px solid #487573", color: "#487573" }}
-        >
-          Đăng ký bằng VNeID
-        </button>
-
-        <div className="register-text">
-          Đã có tài khoản?{" "}
-          <Link to="/login" className="register-link">Đăng nhập</Link>
+          <div className="register-text">
+            Đã có tài khoản?{" "}
+            <Link to="/login" className="register-link">Đăng nhập</Link>
+          </div>
         </div>
       </div>
     </div>

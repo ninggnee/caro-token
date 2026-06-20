@@ -44,11 +44,43 @@ async function storeRefreshToken(userId, refreshToken, req) {
   }
 }
 
+async function getKycDetailsForUser(userId) {
+  let id_number = null;
+  let front_path = null;
+  let back_path = null;
+  try {
+    const [kycRows] = await db.execute(
+      `SELECT id_number, front_path, back_path FROM kyc_requests WHERE user_id = ? ORDER BY id DESC LIMIT 1`,
+      [userId]
+    );
+    if (kycRows.length > 0) {
+      id_number = kycRows[0].id_number;
+      front_path = kycRows[0].front_path;
+      back_path = kycRows[0].back_path;
+      return { id_number, front_path, back_path };
+    }
+  } catch (_) {
+    try {
+      const [kycRows] = await db.execute(
+        `SELECT id_number, document_front AS front_path, document_back AS back_path FROM kyc_requests WHERE user_id = ? ORDER BY id DESC LIMIT 1`,
+        [userId]
+      );
+      if (kycRows.length > 0) {
+        id_number = kycRows[0].id_number;
+        front_path = kycRows[0].front_path;
+        back_path = kycRows[0].back_path;
+        return { id_number, front_path, back_path };
+      }
+    } catch (_) {}
+  }
+  return { id_number, front_path, back_path };
+}
+
 // ── Register ──────────────────────────────────────────────────────────────────
 
 export const register = async (req, res) => {
   try {
-    const { email, password, full_name, role } = req.body;
+    const { email, password, full_name, phone, role } = req.body;
     if (!email || !password || !full_name) {
       return res.status(400).json({ message: 'email, password, and full_name are required' });
     }
@@ -60,9 +92,9 @@ export const register = async (req, res) => {
 
     const password_hash = await bcrypt.hash(password, 10);
     const [result] = await db.execute(
-      `INSERT INTO users (email, password_hash, full_name, role, kyc_status)
-       VALUES (?, ?, ?, ?, 'pending')`,
-      [email, password_hash, full_name, role || 'trader']
+      `INSERT INTO users (email, password_hash, full_name, phone, role, kyc_status)
+       VALUES (?, ?, ?, ?, ?, 'pending')`,
+      [email, password_hash, full_name, phone || null, role || 'trader']
     );
 
     const insertId = result.insertId;
@@ -86,8 +118,10 @@ export const register = async (req, res) => {
         id: insertId,
         email,
         full_name,
+        phone: phone || null,
         role: role || 'trader',
         kyc_status: "pending",
+        id_number: null,
       }
     });
   } catch (error) {
@@ -132,6 +166,12 @@ export const login = async (req, res) => {
       if (rows.length > 0 && rows[0].wallet_address) wallet_address = rows[0].wallet_address;
     } catch (_) { /* ignore */ }
 
+    // Fetch latest KYC request details (CCCD and image paths)
+    const kycDetails = await getKycDetailsForUser(user.id);
+    const id_number = kycDetails.id_number;
+    const front_path = kycDetails.front_path;
+    const back_path = kycDetails.back_path;
+
     await logAction({
       actorId: user.id, action: 'auth:login',
       entityType: 'user', entityId: user.id,
@@ -152,6 +192,9 @@ export const login = async (req, res) => {
         role:          user.role,
         wallet_address,
         kyc_status:    user.kyc_status,
+        id_number,
+        front_path,
+        back_path,
       },
     });
   } catch (error) {
@@ -224,6 +267,52 @@ export const logout = async (req, res) => {
   }
 };
 
+// ── Get current user (me) ──────────────────────────────────────────────────────
+
+export const getMe = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const [[user]] = await db.execute(
+      `SELECT id, email, full_name, phone, address, role, kyc_status, wallet_address FROM users WHERE id = ? LIMIT 1`,
+      [userId]
+    );
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Fetch wallet address from user_wallets if not set in users
+    let wallet_address = user.wallet_address || null;
+    try {
+      const [rows] = await db.execute(
+        `SELECT wallet_address FROM user_wallets WHERE user_id = ? AND role = ? LIMIT 1`,
+        [userId, user.role]
+      );
+      if (rows.length > 0 && rows[0].wallet_address) wallet_address = rows[0].wallet_address;
+    } catch (_) {}
+
+    // Fetch latest KYC request details (CCCD and image paths)
+    const kycDetails = await getKycDetailsForUser(userId);
+    const id_number = kycDetails.id_number;
+    const front_path = kycDetails.front_path;
+    const back_path = kycDetails.back_path;
+
+    res.json({
+      success: true,
+      user: {
+        ...user,
+        wallet_address,
+        id_number,
+        front_path,
+        back_path,
+      }
+    });
+  } catch (error) {
+    console.error('getMe error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 // ── Update profile ────────────────────────────────────────────────────────────
 
 export const updateProfile = async (req, res) => {
@@ -244,13 +333,19 @@ export const updateProfile = async (req, res) => {
       [userId]
     );
 
+    // Fetch latest KYC request details (CCCD and image paths)
+    const kycDetails = await getKycDetailsForUser(userId);
+    const id_number = kycDetails.id_number;
+    const front_path = kycDetails.front_path;
+    const back_path = kycDetails.back_path;
+
     await logAction({
       actorId: userId, action: 'user:update_profile',
       entityType: 'user', entityId: userId,
       newData: { full_name, phone, address }, ...auditMeta(req),
     });
 
-    res.json({ success: true, user });
+    res.json({ success: true, user: { ...user, id_number, front_path, back_path } });
   } catch (err) {
     console.error('updateProfile error:', err);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -300,19 +395,18 @@ export const saveWallet = async (req, res) => {
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     const { wallet_address } = req.body;
-    if (!wallet_address) return res.status(400).json({ message: 'wallet_address required' });
-
     const role = req.user.role || req.body.role || '';
+    const addr = wallet_address ? wallet_address.trim() : null;
 
     await db.execute(
       `INSERT INTO user_wallets (user_id, role, wallet_address)
        VALUES (?, ?, ?)
        ON DUPLICATE KEY UPDATE wallet_address = VALUES(wallet_address)`,
-      [userId, role, wallet_address]
+      [userId, role, addr]
     );
-    await db.execute(`UPDATE users SET wallet_address = ? WHERE id = ?`, [wallet_address, userId]);
+    await db.execute(`UPDATE users SET wallet_address = ? WHERE id = ?`, [addr, userId]);
 
-    res.json({ success: true, wallet_address, role });
+    res.json({ success: true, wallet_address: addr, role });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Server error' });
