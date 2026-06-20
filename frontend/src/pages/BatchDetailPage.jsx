@@ -21,17 +21,18 @@ const DOC_LABELS = {
 };
 
 const WAREHOUSE_DOC_LABELS = {
-  warehouse_license:       "Warehouse License",
-  inspection_report:       "Inspection Report",
-  warehouse_certificate:   "Warehouse Certificate",
-  warehouse_insurance:     "Warehouse Insurance",
+  warehouse_license:         "Warehouse License",
+  inspection_report:         "Inspection Report",
+  warehouse_certificate:     "Warehouse Certificate",
+  warehouse_insurance:       "Warehouse Insurance",
   warehouse_ownership_proof: "Ownership Documents",
-  warehouse_photos:        "Warehouse Photos",
-  coffee_storage_report:   "Coffee Storage Report",
-  warehouse_receipt:       "Warehouse Receipt",
-  other:                   "Other",
+  warehouse_photos:          "Warehouse Photos",
+  coffee_storage_report:     "Coffee Storage Report",
+  warehouse_receipt:         "Warehouse Receipt",
+  other:                     "Other",
 };
 
+function InfoRow({ label, value, accent, mono, borderLine }) {
   if (value == null || value === "") return null;
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "11px 0", borderBottom: `1px solid ${borderLine || "rgba(255,255,255,0.05)"}`, gap: 12 }}>
@@ -153,6 +154,9 @@ function WarehouseDocsSection({ docs }) {
         </div>
       ))}
     </div>
+  );
+}
+
 function SkeletonDetail({ isAdmin }) {
   const Layout = isAdmin ? DashboardLayout : FarmerLayout;
   return (
@@ -200,9 +204,11 @@ export default function BatchDetailPage() {
     });
   };
 
+  if (isLoading) return <SkeletonDetail isAdmin={isAdmin} />;
+
   if (isError || !batch) {
-    const Layout = isAdmin ? DashboardLayout : FarmerLayout;
     return (
+      <Layout title="Chi tiết lô hàng">
         <div style={{ maxWidth: 760, margin: "0 auto", textAlign: "center", padding: 80 }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>❌</div>
           <div style={{ color: "#e74c3c", fontSize: 16 }}>Không tìm thấy lô hàng hoặc bạn không có quyền truy cập</div>
@@ -216,13 +222,13 @@ export default function BatchDetailPage() {
   const isPending = approve.isPending || reject.isPending;
   const warehouseDocs = batch.warehouse_documents || [];
 
-  const Layout = isAdmin ? DashboardLayout : FarmerLayout;
   const accentColor = isAdmin ? "#9fcfc6" : "#7fe0c9";
   const cardBg = isAdmin ? "#141a1f" : "#172524";
   const borderVal = isAdmin ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(72,117,115,0.15)";
   const borderLine = isAdmin ? "rgba(255,255,255,0.05)" : "rgba(72,117,115,0.15)";
 
   return (
+    <Layout title={`Chi tiết lô hàng — ${batch.batch_id}`}>
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
 
@@ -258,6 +264,9 @@ export default function BatchDetailPage() {
           )}
         </Section>
 
+        {/* Documents */}
+        <Section title={`📂 Tài liệu (${batch.documents?.length || 0} file)`} accent={accentColor} bgColor={cardBg} border={borderVal}>
+          <DocumentsSection documents={batch.documents} accent={accentColor} borderLine={borderLine} />
         </Section>
 
         {/* Warehouse Documents */}
