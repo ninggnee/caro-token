@@ -25,6 +25,7 @@ import assetBatchRoutes        from './routes/assetBatchRoutes.js';
 import warehouseDocumentRoutes from './routes/warehouseDocumentRoutes.js';
 import mockMarketRoutes        from './routes/mockMarketRoutes.js';
 import MockMarketEngine        from './services/MockMarketEngine.js';
+import farmerRoutes            from './routes/farmerDashboardRoutes.js';
 
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
@@ -61,6 +62,7 @@ app.use('/api/wallet',       walletRoutes);       // VND deposit/withdraw
 app.use('/api/custodian',            custodianRoutes);         // RWA custodian flow
 app.use('/api/batches',             assetBatchRoutes);         // Asset batch mint workflow
 app.use('/api/warehouse-documents', warehouseDocumentRoutes);  // Warehouse document IPFS storage
+app.use('/api/farmer',             farmerRoutes);              // Farmer dashboard & token holdings
 
 app.get('/', (_, res) => res.json({ message: 'CaRo Backend Running' }));
 

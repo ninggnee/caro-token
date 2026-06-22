@@ -13,6 +13,7 @@ import TestAuth       from '../pages/TestAuth';
 import TraderHome        from '../pages/TraderHome';
 import TraderWallet      from '../pages/TraderWallet';
 import TraderMarketplace from '../pages/TraderMarketplace';
+import TraderPortfolio   from '../pages/TraderPortfolio';
 import TraderTrading     from '../pages/TraderTrading';
 import TradeHistory      from '../pages/TradeHistory';
 import TraderProfile     from '../pages/TraderProfile';
@@ -24,7 +25,6 @@ import WithdrawPage      from '../pages/WithdrawPage';
 // Farmer — new portal
 import FarmerDashboard      from '../pages/FarmerDashboard';
 import FarmerAssets         from '../pages/FarmerAssets';
-import FarmerTokenHoldings  from '../pages/FarmerTokenHoldings';
 import FarmerDocuments    from '../pages/FarmerDocuments';
 import FarmerWalletOverview from '../pages/FarmerWalletOverview';
 import FarmerDepositPage  from '../pages/FarmerDepositPage';
@@ -89,6 +89,7 @@ export default function AppRouter() {
         <Route path="/trader/deposit"        element={<DepositPage />} />
         <Route path="/trader/withdraw"       element={<WithdrawPage />} />
         <Route path="/trader/marketplace"    element={<TraderMarketplace />} />
+        <Route path="/trader/portfolio"      element={<TraderPortfolio />} />
         <Route path="/trader/trading"        element={<TraderTrading />} />
         <Route path="/trader/trades"         element={<TradeHistory />} />
         <Route path="/trader/profile"        element={<TraderProfile />} />
@@ -113,11 +114,11 @@ export default function AppRouter() {
         <Route path="/farmer/wallet/withdraw"  element={<FarmerWithdrawPage />} />
         <Route path="/farmer/wallet/history"   element={<FarmerTxHistory />} />
 
-        {/* Token Holdings */}
-        <Route path="/farmer/token-holdings"   element={<FarmerTokenHoldings />} />
+        {/* /farmer/token-holdings removed — wallet now shows all token data */}
+        <Route path="/farmer/token-holdings"   element={<Navigate to="/farmer/wallet" replace />} />
 
-        {/* Warehouse Documents */}
-        <Route path="/farmer/warehouse-docs"   element={<WarehouseDocuments />} />
+        {/* Giấy tờ — batch-grouped document viewer (no standalone upload) */}
+        <Route path="/farmer/warehouse-docs"   element={<FarmerDocuments />} />
 
         {/* Legacy asset routes redirect to status */}
         <Route path="/farmer/assets"           element={<Navigate to="/farmer/status" replace />} />
@@ -139,6 +140,7 @@ export default function AppRouter() {
         {/* Legacy farmer routes — preserved for backward compatibility */}
         <Route path="/farmer/batches"                element={<FarmerBatchesPage />} />
         <Route path="/farmer/batch/new"              element={<SubmitBatchPage />} />
+        <Route path="/farmer/batch/:id/supplement"   element={<SupplementDocuments />} />
         <Route path="/farmer/batch/:id"              element={<BatchDetailPage />} />
         <Route path="/farmer/deposit"                element={<FarmerDepositPage />} />
         <Route path="/farmer/withdraw"               element={<FarmerWithdrawPage />} />

@@ -11,6 +11,7 @@ import {
   approveBatch,
   rejectBatch,
   updateGrade,
+  supplementBatch,
 } from '../controllers/AssetBatchController.js';
 import { verifyToken, requireRole } from '../middleware/auth.js';
 
@@ -83,6 +84,11 @@ router.post('/',
   createBatch
 );
 router.get('/mine', verifyToken, requireRole('farmer'), getFarmerBatches);
+router.post('/:id/supplement',
+  verifyToken, requireRole('farmer'),
+  batchDocFields, attachBuffers,
+  supplementBatch
+);
 
 // ── Admin ─────────────────────────────────────────────────────────────────
 router.get('/',               verifyToken, requireRole('admin'), getAllBatches);

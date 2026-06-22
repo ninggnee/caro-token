@@ -12,6 +12,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
 
   const validate = () => {
     if (!email) return "Email không được để trống";
@@ -22,7 +23,8 @@ export default function Login() {
 
   const handleLogin = async () => {
     const err = validate();
-    if (err) return alert(err);
+    if (err) { setError(err); return; }
+    setError("");
 
     try {
       const res = await axios.post(`/auth/login`, { email, password });
@@ -30,16 +32,14 @@ export default function Login() {
       if (data && data.success) {
         auth.login(data);
         const userRole = data.user?.role || 'farmer';
-        if (userRole === 'admin') return navigate('/admin');
+        if (userRole === 'admin')  return navigate('/admin');
         if (userRole === 'trader') return navigate('/trader');
         return navigate('/farmer');
       }
+      setError("Đăng nhập không thành công. Vui lòng thử lại.");
     } catch (e) {
-      // fallback: simple heuristic if backend unavailable
-      console.error(e);
-      if (email.includes('admin')) return navigate('/admin');
-      if (email.includes('trader')) return navigate('/trader');
-      return navigate('/farmer');
+      const msg = e?.response?.data?.message || "Email hoặc mật khẩu không đúng.";
+      setError(msg);
     }
   };
 
@@ -142,6 +142,12 @@ export default function Login() {
             Quên mật khẩu?
           </Link>
         </div>
+
+        {error && (
+          <div style={{ marginTop: 10, padding: "10px 14px", background: "rgba(246,70,93,0.1)", border: "1px solid rgba(246,70,93,0.3)", borderRadius: 8, fontSize: 13, color: "#f6465d" }}>
+            {error}
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
           <button onClick={handleLogin} className="btn">Đăng nhập</button>

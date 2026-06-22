@@ -66,6 +66,16 @@ export const AuthProvider = ({ children }) => {
     await fetchMe();
   };
 
+  // Returns true if the JWT is still valid for at least the next 60 seconds
+  function isTokenValid(token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.exp * 1000 > Date.now() + 60_000;
+    } catch {
+      return false;
+    }
+  }
+
   // Schedule silent refresh 1 minute before expiry (15 min access token)
   function scheduleRefresh() {
     if (refreshTimer.current) clearTimeout(refreshTimer.current);
@@ -82,7 +92,17 @@ export const AuthProvider = ({ children }) => {
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ refresh_token: rt }),
       });
-      if (!res.ok) { clearState(); return; }
+      if (!res.ok) {
+        // Refresh endpoint failed — fall back to existing access token if still valid
+        const existing = localStorage.getItem('token');
+        if (existing && isTokenValid(existing)) {
+          setAccessToken(existing);
+          scheduleRefresh();
+          return existing;
+        }
+        clearState();
+        return;
+      }
       const data = await res.json();
       const newAt = data.access_token || data.token;
       setAccessToken(newAt);
@@ -91,6 +111,12 @@ export const AuthProvider = ({ children }) => {
       scheduleRefresh();
       return newAt;
     } catch {
+      // Network error — keep user logged in if they have a valid access token
+      const existing = localStorage.getItem('token');
+      if (existing && isTokenValid(existing)) {
+        setAccessToken(existing);
+        return existing;
+      }
       clearState();
     }
   }

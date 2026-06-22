@@ -35,9 +35,8 @@ const MENU = [
   { id: "dash",   label: "Trang chủ",               icon: "home",   path: "/farmer/dashboard"        },
   { id: "status", label: "Trạng thái lô hàng",       icon: "box",    path: "/farmer/status"           },
   { id: "wallet", label: "Ví tài khoản",            icon: "wallet", path: "/farmer/wallet"           },
-  { id: "tokens", label: "Số dư Token",             icon: "bar",    path: "/farmer/token-holdings"   },
-  { id: "market", label: "Chợ giao dịch",           icon: "shop",   path: "/farmer/marketplace"      },
-  { id: "wdocs",  label: "Chứng từ kho",            icon: "file",   path: "/farmer/warehouse-docs"   },
+  { id: "market", label: "Thị trường",              icon: "shop",   path: "/farmer/marketplace"      },
+  { id: "wdocs",  label: "Giấy tờ",                  icon: "file",   path: "/farmer/warehouse-docs"   },
   { id: "prof",   label: "Hồ sơ cá nhân",           icon: "user",   path: "/farmer/profile"          },
 ];
 
@@ -262,26 +261,6 @@ export default function FarmerLayout({ children, title = "Farmer Portal" }) {
             >
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{
-                    fontSize: 9,
-                    padding: "2px 6px",
-                    borderRadius: 4,
-                    background:
-                      user?.kyc_status === "approved" ? "rgba(14,203,129,0.12)" :
-                      user?.kyc_status === "rejected" ? "rgba(246,70,93,0.12)" :
-                      "rgba(240,185,11,0.12)",
-                    color:
-                      user?.kyc_status === "approved" ? "#0ecb81" :
-                      user?.kyc_status === "rejected" ? "#f6465d" :
-                      "#f0b90b",
-                    fontWeight: 600
-                  }}>
-                    KYC {
-                      user?.kyc_status === "approved" ? "Đã duyệt" :
-                      user?.kyc_status === "rejected" ? "Bị từ chối" :
-                      "Chờ duyệt"
-                    }
-                  </span>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{user?.full_name || user?.email || "Farmer"}</div>
                 </div>
                 <span style={{ fontSize: 10, color: "#6b7a99" }}>{user?.email}</span>

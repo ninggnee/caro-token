@@ -1,23 +1,32 @@
 import express from 'express';
-import { createTokenRequest, listTokenRequestsForUser, listTokenRequests, getTokenRequest, reviewTokenRequest, mintToken, getUserBalances, getOnChainBalances } from '../controllers/tokenController.js';
+import {
+  createTokenRequest,
+  listTokenRequestsForUser,
+  listTokenRequests,
+  getTokenRequest,
+  reviewTokenRequest,
+  mintToken,
+  getUserBalances,
+  getOnChainBalances,
+} from '../controllers/tokenController.js';
 import { verifyToken, requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
 router.post('/requests', verifyToken, requireRole('farmer'), createTokenRequest);
-router.get('/requests', verifyToken, requireRole('farmer'), listTokenRequestsForUser);
+router.get('/requests',  verifyToken, requireRole('farmer'), listTokenRequestsForUser);
 
-// balances — internal DB
-router.get('/balances', verifyToken, requireRole('farmer'), getUserBalances);
-router.get('/balances/onchain', verifyToken, requireRole('farmer'), getOnChainBalances);
+// Internal DB balances
+router.get('/balances',         verifyToken, requireRole('farmer'), getUserBalances);
+router.get('/holdings',         verifyToken, requireRole('farmer'), getUserBalances);  // alias
 
-// on-chain balance (live from blockchain)
+// Live on-chain balances (requires registered wallet address)
 router.get('/balances/onchain', verifyToken, requireRole('farmer'), getOnChainBalances);
 
 // admin
-router.get('/admin/requests', verifyToken, requireRole('admin'), listTokenRequests);
-router.get('/admin/requests/:id', verifyToken, requireRole('admin'), getTokenRequest);
+router.get('/admin/requests',          verifyToken, requireRole('admin'), listTokenRequests);
+router.get('/admin/requests/:id',      verifyToken, requireRole('admin'), getTokenRequest);
 router.post('/admin/requests/:id/review', verifyToken, requireRole('admin'), reviewTokenRequest);
-router.post('/admin/requests/:id/mint', verifyToken, requireRole('admin'), mintToken);
+router.post('/admin/requests/:id/mint',   verifyToken, requireRole('admin'), mintToken);
 
 export default router;

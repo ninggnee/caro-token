@@ -3,24 +3,21 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import { useAuth } from "../context/AuthContext";
-import { useWallet } from "../context/WalletContext";
 import { useMyBatches } from "../hooks/useBatches";
 import axios from "../utils/axiosClient";
 
 const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#487573", muted: "#6b7a99" };
 
-function useBalances(walletAddress) {
+// Single aggregated call: DB token balances + batch stats + VND balance.
+// Data flows: Mint Record → user_balances (DB) → this endpoint → Dashboard cards.
+function useDashboard() {
   return useQuery({
-    queryKey: ["token-balances-onchain", walletAddress],
-    queryFn: () => axios.get("/token/balances/onchain").then(r => r.data),
-    staleTime: 30_000,
-    retry: 1,
+    queryKey: ["farmer-dashboard"],
+    queryFn: () => axios.get("/farmer/dashboard").then(r => r.data),
+    staleTime: 15_000,
+    refetchInterval: 30_000, // auto-refresh every 30 s so newly minted tokens appear
+    retry: 2,
   });
-}
-
-function extractBal(bals, key) {
-  const v = bals[key];
-  return Number(v?.total ?? v ?? 0);
 }
 
 function StatCard({ label, value, sub, accent, icon }) {
@@ -41,9 +38,9 @@ function PieChart({ pending, minted, rejected }) {
   const total = pending + minted + rejected;
 
   const segments = [
-    { label: "Đang chờ duyệt",   count: pending,  color: "#f0b90b" },
-    { label: "Đã Mint",          count: minted,   color: "#0ecb81" },
-    { label: "Bị từ chối",       count: rejected, color: "#f6465d" },
+    { label: "Đang chờ duyệt", count: pending,  color: "#f0b90b" },
+    { label: "Đã Mint",        count: minted,   color: "#0ecb81" },
+    { label: "Bị từ chối",     count: rejected, color: "#f6465d" },
   ];
 
   if (total === 0) {
@@ -154,20 +151,22 @@ function ActivityRow({ batch }) {
 
 export default function FarmerDashboard() {
   const nav = useNavigate();
-  const { account } = useWallet();
   const { user } = useAuth();
-  const balQ    = useBalances(account || user?.wallet_address);
-  const pendQ   = useMyBatches({ status: "PENDING_MINT_APPROVAL", limit: 1 });
-  const mintQ   = useMyBatches({ status: "MINTED",                limit: 1 });
-  const rejectQ = useMyBatches({ status: "REJECTED",              limit: 1 });
+
+  // Single aggregated dashboard call (DB-sourced, auto-refreshes every 30 s)
+  const dashQ   = useDashboard();
+  // Recent batch list still needs its own paginated query
   const recentQ = useMyBatches({ limit: 8 });
 
-  const bals = balQ.data?.balances || {};
+  const tokenBals = dashQ.data?.tokenBalances  || {};
+  const batchStats = dashQ.data?.batchStats    || {};
 
-  const pending  = pendQ.data?.total   ?? 0;
-  const minted   = mintQ.data?.total   ?? 0;
-  const rejected = rejectQ.data?.total ?? 0;
-  const recent   = recentQ.data?.batches || [];
+  const pending  = batchStats.PENDING_MINT_APPROVAL ?? 0;
+  const minted   = batchStats.MINTED               ?? 0;
+  const rejected = batchStats.REJECTED              ?? 0;
+  const recent   = recentQ.data?.batches            || [];
+
+  const isLoading = dashQ.isLoading;
 
   const gridStyles = `
     .farmer-grid-3 {
@@ -231,30 +230,37 @@ export default function FarmerDashboard() {
           </div>
         </div>
 
-        {/* CaRo1 / CaRo2 / CaRo3 live on-chain cards */}
+        {/* CaRo1 / CaRo2 / CaRo3 — sourced from user_balances (DB), updated on every mint */}
         <div className="farmer-grid-3">
           <StatCard
             label="CaRo1 (Hạng A)"
-            value={balQ.isLoading ? "…" : Number(bals.CR1 || 0).toLocaleString("vi-VN")}
-            sub="CR1 · Robusta Cao cấp · on-chain"
+            value={isLoading ? "…" : Number(tokenBals.caro1 || 0).toLocaleString("vi-VN")}
+            sub="CR1 · Robusta Cao cấp · từ hồ sơ mint"
             accent={C.green}
             icon="🥇"
           />
           <StatCard
             label="CaRo2 (Hạng B)"
-            value={balQ.isLoading ? "…" : Number(bals.CR2 || 0).toLocaleString("vi-VN")}
-            sub="CR2 · Robusta Tiêu chuẩn · on-chain"
+            value={isLoading ? "…" : Number(tokenBals.caro2 || 0).toLocaleString("vi-VN")}
+            sub="CR2 · Robusta Tiêu chuẩn · từ hồ sơ mint"
             accent={C.accent}
             icon="🥈"
           />
           <StatCard
             label="CaRo3 (Hạng C)"
-            value={balQ.isLoading ? "…" : Number(bals.CR3 || 0).toLocaleString("vi-VN")}
-            sub="CR3 · Robusta Phổ thông · on-chain"
+            value={isLoading ? "…" : Number(tokenBals.caro3 || 0).toLocaleString("vi-VN")}
+            sub="CR3 · Robusta Phổ thông · từ hồ sơ mint"
             accent={C.gold}
             icon="🥉"
           />
         </div>
+
+        {/* Error banner when dashboard fails */}
+        {dashQ.isError && (
+          <div style={{ padding: "10px 16px", background: "rgba(246,70,93,0.08)", border: "1px solid rgba(246,70,93,0.2)", borderRadius: 8, fontSize: 13, color: C.red }}>
+            Không thể tải dữ liệu dashboard. Kiểm tra kết nối mạng và thử lại.
+          </div>
+        )}
 
         {/* Pie Chart + Recent Batches */}
         <div className="farmer-dashboard-row">
@@ -292,9 +298,9 @@ export default function FarmerDashboard() {
         {/* Quick Actions */}
         <div className="farmer-grid-3">
           {[
-            { icon: "📁", label: "Chứng từ kho",   sub: "Xem các tệp tài liệu đã tải lên",   path: "/farmer/warehouse-docs", accent: "#0095ff" },
-            { icon: "💹", label: "Chợ giao dịch",   sub: "Mua & bán trên sàn giao dịch",    path: "/farmer/marketplace", accent: "#f0b90b" },
-            { icon: "👛", label: "Ví tài khoản",    sub: "Quản lý nạp rút số dư",           path: "/farmer/wallet",      accent: "#9b59b6" },
+            { icon: "📄", label: "Giấy tờ",        sub: "Giấy tờ liên kết với lô hàng",    path: "/farmer/warehouse-docs", accent: "#0095ff" },
+            { icon: "💹", label: "Thị trường",     sub: "Mua & bán trên sàn giao dịch",    path: "/farmer/marketplace",    accent: "#f0b90b" },
+            { icon: "👛", label: "Ví tài khoản",  sub: "Quản lý nạp rút số dư",           path: "/farmer/wallet",         accent: "#9b59b6" },
           ].map(a => (
             <button key={a.path} onClick={() => nav(a.path)}
               style={{ padding: "16px 14px", background: "#172524", border: "1px solid rgba(72,117,115,0.15)", borderRadius: 10, cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}

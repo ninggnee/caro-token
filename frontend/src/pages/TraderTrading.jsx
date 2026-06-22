@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import DashboardLayout from '../components/layout/DashboardLayout';
+import TraderLayout from '../components/layout/TraderLayout';
 import OrderBook from '../components/trading/OrderBook';
 import { API_URL } from '../config/api';
 
@@ -101,7 +101,7 @@ export default function TraderTrading() {
   const lastPrice = ticker?.last_price ? Number(ticker.last_price).toLocaleString() : '—';
 
   return (
-    <DashboardLayout title={`Trading — ${pair}`}>
+    <TraderLayout title={`Giao dịch — ${pair}`}>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         {PAIRS.map(p => (
           <button
@@ -241,6 +241,6 @@ export default function TraderTrading() {
           </table>
         )}
       </div>
-    </DashboardLayout>
+    </TraderLayout>
   );
 }

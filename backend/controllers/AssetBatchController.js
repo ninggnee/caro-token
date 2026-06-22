@@ -440,6 +440,69 @@ export const approveBatch = async (req, res) => {
   }
 };
 
+// ── Farmer: supplement rejected batch with additional documents ───────────
+export const supplementBatch = async (req, res) => {
+  try {
+    const farmerId = req.user?.id;
+    const { id }  = req.params;
+
+    const [[batch]] = await db.execute(
+      `SELECT id, batch_id, farmer_id, status FROM asset_batches WHERE id = ? LIMIT 1`, [id]
+    );
+    if (!batch) return res.status(404).json({ message: 'Batch not found' });
+    if (batch.farmer_id !== farmerId) return res.status(403).json({ message: 'Forbidden' });
+    if (batch.status !== 'REJECTED') {
+      return res.status(422).json({ message: 'Chỉ có thể bổ sung tài liệu cho batch bị từ chối' });
+    }
+
+    const uploadedFiles = req.files || {};
+    const allFiles = [];
+    for (const [docType, files] of Object.entries(uploadedFiles)) {
+      for (const file of files) allFiles.push({ docType, file });
+    }
+    if (allFiles.length === 0) {
+      return res.status(400).json({ message: 'Cần tải lên ít nhất một tài liệu' });
+    }
+
+    // Upload each supplementary file to IPFS and insert batch_documents records
+    await Promise.all(
+      allFiles.map(async ({ docType, file }) => {
+        let cid = null;
+        try {
+          cid = await uploadToIPFS(file.buffer, file.originalname, file.mimetype);
+        } catch (ipfsErr) {
+          console.warn(`IPFS upload skipped for ${file.originalname}: ${ipfsErr.message}`);
+        }
+        const relPath = file.path ? path.relative(process.cwd(), file.path) : null;
+        await db.execute(
+          `INSERT INTO batch_documents (batch_id, document_type, file_name, file_path, ipfs_cid)
+           VALUES (?, ?, ?, ?, ?)`,
+          [batch.batch_id, docType, file.originalname, relPath, cid]
+        );
+      })
+    );
+
+    // Resubmit for review: clear rejection fields, reset status to pending
+    await db.execute(
+      `UPDATE asset_batches
+       SET status='PENDING_MINT_APPROVAL', rejection_reason=NULL, reviewed_by=NULL, rejected_at=NULL
+       WHERE id=?`,
+      [id]
+    );
+
+    await logAction({
+      actorId: farmerId, action: 'batch:supplement', entityType: 'asset_batch', entityId: batch.id,
+      newData: { docCount: allFiles.length },
+      ...auditMeta(req),
+    });
+
+    res.json({ success: true, message: 'Đã bổ sung tài liệu và gửi lại để xét duyệt' });
+  } catch (err) {
+    console.error('supplementBatch error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // ── Admin: reject batch ───────────────────────────────────────────────────
 export const rejectBatch = async (req, res) => {
   try {
