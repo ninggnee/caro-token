@@ -218,39 +218,6 @@ export default function TraderHome() {
           </div>
         </div>
 
-        {/* Market snapshot */}
-        <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-          <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 13, fontWeight: 600 }}>🏪 Thị trường CaRo</span>
-            <button onClick={() => nav("/trader/marketplace")}
-              style={{ fontSize: 11, color: C.tealLight, background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>
-              Xem biểu đồ →
-            </button>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0 }}>
-            {["CR1", "CR2", "CR3"].map((key, idx) => {
-              const s   = stats.find(r => r.token === key) || {};
-              const chg = Number(s.change_24h || 0);
-              return (
-                <div key={key} style={{ padding: "14px 16px", borderRight: idx < 2 ? `1px solid ${C.border}` : "none" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: TOKEN_COLORS[key] }}>{TOKEN_LABELS[key]}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: chg >= 0 ? C.green : C.red }}>
-                      {chg >= 0 ? "▲" : "▼"} {Math.abs(chg).toFixed(2)}%
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "#e2e8f0" }}>
-                    {s.last_price ? fmt(s.last_price) + " ₫" : "—"}
-                  </div>
-                  <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
-                    Vol 24H: {s.volume_24h ? fmt(Number(s.volume_24h), 0) + " token" : "—"}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
         {/* Quick actions */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
           {[
