@@ -19,6 +19,8 @@ import TradeHistory      from '../pages/TradeHistory';
 import TraderProfile     from '../pages/TraderProfile';
 import ConnectWallet     from '../pages/ConnectWallet';
 import RedeemCoffee      from '../pages/RedeemCoffee';
+import TraderFinancing    from '../pages/TraderFinancing';
+import TraderRedeemGoods  from '../pages/TraderRedeemGoods';
 import DepositPage       from '../pages/DepositPage';
 import WithdrawPage      from '../pages/WithdrawPage';
 
@@ -95,6 +97,8 @@ export default function AppRouter() {
         <Route path="/trader/profile"        element={<TraderProfile />} />
         <Route path="/trader/connect-wallet" element={<ConnectWallet />} />
         <Route path="/trader/redeem"         element={<RedeemCoffee />} />
+        <Route path="/trader/market/financing" element={<TraderFinancing />} />
+        <Route path="/trader/market/redeem"    element={<TraderRedeemGoods />} />
 
         {/* ── Farmer — new routes ────────────────────────────── */}
         {/* Root redirects to dashboard */}

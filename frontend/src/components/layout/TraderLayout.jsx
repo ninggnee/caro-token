@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useWallet } from "../../context/WalletContext";
@@ -18,22 +19,33 @@ function Ico({ d, size = 15 }) {
 }
 
 const I = {
-  home:   "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10",
-  shop:   "M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z M3 6h18 M16 10a4 4 0 0 1-8 0",
-  bar:    "M18 20V10 M12 20V4 M6 20v-6",
-  wallet: "M21 12V7H5a2 2 0 0 1 0-4h14v4 M3 5v14a2 2 0 0 0 2 2h16v-5 M18 12a1 1 0 0 0 0 2 1 1 0 0 0 0-2z",
-  list:   "M8 6h13 M8 12h13 M8 18h13 M3 6h.01 M3 12h.01 M3 18h.01",
-  user:   "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
-  out:    "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9",
+  home:    "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10",
+  shop:    "M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z M3 6h18 M16 10a4 4 0 0 1-8 0",
+  bar:     "M18 20V10 M12 20V4 M6 20v-6",
+  wallet:  "M21 12V7H5a2 2 0 0 1 0-4h14v4 M3 5v14a2 2 0 0 0 2 2h16v-5 M18 12a1 1 0 0 0 0 2 1 1 0 0 0 0-2z",
+  list:    "M8 6h13 M8 12h13 M8 18h13 M3 6h.01 M3 12h.01 M3 18h.01",
+  user:    "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+  out:     "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9",
+  chevron: "M6 9l6 6 6-6",
 };
 
-const MENU = [
-  { id: "dash",      label: "Dashboard",          icon: "home",   path: "/trader"             },
-  { id: "market",    label: "Thị trường",         icon: "shop",   path: "/trader/marketplace" },
-  { id: "portfolio", label: "Danh mục đầu tư",   icon: "bar",    path: "/trader/portfolio"   },
-  { id: "wallet",    label: "Ví tài khoản",       icon: "wallet", path: "/trader/wallet"      },
-  { id: "history",   label: "Lịch sử giao dịch", icon: "list",   path: "/trader/trades"      },
-  { id: "profile",   label: "Hồ sơ cá nhân",     icon: "user",   path: "/trader/profile"     },
+const MARKET_SUB = [
+  { id: "trading",   label: "Giao dịch",    path: "/trader/trading"          },
+  { id: "financing", label: "Tài chính",     path: "/trader/market/financing" },
+  { id: "redeem",    label: "Đổi hàng hóa", path: "/trader/market/redeem"    },
+];
+
+const MARKET_PATHS = MARKET_SUB.map(s => s.path);
+
+const TOP_MENU = [
+  { id: "dash", label: "Dashboard", icon: "home", path: "/trader" },
+];
+
+const BOTTOM_MENU = [
+  { id: "portfolio", label: "Danh mục đầu tư",   icon: "bar",    path: "/trader/portfolio" },
+  { id: "wallet",    label: "Ví tài khoản",       icon: "wallet", path: "/trader/wallet"    },
+  { id: "history",   label: "Lịch sử giao dịch", icon: "list",   path: "/trader/trades"    },
+  { id: "profile",   label: "Hồ sơ cá nhân",     icon: "user",   path: "/trader/profile"   },
 ];
 
 export default function TraderLayout({ children, title = "Trader Portal" }) {
@@ -42,12 +54,19 @@ export default function TraderLayout({ children, title = "Trader Portal" }) {
   const loc = useLocation();
   const nav = useNavigate();
 
+  const isOnMarket = MARKET_PATHS.some(p => loc.pathname === p || loc.pathname.startsWith(p + "/"));
+  const [marketOpen, setMarketOpen] = useState(false);
+
+  useEffect(() => {
+    if (isOnMarket) setMarketOpen(true);
+  }, [isOnMarket]);
+
   const isActive = (path) =>
     path === "/trader"
       ? loc.pathname === "/trader"
       : loc.pathname === path || loc.pathname.startsWith(path + "/");
 
-  const navItemStyle = (active) => ({
+  const linkStyle = (active) => ({
     display: "flex", alignItems: "center", gap: 9,
     padding: "9px 16px",
     background: active ? ABG : "transparent",
@@ -61,7 +80,34 @@ export default function TraderLayout({ children, title = "Trader Portal" }) {
     boxSizing: "border-box",
   });
 
+  const subLinkStyle = (active) => ({
+    display: "flex", alignItems: "center", gap: 8,
+    padding: "7px 16px 7px 38px",
+    background: active ? "rgba(72,117,115,0.06)" : "transparent",
+    borderWidth: "0 0 0 2px", borderStyle: "solid",
+    borderColor: active ? A : "transparent",
+    color: active ? "#7fe0c9" : "#7a8898",
+    textDecoration: "none",
+    fontSize: 12, fontWeight: active ? 600 : 400,
+    cursor: "pointer", width: "100%", textAlign: "left",
+    transition: "background 0.15s, color 0.15s",
+    boxSizing: "border-box",
+  });
+
   const initials = (user?.full_name || user?.email || "T")[0].toUpperCase();
+
+  const renderNavItem = (m) => {
+    const act = isActive(m.path);
+    return (
+      <Link key={m.id} to={m.path} style={linkStyle(act)}
+        onMouseEnter={e => { if (!act) { e.currentTarget.style.color = "#c0ccd8"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; } }}
+        onMouseLeave={e => { if (!act) { e.currentTarget.style.color = "#9aa5b4"; e.currentTarget.style.background = "transparent"; } }}
+      >
+        <Ico d={I[m.icon]} />
+        <span style={{ flex: 1 }}>{m.label}</span>
+      </Link>
+    );
+  };
 
   return (
     <div style={{ minHeight: "100vh", background: "#0d1413", color: "#e2e8f0", fontFamily: "Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" }}>
@@ -77,18 +123,59 @@ export default function TraderLayout({ children, title = "Trader Portal" }) {
 
         {/* Nav */}
         <nav style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" }}>
-          {MENU.map(m => {
-            const act = isActive(m.path);
-            return (
-              <Link key={m.id} to={m.path} style={navItemStyle(act)}
-                onMouseEnter={e => { if (!act) { e.currentTarget.style.color = "#c0ccd8"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; } }}
-                onMouseLeave={e => { if (!act) { e.currentTarget.style.color = "#9aa5b4"; e.currentTarget.style.background = "transparent"; } }}
-              >
-                <Ico d={I[m.icon]} />
-                <span style={{ flex: 1 }}>{m.label}</span>
-              </Link>
-            );
-          })}
+
+          {/* Top items */}
+          {TOP_MENU.map(renderNavItem)}
+
+          {/* Market group */}
+          <div>
+            {/* Group header */}
+            <button
+              onClick={() => setMarketOpen(o => !o)}
+              style={{
+                display: "flex", alignItems: "center", gap: 9,
+                padding: "9px 16px", width: "100%", textAlign: "left",
+                background: isOnMarket && !marketOpen ? ABG : "transparent",
+                border: "none",
+                borderLeft: isOnMarket ? `2px solid ${A}` : "2px solid transparent",
+                color: isOnMarket ? "#7fe0c9" : "#9aa5b4",
+                fontSize: 13, fontWeight: isOnMarket ? 600 : 400,
+                cursor: "pointer",
+                transition: "background 0.15s, color 0.15s",
+                boxSizing: "border-box",
+              }}
+              onMouseEnter={e => { if (!isOnMarket) { e.currentTarget.style.color = "#c0ccd8"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; } }}
+              onMouseLeave={e => { if (!isOnMarket) { e.currentTarget.style.color = "#9aa5b4"; e.currentTarget.style.background = "transparent"; } }}
+            >
+              <Ico d={I.shop} />
+              <span style={{ flex: 1 }}>Thị trường</span>
+              <span style={{ fontSize: 10, transition: "transform 0.2s", display: "block", transform: marketOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
+                <Ico d={I.chevron} size={12} />
+              </span>
+            </button>
+
+            {/* Sub-items */}
+            {marketOpen && (
+              <div style={{ borderBottom: "1px solid rgba(72,117,115,0.08)" }}>
+                {MARKET_SUB.map(s => {
+                  const act = isActive(s.path);
+                  return (
+                    <Link key={s.id} to={s.path} style={subLinkStyle(act)}
+                      onMouseEnter={e => { if (!act) { e.currentTarget.style.color = "#c0ccd8"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; } }}
+                      onMouseLeave={e => { if (!act) { e.currentTarget.style.color = "#7a8898"; e.currentTarget.style.background = "transparent"; } }}
+                    >
+                      <span style={{ width: 4, height: 4, borderRadius: "50%", background: act ? "#7fe0c9" : "#4a5568", flexShrink: 0 }} />
+                      {s.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Bottom items */}
+          {BOTTOM_MENU.map(renderNavItem)}
+
         </nav>
 
         {/* Sign out */}

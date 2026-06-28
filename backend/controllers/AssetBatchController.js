@@ -541,3 +541,22 @@ export const rejectBatch = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+// ── Trader: list all MINTED batches (for Redeem Goods page) ──────────────────
+export const getAvailableBatchesForTrader = async (req, res) => {
+  try {
+    const [rows] = await db.execute(
+      `SELECT batch_id, coffee_type, quality_grade, quantity,
+              COALESCE(minted_amount, quantity) AS minted_amount,
+              storage_location, minted_at
+       FROM asset_batches
+       WHERE status = 'MINTED'
+       ORDER BY minted_at DESC
+       LIMIT 100`
+    );
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('getAvailableBatchesForTrader error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

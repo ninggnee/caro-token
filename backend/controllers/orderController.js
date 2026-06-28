@@ -294,3 +294,28 @@ export const getTickers = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
+
+// ── Trader: get own token balances (from user_balances) ──────────────────────
+
+export const getMyTokenBalances = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const [rows] = await db.execute(
+      `SELECT token_type, available_balance, locked_balance, balance
+       FROM user_balances WHERE user_id = ?`,
+      [userId]
+    );
+    const data = {};
+    rows.forEach(r => {
+      data[r.token_type] = {
+        available: Number(r.available_balance || 0),
+        locked:    Number(r.locked_balance    || 0),
+        total:     Number(r.balance           || 0),
+      };
+    });
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('getMyTokenBalances error', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
