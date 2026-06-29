@@ -9,6 +9,7 @@ import {
   useUpdateGrade,
   useBatchDocuments,
 } from "../hooks/useBatches";
+import { formatNumber, formatKg } from '../utils/formatters';
 
 const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#7fe0c9", muted: "#6b7a99" };
 
@@ -62,7 +63,7 @@ function RejectModal({ batch, onClose, onConfirm, isPending }) {
           <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>✕</button>
         </div>
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>
-          {batch.farmer_name} · {Number(batch.quantity).toLocaleString()} kg · {batch.quality_grade}
+          {batch.farmer_name} · {formatKg(batch.quantity)} · {batch.quality_grade}
         </div>
         <label style={{ display: "block", fontSize: 12, color: C.accent, marginBottom: 6, fontWeight: 600 }}>Lý do từ chối *</label>
         <textarea
@@ -110,7 +111,7 @@ function ApproveModal({ batch, onClose, onConfirm, isPending }) {
           </div>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span style={{ color: C.muted }}>Khối lượng cà phê</span>
-            <span style={{ fontWeight: 600 }}>{Number(batch.quantity).toLocaleString()} kg</span>
+            <span style={{ fontWeight: 600 }}>{formatKg(batch.quantity)}</span>
           </div>
         </div>
 
@@ -135,7 +136,7 @@ function ApproveModal({ batch, onClose, onConfirm, isPending }) {
           <div style={{ background: `${gradeColors[grade]}10`, border: `1px solid ${gradeColors[grade]}30`, borderRadius: 8, padding: "12px 14px", marginBottom: 18 }}>
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>Sẽ phát hành (Mint)</div>
             <div style={{ fontSize: 18, fontWeight: 700, color: gradeColors[grade] }}>
-              {Number(batch.quantity).toLocaleString()} token {tokenType}
+              {formatNumber(batch.quantity)} token {tokenType}
             </div>
             <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>→ đến ví giao dịch nội bộ của nông dân</div>
           </div>
@@ -341,7 +342,7 @@ export default function AdminMintRequestsPage() {
 
                       {/* Qty */}
                       <td style={{ padding: "12px 16px", fontWeight: 600, color: "#e2e8f0" }}>
-                        {Number(b.quantity).toLocaleString()} kg
+                        {formatKg(b.quantity)}
                       </td>
 
                       {/* Grade — editable for pending, badge for others */}

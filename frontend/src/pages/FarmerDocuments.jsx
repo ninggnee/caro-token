@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import { useMyBatches, useBatch } from "../hooks/useBatches";
+import { formatKg } from '../utils/formatters';
 
 const C = {
   accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
@@ -182,7 +183,7 @@ export default function FarmerDocuments() {
                   </span>
                 </div>
                 <div style={{ fontSize: 11, color: C.muted }}>
-                  {Number(b.quantity).toLocaleString()} kg · {b.coffee_type || "ROBUSTA"}
+                  {formatKg(b.quantity)} · {b.coffee_type || "ROBUSTA"}
                   {b.doc_count !== undefined && ` · ${b.doc_count} tệp`}
                 </div>
                 {b.status === "REJECTED" && (
@@ -217,7 +218,7 @@ export default function FarmerDocuments() {
                     {selected.batch_id}
                   </div>
                   <div style={{ fontSize: 12, color: "#e2e8f0" }}>
-                    {Number(selected.quantity).toLocaleString()} kg · {selected.coffee_type || "ROBUSTA"}
+                    {formatKg(selected.quantity)} · {selected.coffee_type || "ROBUSTA"}
                     {selected.created_at && ` · ${new Date(selected.created_at).toLocaleDateString("vi-VN")}`}
                   </div>
                   {selected.doc_count !== undefined && (

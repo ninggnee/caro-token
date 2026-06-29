@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { API_URL } from '../config/api';
+import { formatNumber, formatVND } from '../utils/formatters';
 
 function authHeader() {
   const t = localStorage.getItem('token');
@@ -64,9 +65,9 @@ export default function WithdrawPage() {
       {wallet && (
         <div style={{ padding: 14, background: 'rgba(255,255,255,0.04)', borderRadius: 8, marginBottom: 16 }}>
           <div style={{ fontWeight: 600, marginBottom: 4 }}>Số dư ví VND</div>
-          <div>Khả dụng: <b style={{ color: '#27ae60' }}>{Number(wallet.vnd_available).toLocaleString()} VNĐ</b></div>
+          <div>Khả dụng: <b style={{ color: '#27ae60' }}>{formatVND(wallet.vnd_available)}</b></div>
           <div style={{ fontSize: 13, color: '#aaa' }}>
-            Tổng: {Number(wallet.vnd_balance).toLocaleString()} | Đang lock: {Number(wallet.vnd_locked).toLocaleString()}
+            Tổng: {formatNumber(wallet.vnd_balance)} | Đang lock: {formatNumber(wallet.vnd_locked)}
           </div>
         </div>
       )}
@@ -115,7 +116,7 @@ export default function WithdrawPage() {
               <div key={w.id} style={{ padding: 10, background: 'rgba(255,255,255,0.03)', borderRadius: 6,
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <div style={{ fontWeight: 600 }}>−{Number(w.amount).toLocaleString()} VNĐ</div>
+                  <div style={{ fontWeight: 600 }}>−{formatVND(w.amount)}</div>
                   <div style={{ fontSize: 12, color: '#aaa' }}>
                     {w.bank_name} — {w.account_number}
                   </div>

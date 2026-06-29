@@ -100,6 +100,83 @@ export const createDeposit = async (req, res) => {
   }
 };
 
+// ── Direct deposit (immediately credits vnd_balance) ────────────────────────
+
+export const directDeposit = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { amount } = req.body;
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ message: 'amount must be > 0' });
+    }
+
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      await ensureWallet(userId, conn);
+
+      await conn.execute(
+        `UPDATE wallets SET vnd_balance = vnd_balance + ? WHERE user_id = ?`,
+        [Number(amount), userId]
+      );
+
+      const [r] = await conn.execute(
+        `INSERT INTO deposit_requests (user_id, amount, status, note, created_at, reviewed_at)
+         VALUES (?, ?, 'approved', 'Nạp trực tiếp', NOW(), NOW())`,
+        [userId, Number(amount)]
+      );
+
+      await conn.commit();
+
+      await logAction({
+        actorId: userId, action: 'deposit:direct',
+        entityType: 'deposit', entityId: r.insertId,
+        newData: { amount: Number(amount) }, ...auditMeta(req),
+      });
+
+      res.status(200).json({ success: true, id: r.insertId });
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// ── Combined transaction history ─────────────────────────────────────────────
+
+export const getTransactions = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const limit  = Math.min(Number(req.query.limit) || 20, 100);
+
+    const [deposits] = await db.execute(
+      `SELECT id, 'deposit' AS type, amount, status, note, created_at
+       FROM deposit_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
+      [userId, limit]
+    );
+
+    const [withdraws] = await db.execute(
+      `SELECT id, 'withdraw' AS type, amount, status, note, created_at
+       FROM withdraw_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
+      [userId, limit]
+    );
+
+    const combined = [...deposits, ...withdraws]
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, limit);
+
+    res.json({ success: true, data: combined });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 export const listDepositsForUser = async (req, res) => {
   try {
     const [rows] = await db.execute(

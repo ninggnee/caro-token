@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import TraderLayout from '../components/layout/TraderLayout';
 import { API_URL } from '../config/api';
+import { formatVND, formatKg } from '../utils/formatters';
+import { useTraderPrices, useTraderTokenBals, getPriceOf, TRADER_KEYS } from '../hooks/useTraderData';
 
 const C = {
   card: '#0f1e20', border: 'rgba(255,255,255,0.08)',
@@ -25,9 +28,6 @@ async function apiFetch(path, opts = {}) {
   return res.json();
 }
 
-const fmtVND = (n) => Math.round(Number(n || 0)).toLocaleString('en-US');
-const fmtKg  = (n) => Number(n || 0).toLocaleString('en-US');
-
 const STATUS_LABEL = {
   pending:  { label: 'Chờ duyệt',  color: '#f0b90b' },
   approved: { label: 'Đã duyệt',   color: '#0ecb81' },
@@ -35,8 +35,8 @@ const STATUS_LABEL = {
 };
 
 export default function TraderRedeemGoods() {
-  const [tokenBals, setTokenBals]   = useState({});
-  const [tickers,   setTickers]     = useState({});
+  const qc = useQueryClient();
+
   const [batches,   setBatches]     = useState([]);
   const [history,   setHistory]     = useState([]);
 
@@ -45,33 +45,30 @@ export default function TraderRedeemGoods() {
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg]               = useState(null);
 
+  const { data: balsData }   = useTraderTokenBals();
+  const { data: pricesData } = useTraderPrices();
+  const tokenBals = balsData?.data || {};
+  const stats     = pricesData?.stats || [];
+
   const load = useCallback(async () => {
-    const [tb, tk, bt, hist] = await Promise.all([
-      apiFetch('/orders/my-balances'),
-      apiFetch('/orders/tickers'),
+    const [bt, hist] = await Promise.all([
       apiFetch('/asset-batches/available'),
       apiFetch('/redeem'),
     ]);
-    if (tb.success)      setTokenBals(tb.data || {});
-    if (tk.success) {
-      const m = {};
-      tk.data.forEach(t => { const k = t.pair?.split('/')[0]; if (k) m[k] = t; });
-      setTickers(m);
-    }
-    if (bt.success) setBatches(bt.data || []);
+    if (bt.success)   setBatches(bt.data || []);
     if (hist.success) setHistory(hist.data || []);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const avail   = Number(tokenBals[selToken]?.available || 0);
-  const price   = Number(tickers[selToken]?.last_price  || 0);
+  const avail = Number(tokenBals[selToken]?.available || 0);
+  const price = getPriceOf(stats, selToken);
   const qtyN    = Math.min(parseFloat(qty) || 0, avail);
   const value   = qtyN * price;
 
   const handleRedeem = async () => {
     if (!qty || qtyN <= 0) return setMsg({ ok: false, text: 'Nhập số lượng hợp lệ' });
-    if (qtyN > avail) return setMsg({ ok: false, text: `Vượt quá số lượng khả dụng (${fmtKg(avail)} kg)` });
+    if (qtyN > avail) return setMsg({ ok: false, text: `Vượt quá số lượng khả dụng (${formatKg(avail)})` });
     setSubmitting(true); setMsg(null);
     try {
       const d = await apiFetch('/redeem', {
@@ -81,6 +78,7 @@ export default function TraderRedeemGoods() {
       if (d.success) {
         setMsg({ ok: true, text: `Tạo yêu cầu đổi hàng thành công (ID: #${d.id}). Chờ admin xử lý.` });
         setQty('');
+        qc.invalidateQueries({ queryKey: TRADER_KEYS.tokens });
         load();
       } else {
         setMsg({ ok: false, text: d.message || 'Lỗi tạo yêu cầu' });
@@ -104,7 +102,7 @@ export default function TraderRedeemGoods() {
           {TOKENS.map(tk => {
             const av = Number(tokenBals[tk]?.available || 0);
             const lk = Number(tokenBals[tk]?.locked    || 0);
-            const pr = Number(tickers[tk]?.last_price  || 0);
+            const pr = getPriceOf(stats, tk);
             return (
               <div key={tk} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', cursor: 'pointer', outline: selToken === tk ? `1.5px solid ${TOKEN_COLORS[tk]}` : 'none' }}
                 onClick={() => setSelToken(tk)}>
@@ -114,10 +112,10 @@ export default function TraderRedeemGoods() {
                     {selToken===tk ? '✓ Đã chọn' : 'Chọn'}
                   </span>
                 </div>
-                <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'monospace' }}>{fmtKg(av)} kg</div>
+                <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'monospace' }}>{formatKg(av)}</div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
-                  Khả dụng · {lk > 0 && <span>Đang khóa: {fmtKg(lk)} kg · </span>}
-                  {pr > 0 && <span>≈ {fmtVND(av * pr)} VND</span>}
+                  Khả dụng · {lk > 0 && <span>Đang khóa: {formatKg(lk)} · </span>}
+                  {pr > 0 && <span>≈ {formatVND(av * pr)}</span>}
                 </div>
               </div>
             );
@@ -157,7 +155,7 @@ export default function TraderRedeemGoods() {
                           </td>
                           <td style={{ padding: '10px 12px', color: C.muted }}>{b.storage_location || '—'}</td>
                           <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontWeight: 600 }}>
-                            {fmtKg(b.minted_amount || b.quantity)} kg
+                            {formatKg(b.minted_amount || b.quantity)}
                           </td>
                           <td style={{ padding: '10px 12px', color: C.muted, fontSize: 11 }}>
                             {b.minted_at ? new Date(b.minted_at).toLocaleDateString('vi-VN') : '—'}
@@ -197,7 +195,7 @@ export default function TraderRedeemGoods() {
                 style={{ width: '100%', padding: '9px 12px', background: C.input, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
               />
               <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
-                KL có thể đổi: <b style={{ color: C.green }}>{fmtKg(avail)} kg</b>
+                KL có thể đổi: <b style={{ color: C.green }}>{formatKg(avail)}</b>
               </div>
             </div>
 
@@ -205,12 +203,12 @@ export default function TraderRedeemGoods() {
               <div style={{ marginBottom: 12, padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: 6 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span style={{ color: C.muted }}>Số lượng đổi</span>
-                  <span style={{ fontWeight: 700, fontFamily: 'monospace' }}>{fmtKg(qtyN)} kg</span>
+                  <span style={{ fontWeight: 700, fontFamily: 'monospace' }}>{formatKg(qtyN)}</span>
                 </div>
                 {price > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: C.muted }}>Giá trị ước tính</span>
-                    <span style={{ fontWeight: 700, fontFamily: 'monospace', color: C.yellow }}>{fmtVND(value)} VND</span>
+                    <span style={{ fontWeight: 700, fontFamily: 'monospace', color: C.yellow }}>{formatVND(value)}</span>
                   </div>
                 )}
               </div>
@@ -266,7 +264,7 @@ export default function TraderRedeemGoods() {
                         <tr key={r.id} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)` }}>
                           <td style={{ padding: '9px 10px', color: C.muted }}>#{r.id}</td>
                           <td style={{ padding: '9px 10px', fontWeight: 700, color: TOKEN_COLORS[r.token_type] || C.text }}>{r.token_type || '—'}</td>
-                          <td style={{ padding: '9px 10px', fontFamily: 'monospace', fontWeight: 600 }}>{fmtKg(r.kg_amount)} kg</td>
+                          <td style={{ padding: '9px 10px', fontFamily: 'monospace', fontWeight: 600 }}>{formatKg(r.kg_amount)}</td>
                           <td style={{ padding: '9px 10px' }}>
                             <span style={{ color: s.color, fontWeight: 700 }}>{s.label}</span>
                           </td>

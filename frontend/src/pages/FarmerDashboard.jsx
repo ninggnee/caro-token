@@ -5,6 +5,7 @@ import FarmerLayout from "../components/layout/FarmerLayout";
 import { useAuth } from "../context/AuthContext";
 import { useMyBatches } from "../hooks/useBatches";
 import axios from "../utils/axiosClient";
+import { formatNumber, formatKg, formatPct } from '../utils/formatters';
 
 const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#487573", muted: "#6b7a99" };
 
@@ -70,7 +71,7 @@ function PieChart({ pending, minted, rejected }) {
   let angle = -Math.PI / 2;
 
   const arcs = segments.map((seg) => {
-    if (seg.count === 0) return { ...seg, path: null, percent: "0.0" };
+    if (seg.count === 0) return { ...seg, path: null, percentNum: 0 };
     const sweep = (seg.count / total) * 2 * Math.PI;
     const s = angle;
     const e = angle + sweep;
@@ -83,7 +84,7 @@ function PieChart({ pending, minted, rejected }) {
     return {
       ...seg,
       path: `M ${ix1} ${iy1} L ${x1} ${y1} A ${r} ${r} 0 ${la} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${innerR} ${innerR} 0 ${la} 0 ${ix1} ${iy1} Z`,
-      percent: (seg.count / total * 100).toFixed(1),
+      percentNum: seg.count / total * 100,
     };
   });
 
@@ -92,7 +93,7 @@ function PieChart({ pending, minted, rejected }) {
       <div style={{ position: "relative" }}>
         {hovered !== null && arcs[hovered] && (
           <div style={{ position: "absolute", top: -34, left: "50%", transform: "translateX(-50%)", background: "#1e3130", border: "1px solid rgba(72,117,115,0.2)", borderRadius: 6, padding: "5px 10px", fontSize: 11, color: "#e2e8f0", whiteSpace: "nowrap", zIndex: 10, pointerEvents: "none" }}>
-            {arcs[hovered].label}: {arcs[hovered].count} lô hàng ({arcs[hovered].percent}%)
+            {arcs[hovered].label}: {arcs[hovered].count} lô hàng ({formatPct(arcs[hovered].percentNum)})
           </div>
         )}
         <svg width={130} height={130} viewBox="0 0 100 100">
@@ -120,7 +121,7 @@ function PieChart({ pending, minted, rejected }) {
             </div>
             <div>
               <span style={{ fontSize: 14, fontWeight: 700, color: arc.color }}>{arc.count}</span>
-              <span style={{ fontSize: 10, color: C.muted, marginLeft: 5 }}>({arc.percent}%)</span>
+              <span style={{ fontSize: 10, color: C.muted, marginLeft: 5 }}>({formatPct(arc.percentNum)})</span>
             </div>
           </div>
         ))}
@@ -142,7 +143,7 @@ function ActivityRow({ batch }) {
       <div style={{ width: 8, height: 8, borderRadius: "50%", background: m.dot, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 500, color: "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{batch.batch_id}</div>
-        <div style={{ fontSize: 11, color: C.muted }}>{Number(batch.quantity).toLocaleString()} kg · {batch.coffee_type || "ROBUSTA"} · {new Date(batch.created_at).toLocaleDateString("vi-VN")}</div>
+        <div style={{ fontSize: 11, color: C.muted }}>{formatKg(Number(batch.quantity))} · {batch.coffee_type || "ROBUSTA"} · {new Date(batch.created_at).toLocaleDateString("vi-VN")}</div>
       </div>
       <div style={{ fontSize: 12, color: m.color, fontWeight: 600, flexShrink: 0 }}>{m.label}</div>
     </div>
@@ -234,21 +235,21 @@ export default function FarmerDashboard() {
         <div className="farmer-grid-3">
           <StatCard
             label="CaRo1 (Hạng A)"
-            value={isLoading ? "…" : Number(tokenBals.caro1 || 0).toLocaleString("vi-VN")}
+            value={isLoading ? "…" : formatNumber(Number(tokenBals.caro1 || 0))}
             sub="CR1 · Robusta Cao cấp · từ hồ sơ mint"
             accent={C.green}
             icon="🥇"
           />
           <StatCard
             label="CaRo2 (Hạng B)"
-            value={isLoading ? "…" : Number(tokenBals.caro2 || 0).toLocaleString("vi-VN")}
+            value={isLoading ? "…" : formatNumber(Number(tokenBals.caro2 || 0))}
             sub="CR2 · Robusta Tiêu chuẩn · từ hồ sơ mint"
             accent={C.accent}
             icon="🥈"
           />
           <StatCard
             label="CaRo3 (Hạng C)"
-            value={isLoading ? "…" : Number(tokenBals.caro3 || 0).toLocaleString("vi-VN")}
+            value={isLoading ? "…" : formatNumber(Number(tokenBals.caro3 || 0))}
             sub="CR3 · Robusta Phổ thông · từ hồ sơ mint"
             accent={C.gold}
             icon="🥉"

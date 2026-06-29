@@ -6,6 +6,8 @@ import { useWallet } from "../context/WalletContext";
 import { ethers } from "ethers";
 import { CA_RO_CONTRACTS, ABI } from "../config/config";
 import axios from "../utils/axiosClient";
+import { formatNumber, formatVND } from '../utils/formatters';
+import { TRADER_KEYS } from '../hooks/useTraderData';
 
 const C = {
   accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
@@ -15,9 +17,6 @@ const TOKEN_COLORS = { CR1: "#f0b90b", CR2: "#00d4aa", CR3: "#9b87f5" };
 const TOKEN_LABELS = { CR1: "CaRo1 (CR1)", CR2: "CaRo2 (CR2)", CR3: "CaRo3 (CR3)" };
 const TOKEN_GRADE  = { CR1: "Grade A", CR2: "Grade B", CR3: "Grade C" };
 
-function fmt(n, dec = 0) {
-  return Number(n || 0).toLocaleString("vi-VN", { minimumFractionDigits: dec, maximumFractionDigits: dec });
-}
 
 function AmountInput({ label, value, onChange, placeholder, max }) {
   return (
@@ -53,7 +52,7 @@ export default function TraderWallet() {
   const [wdMsg,     setWdMsg]     = useState(null);
 
   const { data: walletData, isLoading } = useQuery({
-    queryKey: ["trader-wallet-balance"],
+    queryKey: TRADER_KEYS.wallet,
     queryFn:  () => axios.get("/wallet/balance").then(r => r.data),
     staleTime: 10_000, refetchInterval: 20_000,
   });
@@ -83,11 +82,11 @@ export default function TraderWallet() {
   }, [account, provider]);
 
   const depositMutation = useMutation({
-    mutationFn: (amount) => axios.post("/wallet/deposit", { amount: Number(amount) }).then(r => r.data),
+    mutationFn: (amount) => axios.post("/wallet/direct-deposit", { amount: Number(amount) }).then(r => r.data),
     onSuccess: () => {
       setDepMsg({ ok: true, text: "Nạp tiền thành công!" });
       setDepAmount("");
-      qc.invalidateQueries({ queryKey: ["trader-wallet-balance"] });
+      qc.invalidateQueries({ queryKey: TRADER_KEYS.wallet });
       qc.invalidateQueries({ queryKey: ["trader-wallet-tx"] });
     },
     onError: (e) => setDepMsg({ ok: false, text: e?.response?.data?.message || "Nạp tiền thất bại." }),
@@ -98,7 +97,7 @@ export default function TraderWallet() {
     onSuccess: () => {
       setWdMsg({ ok: true, text: "Rút tiền thành công!" });
       setWdAmount("");
-      qc.invalidateQueries({ queryKey: ["trader-wallet-balance"] });
+      qc.invalidateQueries({ queryKey: TRADER_KEYS.wallet });
       qc.invalidateQueries({ queryKey: ["trader-wallet-tx"] });
     },
     onError: (e) => setWdMsg({ ok: false, text: e?.response?.data?.message || "Rút tiền thất bại." }),
@@ -125,7 +124,7 @@ export default function TraderWallet() {
           <div>
             <div style={{ fontSize: 12, color: C.muted, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>Số dư VND khả dụng</div>
             <div style={{ fontSize: 32, fontWeight: 900, color: C.tealLight, letterSpacing: "-0.5px" }}>
-              {isLoading ? "..." : fmt(vndBalance) + " ₫"}
+              {isLoading ? "..." : formatVND(vndBalance)}
             </div>
             <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>Cập nhật tự động mỗi 20 giây</div>
           </div>
@@ -181,7 +180,7 @@ export default function TraderWallet() {
                           {TOKEN_LABELS[key]}
                         </div>
                         <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>{TOKEN_GRADE[key]}</div>
-                        <div style={{ fontSize: 24, fontWeight: 800, color: qty > 0 ? C.green : C.muted }}>{fmt(qty, 4)}</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: qty > 0 ? C.green : C.muted }}>{formatNumber(qty, 4)}</div>
                         <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>token</div>
                         <button onClick={() => nav("/trader/trading")}
                           style={{ marginTop: 12, padding: "6px 12px", fontSize: 11, background: "rgba(72,117,115,0.12)", color: C.tealLight, border: `1px solid rgba(72,117,115,0.3)`, borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>
@@ -228,7 +227,7 @@ export default function TraderWallet() {
                   {[500000, 1000000, 2000000, 5000000].map(amt => (
                     <button key={amt} onClick={() => setDepAmount(String(amt))}
                       style={{ padding: "6px 14px", fontSize: 12, background: depAmount === String(amt) ? "rgba(72,117,115,0.2)" : "rgba(255,255,255,0.05)", border: `1px solid ${depAmount === String(amt) ? C.accent : C.border}`, borderRadius: 6, cursor: "pointer", color: "#e2e8f0", fontWeight: 600 }}>
-                      {fmt(amt)} ₫
+                      {formatVND(amt)}
                     </button>
                   ))}
                 </div>
@@ -242,7 +241,7 @@ export default function TraderWallet() {
                 onClick={() => { setDepMsg(null); depositMutation.mutate(depAmount); }}
                 disabled={!depAmount || Number(depAmount) <= 0 || depositMutation.isLoading}
                 style={{ padding: "12px 0", background: depAmount && Number(depAmount) > 0 ? C.accent : "rgba(72,117,115,0.3)", color: "#fff", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: depAmount && Number(depAmount) > 0 ? "pointer" : "not-allowed" }}>
-                {depositMutation.isLoading ? "Đang xử lý..." : `Nạp ${depAmount ? fmt(Number(depAmount)) + " ₫" : "tiền"}`}
+                {depositMutation.isLoading ? "Đang xử lý..." : `Nạp ${depAmount ? formatVND(Number(depAmount)) : "tiền"}`}
               </button>
             </div>
           </div>
@@ -253,7 +252,7 @@ export default function TraderWallet() {
           <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "24px" }}>
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>📤 Rút tiền VND</div>
-              <div style={{ fontSize: 12, color: C.muted }}>Số dư khả dụng: <strong style={{ color: C.tealLight }}>{fmt(vndBalance)} ₫</strong></div>
+              <div style={{ fontSize: 12, color: C.muted }}>Số dư khả dụng: <strong style={{ color: C.tealLight }}>{formatVND(vndBalance)}</strong></div>
             </div>
             <div style={{ display: "grid", gap: 16, maxWidth: 420 }}>
               <AmountInput label="Số tiền rút (VND)" value={wdAmount} onChange={setWdAmount} placeholder="ví dụ: 500.000" max={vndBalance} />
@@ -261,7 +260,7 @@ export default function TraderWallet() {
                 {[100000, 500000, 1000000].filter(a => a <= vndBalance).map(amt => (
                   <button key={amt} onClick={() => setWdAmount(String(amt))}
                     style={{ padding: "6px 14px", fontSize: 12, background: wdAmount === String(amt) ? "rgba(246,70,93,0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${wdAmount === String(amt) ? C.red : C.border}`, borderRadius: 6, cursor: "pointer", color: "#e2e8f0", fontWeight: 600 }}>
-                    {fmt(amt)} ₫
+                    {formatVND(amt)}
                   </button>
                 ))}
               </div>
@@ -274,7 +273,7 @@ export default function TraderWallet() {
                 onClick={() => { setWdMsg(null); withdrawMutation.mutate(wdAmount); }}
                 disabled={!wdAmount || Number(wdAmount) <= 0 || Number(wdAmount) > vndBalance || withdrawMutation.isLoading}
                 style={{ padding: "12px 0", background: wdAmount && Number(wdAmount) > 0 && Number(wdAmount) <= vndBalance ? C.red : "rgba(246,70,93,0.25)", color: "#fff", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: wdAmount && Number(wdAmount) > 0 && Number(wdAmount) <= vndBalance ? "pointer" : "not-allowed" }}>
-                {withdrawMutation.isLoading ? "Đang xử lý..." : `Rút ${wdAmount ? fmt(Number(wdAmount)) + " ₫" : "tiền"}`}
+                {withdrawMutation.isLoading ? "Đang xử lý..." : `Rút ${wdAmount ? formatVND(Number(wdAmount)) : "tiền"}`}
               </button>
             </div>
           </div>
@@ -311,7 +310,7 @@ export default function TraderWallet() {
                           </span>
                         </td>
                         <td style={{ padding: "10px 16px", fontSize: 13, fontFamily: "monospace", fontWeight: 700, color: isIn ? C.green : C.red }}>
-                          {isIn ? "+" : "−"}{fmt(Math.abs(Number(tx.amount || tx.value || 0)))} ₫
+                          {isIn ? "+" : "−"}{formatVND(Math.abs(Number(tx.amount || tx.value || 0)))}
                         </td>
                         <td style={{ padding: "10px 16px", fontSize: 12, color: C.muted }}>
                           {tx.note || tx.description || "—"}

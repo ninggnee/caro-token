@@ -1,10 +1,11 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import { useAuth } from "../context/AuthContext";
 import { useBatch, useApproveBatch, useRejectBatch } from "../hooks/useBatches";
+import { formatNumber, formatKg, formatToken } from '../utils/formatters';
 
 const STATUS_META = {
   PENDING_MINT_APPROVAL: { color: "#f39c12", bg: "rgba(243,156,18,0.12)", label: "⏳ Chờ duyệt" },
@@ -191,7 +192,7 @@ export default function BatchDetailPage() {
   const handleApprove = () => {
     if (!window.confirm(
       `Approve & Mint batch ${batch.batch_id}?\n` +
-      `${Number(batch.quantity).toLocaleString()} kg → CaRo\n` +
+      `${formatKg(Number(batch.quantity))} → CaRo\n` +
       `Token sẽ được mint trực tiếp vào ví blockchain của farmer.`
     )) return;
     approve.mutate({ id }, { onSuccess: () => setShowReject(false) });
@@ -253,7 +254,7 @@ export default function BatchDetailPage() {
           <InfoRow label="Farmer"           value={batch.farmer_name} borderLine={borderLine} />
           <InfoRow label="Email"            value={batch.farmer_email} borderLine={borderLine} />
           <InfoRow label="Loại cà phê"      value={batch.coffee_type || "ROBUSTA COFFEE"} accent={accentColor} borderLine={borderLine} />
-          <InfoRow label="Khối lượng"       value={`${Number(batch.quantity).toLocaleString()} kg`} accent="#fff" borderLine={borderLine} />
+          <InfoRow label="Khối lượng"       value={formatKg(Number(batch.quantity))} accent="#fff" borderLine={borderLine} />
           <InfoRow label="Ngày thu hoạch"   value={batch.harvest_date?.slice(0, 10)} borderLine={borderLine} />
           <InfoRow label="Kho lưu trữ"      value={batch.storage_location} borderLine={borderLine} />
           {batch.batch_description && (
@@ -278,10 +279,10 @@ export default function BatchDetailPage() {
         {batch.status === "MINTED" && (
           <div style={{ background: isAdmin ? "rgba(39,174,96,0.07)" : "rgba(14,203,129,0.05)", border: isAdmin ? "1px solid rgba(39,174,96,0.25)" : "1px solid rgba(14,203,129,0.15)", borderRadius: 12, padding: "20px 24px", marginBottom: 16 }}>
             <h3 style={{ margin: "0 0 14px", fontSize: 14, color: "#27ae60", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>🪙 Token đã Mint</h3>
-            <InfoRow label="Số lượng"       value={`${Number(batch.minted_amount).toLocaleString()} CaRo`} accent="#22c55e" borderLine={borderLine} />
+            <InfoRow label="Số lượng"       value={formatToken(Number(batch.minted_amount), "CaRo")} accent="#22c55e" borderLine={borderLine} />
             <InfoRow label="Ví nhận"        value={batch.farmer_wallet || "Farmer Blockchain Wallet"} accent={accentColor} mono borderLine={borderLine} />
             <InfoRow label="Thời gian Mint" value={batch.minted_at ? new Date(batch.minted_at).toLocaleString("vi-VN") : null} borderLine={borderLine} />
-            <InfoRow label="Block Number"   value={batch.block_number?.toLocaleString()} borderLine={borderLine} />
+            <InfoRow label="Block Number"   value={formatNumber(batch.block_number)} borderLine={borderLine} />
             <InfoRow label="Người duyệt"    value={batch.reviewer_name} borderLine={borderLine} />
             {batch.tx_hash && (
               <div style={{ marginTop: 12 }}>

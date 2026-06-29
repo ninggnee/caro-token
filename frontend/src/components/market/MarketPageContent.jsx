@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getMarketStats, getMockOrderbook, getMockTrades, getChart } from "../../services/marketApi";
+import { formatNumber, formatVND } from '../../utils/formatters';
 
 const C = {
   accent: "#00d4aa", muted: "#6b7a99",
@@ -19,13 +20,6 @@ const TIME_OPTIONS = [
   { key: "90d", label: "90D" },
   { key: "1y",  label: "1Y"  },
 ];
-
-function fmt(n, dec = 0) {
-  return Number(n || 0).toLocaleString("vi-VN", {
-    minimumFractionDigits: dec,
-    maximumFractionDigits: dec,
-  });
-}
 
 // ── OHLC Candlestick chart ───────────────────────────────────────────────────
 
@@ -93,14 +87,14 @@ function CandleChart({ candles }) {
       {yTicks.map((t, i) => (
         <text key={i} x={W - 2} y={t.y + 3} textAnchor="end"
               fill="#6b7a99" fontSize="8.5" fontFamily="monospace">
-          {fmt(t.price)}
+          {formatNumber(t.price)}
         </text>
       ))}
       <rect x={chartW + 1} y={lastY - 7} width={PAD_R - 2} height={13}
             fill={isUp ? C.green : C.red} rx="2" opacity="0.9" />
       <text x={W - 3} y={lastY + 3} textAnchor="end" fill="#fff"
             fontSize="8" fontFamily="monospace" fontWeight="bold">
-        {fmt(last.close)}
+        {formatNumber(last.close)}
       </text>
       <text x={3} y={H - 2} fill="#6b7a99" fontSize="8">VOL</text>
     </svg>
@@ -215,10 +209,10 @@ function OrderBookPanel({ token }) {
           opacity: 0.07, width: `${pct}%`,
         }} />
         <span style={{ fontSize: 11, color: side === "bid" ? C.green : C.red, fontWeight: 600, position: "relative", fontFamily: "monospace" }}>
-          {fmt(row.price)}
+          {formatNumber(row.price)}
         </span>
         <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", position: "relative", textAlign: "right", fontFamily: "monospace", minWidth: 52 }}>
-          {fmt(row.qty, 1)}
+          {formatNumber(row.qty, 1)}
         </span>
       </div>
     );
@@ -227,7 +221,7 @@ function OrderBookPanel({ token }) {
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto", padding: "4px 10px 3px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-        <span style={{ fontSize: 10, color: C.muted, fontWeight: 700 }}>GIÁ (₫)</span>
+        <span style={{ fontSize: 10, color: C.muted, fontWeight: 700 }}>GIÁ (VND)</span>
         <span style={{ fontSize: 10, color: C.muted, fontWeight: 700, minWidth: 52, textAlign: "right" }}>SL</span>
       </div>
       <div style={{ padding: "3px 0 0" }}>
@@ -235,7 +229,7 @@ function OrderBookPanel({ token }) {
       </div>
       <div style={{ textAlign: "center", padding: "5px 0", fontSize: 10, color: C.muted, background: "rgba(255,255,255,0.02)", borderTop: "1px solid rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
         {spread !== null
-          ? <>Spread <span style={{ color: "#e2e8f0", fontWeight: 600 }}>{fmt(spread)} ₫</span></>
+          ? <>Spread <span style={{ color: "#e2e8f0", fontWeight: 600 }}>{formatVND(spread)}</span></>
           : "—"}
       </div>
       <div style={{ padding: "0 0 3px" }}>
@@ -267,8 +261,8 @@ function TradesPanel({ token }) {
 
   const showToken = token === "all";
   const cols = showToken
-    ? ["Thời gian", "Token", "Giá (₫)", "SL", "Tổng (₫)", "Chiều"]
-    : ["Thời gian", "Giá (₫)", "SL", "Tổng (₫)", "Chiều"];
+    ? ["Thời gian", "Token", "Giá (VND)", "SL", "Tổng (VND)", "Chiều"]
+    : ["Thời gian", "Giá (VND)", "SL", "Tổng (VND)", "Chiều"];
   const gridCols = showToken ? "1fr 0.7fr 1fr 0.8fr 1.1fr 0.6fr" : "1fr 1fr 0.8fr 1.1fr 0.6fr";
 
   return (
@@ -289,13 +283,13 @@ function TradesPanel({ token }) {
             </span>
           )}
           <span style={{ fontSize: 11, color: t.side === "buy" ? C.green : C.red, fontWeight: 700, fontFamily: "monospace" }}>
-            {fmt(t.price)}
+            {formatNumber(t.price)}
           </span>
           <span style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", fontFamily: "monospace" }}>
-            {fmt(t.quantity, 2)}
+            {formatNumber(t.quantity)}
           </span>
           <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontFamily: "monospace" }}>
-            {fmt(t.value)}
+            {formatNumber(t.value)}
           </span>
           <span style={{ fontSize: 10, fontWeight: 700, color: t.side === "buy" ? C.green : C.red }}>
             {t.side === "buy" ? "MUA" : "BÁN"}
@@ -324,12 +318,12 @@ function StatsBar({ stats, token }) {
                 </span>
               </div>
               <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", marginBottom: 6 }}>
-                {s.last_price ? fmt(s.last_price) + " ₫" : "—"}
+                {s.last_price ? formatVND(s.last_price) : "—"}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, fontSize: 10, color: C.muted }}>
-                <span>24H H: <span style={{ color: C.green }}>{s.high_24h ? fmt(s.high_24h) : "—"}</span></span>
-                <span>24H L: <span style={{ color: C.red }}>{s.low_24h ? fmt(s.low_24h) : "—"}</span></span>
-                <span style={{ gridColumn: "1/-1" }}>Vol: <span style={{ color: "#e2e8f0" }}>{s.volume_24h ? fmt(Number(s.volume_24h), 0) : "—"} token</span></span>
+                <span>24H H: <span style={{ color: C.green }}>{s.high_24h ? formatNumber(s.high_24h) : "—"}</span></span>
+                <span>24H L: <span style={{ color: C.red }}>{s.low_24h ? formatNumber(s.low_24h) : "—"}</span></span>
+                <span style={{ gridColumn: "1/-1" }}>Vol: <span style={{ color: "#e2e8f0" }}>{s.volume_24h ? formatNumber(Number(s.volume_24h)) : "—"} token</span></span>
               </div>
             </div>
           );
@@ -346,7 +340,7 @@ function StatsBar({ stats, token }) {
     <div style={{ display: "flex", gap: 20, alignItems: "baseline", marginBottom: 14, flexWrap: "wrap", padding: "10px 16px", background: C.card, borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)" }}>
       <div>
         <div style={{ fontSize: 11, color: C.muted, marginBottom: 2, fontWeight: 600 }}>Last Price</div>
-        <span style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{last ? fmt(last) + " ₫" : "—"}</span>
+        <span style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{last ? formatVND(last) : "—"}</span>
       </div>
       <div>
         <div style={{ fontSize: 11, color: C.muted, marginBottom: 2 }}>24H Change</div>
@@ -357,13 +351,13 @@ function StatsBar({ stats, token }) {
       {[
         ["24H High",   s.high_24h,  C.green],
         ["24H Low",    s.low_24h,   C.red],
-        ["Volume",     s.volume_24h  ? fmt(Number(s.volume_24h), 0) + " token" : null, null],
-        ["Market Cap", s.market_cap  ? fmt(Number(s.market_cap)) + " ₫"        : null, null],
+        ["Volume",     s.volume_24h  ? formatNumber(Number(s.volume_24h)) + " token" : null, null],
+        ["Market Cap", s.market_cap  ? formatVND(Number(s.market_cap))                : null, null],
       ].filter(([, v]) => v).map(([label, val, col]) => (
         <div key={label}>
           <div style={{ fontSize: 11, color: C.muted, marginBottom: 2 }}>{label}</div>
           <span style={{ fontSize: 13, fontWeight: 600, color: col || "#e2e8f0" }}>
-            {typeof val === "string" ? val : fmt(val)}
+            {typeof val === "string" ? val : formatNumber(val)}
           </span>
         </div>
       ))}
@@ -476,10 +470,10 @@ export default function MarketPageContent({ onPlaceOrder }) {
               const last = singleCandles[singleCandles.length - 1];
               return (
                 <div style={{ display: "flex", gap: 14, fontSize: 11 }}>
-                  <span>O: <span style={{ color: "#e2e8f0" }}>{fmt(last.open)}</span></span>
-                  <span>H: <span style={{ color: C.green }}>{fmt(last.high)}</span></span>
-                  <span>L: <span style={{ color: C.red }}>{fmt(last.low)}</span></span>
-                  <span>C: <span style={{ color: C.accent }}>{fmt(last.close)}</span></span>
+                  <span>O: <span style={{ color: "#e2e8f0" }}>{formatNumber(last.open)}</span></span>
+                  <span>H: <span style={{ color: C.green }}>{formatNumber(last.high)}</span></span>
+                  <span>L: <span style={{ color: C.red }}>{formatNumber(last.low)}</span></span>
+                  <span>C: <span style={{ color: C.accent }}>{formatNumber(last.close)}</span></span>
                 </div>
               );
             })()}

@@ -4,6 +4,7 @@ import FarmerLayout from "../components/layout/FarmerLayout";
 import { useAuth } from "../context/AuthContext";
 import { useWallet } from "../context/WalletContext";
 import axios from "../utils/axiosClient";
+import { formatNumber, formatVND, formatKg, formatToken } from '../utils/formatters';
 
 const C = {
   green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#487573",
@@ -122,8 +123,8 @@ export default function FarmerWalletOverview() {
           {/* Token_CaRo */}
           <BalCard
             label="Token_CaRo (Tổng số dư)"
-            value={`${totalCaRo.toLocaleString("vi-VN")} CaRo`}
-            sub={`CaRo1: ${caro1.toLocaleString()} · CaRo2: ${caro2.toLocaleString()} · CaRo3: ${caro3.toLocaleString()}`}
+            value={formatToken(totalCaRo, "CaRo")}
+            sub={`CaRo1: ${formatNumber(caro1)} · CaRo2: ${formatNumber(caro2)} · CaRo3: ${formatNumber(caro3)}`}
             accent={C.tealLight}
             loading={isLoading}
           />
@@ -131,7 +132,7 @@ export default function FarmerWalletOverview() {
           {/* Khối lượng */}
           <BalCard
             label="Khối lượng (kg cà phê)"
-            value={`${totalCaRo.toLocaleString("vi-VN")} kg`}
+            value={formatKg(totalCaRo)}
             sub="1 CaRo = 1 kg Robusta"
             accent={C.green}
             loading={isLoading}
@@ -142,8 +143,8 @@ export default function FarmerWalletOverview() {
           {/* Giá trị ước tính */}
           <BalCard
             label="Giá trị ước tính"
-            value={estimatedValue > 0 ? (estimatedValue / 1_000_000).toFixed(2) + " triệu ₫" : "0 ₫"}
-            sub={`${priceSource} · CR1: ${priceMap.CR1.toLocaleString()} · CR2: ${priceMap.CR2.toLocaleString()} · CR3: ${priceMap.CR3.toLocaleString()}`}
+            value={estimatedValue > 0 ? (estimatedValue / 1_000_000).toFixed(2) + " triệu VND" : "0 VND"}
+            sub={`${priceSource} · CR1: ${formatNumber(priceMap.CR1)} · CR2: ${formatNumber(priceMap.CR2)} · CR3: ${formatNumber(priceMap.CR3)}`}
             accent="#e2e8f0"
             loading={isLoading || priceQ.isLoading}
           />
@@ -207,16 +208,16 @@ export default function FarmerWalletOverview() {
                       </div>
                     </td>
                     <td style={{ padding: "14px 16px", fontSize: 14, fontWeight: 600, color: qty > 0 ? C.green : C.muted }}>
-                      {qty > 0 ? qty.toLocaleString("vi-VN") : "—"}
+                      {qty > 0 ? formatNumber(qty) : "—"}
                     </td>
                     <td style={{ padding: "14px 16px", fontSize: 13, color: "#e2e8f0" }}>
-                      {qty > 0 ? qty.toLocaleString("vi-VN") + " kg" : "—"}
+                      {qty > 0 ? formatKg(qty) : "—"}
                     </td>
                     <td style={{ padding: "14px 16px", fontSize: 13, color: C.muted }}>
-                      {priceQ.isLoading ? "…" : price.toLocaleString("vi-VN") + " ₫"}
+                      {priceQ.isLoading ? "…" : formatVND(price)}
                     </td>
                     <td style={{ padding: "14px 16px", fontSize: 13, fontWeight: 600, color: val > 0 ? "#e2e8f0" : C.muted }}>
-                      {val > 0 ? val.toLocaleString("vi-VN") + " ₫" : "—"}
+                      {val > 0 ? formatVND(val) : "—"}
                     </td>
                   </tr>
                 );
@@ -228,16 +229,16 @@ export default function FarmerWalletOverview() {
                   <td style={{ padding: "12px 16px", fontSize: 12, fontWeight: 700, color: C.muted }}>TỔNG CỘNG</td>
                   <td style={{ padding: "12px 16px" }}>
                     <span style={{ fontSize: 15, fontWeight: 700, color: C.tealLight }}>
-                      {totalCaRo.toLocaleString("vi-VN")}
+                      {formatNumber(totalCaRo)}
                     </span>
                     <span style={{ fontSize: 11, color: C.muted, marginLeft: 4 }}>CaRo</span>
                   </td>
                   <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>
-                    {totalCaRo > 0 ? totalCaRo.toLocaleString("vi-VN") + " kg" : "—"}
+                    {totalCaRo > 0 ? formatKg(totalCaRo) : "—"}
                   </td>
                   <td />
                   <td style={{ padding: "12px 16px", fontSize: 14, fontWeight: 700, color: C.tealLight }}>
-                    {estimatedValue > 0 ? estimatedValue.toLocaleString("vi-VN") + " ₫" : "—"}
+                    {estimatedValue > 0 ? formatVND(estimatedValue) : "—"}
                   </td>
                 </tr>
               )}
@@ -250,11 +251,11 @@ export default function FarmerWalletOverview() {
           <div style={{ padding: "14px 18px", background: "rgba(72,117,115,0.05)", border: `1px solid ${C.border}`, borderRadius: 9 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0", marginBottom: 8 }}>Số dư VND</div>
             <div style={{ display: "flex", gap: 24, fontSize: 13, flexWrap: "wrap" }}>
-              <span>Tổng: <b style={{ color: "#e2e8f0" }}>{vndBalance.toLocaleString("vi-VN")} ₫</b></span>
+              <span>Tổng: <b style={{ color: "#e2e8f0" }}>{formatVND(vndBalance)}</b></span>
               {vndLocked > 0 && (
-                <span>Đang khoá: <b style={{ color: C.gold }}>{vndLocked.toLocaleString("vi-VN")} ₫</b></span>
+                <span>Đang khoá: <b style={{ color: C.gold }}>{formatVND(vndLocked)}</b></span>
               )}
-              <span>Khả dụng: <b style={{ color: C.green }}>{vndAvailable.toLocaleString("vi-VN")} ₫</b></span>
+              <span>Khả dụng: <b style={{ color: C.green }}>{formatVND(vndAvailable)}</b></span>
             </div>
           </div>
         )}

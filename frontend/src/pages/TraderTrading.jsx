@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import TraderLayout from '../components/layout/TraderLayout';
 import { API_URL } from '../config/api';
+import { formatNumber, formatVND } from '../utils/formatters';
 
 const PAIRS = ['CR1/VND', 'CR2/VND', 'CR3/VND'];
 
@@ -35,8 +36,6 @@ async function apiFetch(path, opts = {}) {
   return res.json();
 }
 
-const fmt = (n, d = 0) =>
-  Number(n || 0).toLocaleString('en-US', d > 0 ? { minimumFractionDigits: d, maximumFractionDigits: d } : {});
 
 function Stepper({ label, value, onChange, step = 1, disabled = false }) {
   const adj = (delta) => {
@@ -226,15 +225,15 @@ export default function TraderTrading() {
         <div style={{ display: 'flex', gap: 24, padding: '10px 18px', background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, alignItems: 'center', flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'monospace', lineHeight: 1 }}>
-              {lastPrice ? fmt(lastPrice, 2) : '—'}
+              {lastPrice ? formatNumber(lastPrice) : '—'}
             </div>
             <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>VNĐ</div>
           </div>
           <div style={{ width: 1, height: 36, background: C.border, flexShrink: 0 }} />
           {[
-            { l: 'Giá cao nhất',   v: ticker.high   ? fmt(ticker.high, 2)   : '—', c: C.green },
-            { l: 'Giá thấp nhất',  v: ticker.low    ? fmt(ticker.low, 2)    : '—', c: C.red   },
-            { l: 'Khối lượng 24h', v: ticker.volume ? fmt(ticker.volume, 2) : '—', c: C.text  },
+            { l: 'Giá cao nhất',   v: ticker.high   ? formatNumber(ticker.high)   : '—', c: C.green },
+            { l: 'Giá thấp nhất',  v: ticker.low    ? formatNumber(ticker.low)    : '—', c: C.red   },
+            { l: 'Khối lượng 24h', v: ticker.volume ? formatNumber(ticker.volume) : '—', c: C.text  },
           ].map(x => (
             <div key={x.l}>
               <div style={{ fontSize: 11, color: C.muted }}>{x.l}</div>
@@ -276,7 +275,7 @@ export default function TraderTrading() {
                   >
                     <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${bPct}%`, background: 'rgba(14,203,129,0.1)', transition: 'width 0.3s' }} />
                     <span style={{ color: C.muted, fontSize: 11, fontFamily: 'monospace', position: 'relative', zIndex: 1 }}>
-                      {bid ? fmt(bid.amount, 2) : ''}
+                      {bid ? formatNumber(bid.amount) : ''}
                     </span>
                   </div>
 
@@ -286,7 +285,7 @@ export default function TraderTrading() {
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 10px', cursor: bid ? 'pointer' : 'default' }}
                   >
                     <span style={{ color: C.green, fontSize: 11, fontFamily: 'monospace', fontWeight: 600 }}>
-                      {bid ? fmt(bid.price, 2) : ''}
+                      {bid ? formatNumber(bid.price) : ''}
                     </span>
                   </div>
 
@@ -296,7 +295,7 @@ export default function TraderTrading() {
                     style={{ display: 'flex', alignItems: 'center', padding: '0 10px', paddingLeft: 12, cursor: ask ? 'pointer' : 'default', borderLeft: `1px solid ${C.border}` }}
                   >
                     <span style={{ color: C.red, fontSize: 11, fontFamily: 'monospace', fontWeight: 600 }}>
-                      {ask ? fmt(ask.price, 2) : ''}
+                      {ask ? formatNumber(ask.price) : ''}
                     </span>
                   </div>
 
@@ -307,7 +306,7 @@ export default function TraderTrading() {
                   >
                     <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${aPct}%`, background: 'rgba(246,70,93,0.1)', transition: 'width 0.3s' }} />
                     <span style={{ color: C.muted, fontSize: 11, fontFamily: 'monospace', position: 'relative', zIndex: 1 }}>
-                      {ask ? fmt(ask.amount, 2) : ''}
+                      {ask ? formatNumber(ask.amount) : ''}
                     </span>
                   </div>
 
@@ -318,11 +317,11 @@ export default function TraderTrading() {
             {/* Last price strip */}
             <div style={{ padding: '7px 12px', background: 'rgba(255,255,255,0.02)', borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 15, fontWeight: 700, fontFamily: 'monospace', color: C.text }}>
-                {lastPrice ? fmt(lastPrice, 2) : '—'} <span style={{ fontSize: 10, color: C.muted, fontWeight: 400 }}>VNĐ</span>
+                {lastPrice ? formatNumber(lastPrice) : '—'} <span style={{ fontSize: 10, color: C.muted, fontWeight: 400 }}>VNĐ</span>
               </span>
               <div style={{ display: 'flex', gap: 14, fontSize: 11 }}>
-                <span style={{ color: C.muted }}>H: <b style={{ color: C.green }}>{ticker.high ? fmt(ticker.high, 2) : '—'}</b></span>
-                <span style={{ color: C.muted }}>L: <b style={{ color: C.red }}>{ticker.low ? fmt(ticker.low, 2) : '—'}</b></span>
+                <span style={{ color: C.muted }}>H: <b style={{ color: C.green }}>{ticker.high ? formatNumber(ticker.high) : '—'}</b></span>
+                <span style={{ color: C.muted }}>L: <b style={{ color: C.red }}>{ticker.low ? formatNumber(ticker.low) : '—'}</b></span>
               </div>
             </div>
 
@@ -378,12 +377,12 @@ export default function TraderTrading() {
                 <div style={{ marginBottom: 12, padding: '8px 10px', background: 'rgba(14,203,129,0.05)', borderRadius: 6, border: '1px solid rgba(14,203,129,0.15)' }}>
                   <div style={{ fontSize: 10, color: C.muted, marginBottom: 3 }}>Sức mua tối đa (VNĐ)</div>
                   <div style={{ fontWeight: 700, color: C.green, fontSize: 15, fontFamily: 'monospace' }}>
-                    {fmt(maxBuyQty, 2)} {token}
+                    {formatNumber(maxBuyQty)} {token}
                   </div>
                   <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>
-                    {fmt(vndAvail)} VNĐ khả dụng
+                    {formatVND(vndAvail)} khả dụng
                     {buyPriceN > 0 && (
-                      <span> ÷ {fmt(buyPriceN, 2)}</span>
+                      <span> ÷ {formatNumber(buyPriceN)}</span>
                     )}
                   </div>
                 </div>
@@ -405,7 +404,7 @@ export default function TraderTrading() {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '8px 0', borderTop: `1px solid ${C.border}`, marginBottom: 12 }}>
                   <span style={{ color: C.muted }}>Giá trị lệnh</span>
-                  <span style={{ color: C.text, fontWeight: 700, fontFamily: 'monospace' }}>{fmt(buyPriceN * buyAmtN)} VNĐ</span>
+                  <span style={{ color: C.text, fontWeight: 700, fontFamily: 'monospace' }}>{formatVND(buyPriceN * buyAmtN)}</span>
                 </div>
 
                 <button
@@ -425,7 +424,7 @@ export default function TraderTrading() {
                 <div style={{ marginBottom: 12, padding: '8px 10px', background: 'rgba(246,70,93,0.05)', borderRadius: 6, border: '1px solid rgba(246,70,93,0.15)' }}>
                   <div style={{ fontSize: 10, color: C.muted, marginBottom: 3 }}>KL có thể bán ({token})</div>
                   <div style={{ fontWeight: 700, color: C.red, fontSize: 15, fontFamily: 'monospace' }}>
-                    {fmt(tokAvail, 2)} {token}
+                    {formatNumber(tokAvail)} {token}
                   </div>
                   <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>
                     {token} khả dụng trong tài khoản
@@ -449,7 +448,7 @@ export default function TraderTrading() {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '8px 0', borderTop: `1px solid ${C.border}`, marginBottom: 12 }}>
                   <span style={{ color: C.muted }}>Giá trị lệnh</span>
-                  <span style={{ color: C.text, fontWeight: 700, fontFamily: 'monospace' }}>{fmt(sellPriceN * sellAmtN)} VNĐ</span>
+                  <span style={{ color: C.text, fontWeight: 700, fontFamily: 'monospace' }}>{formatVND(sellPriceN * sellAmtN)}</span>
                 </div>
 
                 <button
@@ -519,7 +518,7 @@ export default function TraderTrading() {
                           <td style={{ padding: '8px 10px', fontWeight: 700, color: o.side === 'buy' ? C.green : C.red }}>
                             {o.side === 'buy' ? 'MUA' : 'BÁN'}
                           </td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{fmt(o.price, 2)}</td>
+                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatNumber(o.price)}</td>
                           <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{Number(o.amount).toFixed(4)}</td>
                           <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{Number(o.remaining).toFixed(4)}</td>
                           <td style={{ padding: '8px 10px', color: C.muted }}>{o.status}</td>
@@ -554,7 +553,7 @@ export default function TraderTrading() {
                       {tradeHist.slice(0, 30).map(t => (
                         <tr key={t.id} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)` }}>
                           <td style={{ padding: '8px 10px', color: C.muted }}>#{t.id}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{fmt(t.price, 2)}</td>
+                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatNumber(t.price)}</td>
                           <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{Number(t.amount).toFixed(4)}</td>
                           <td style={{ padding: '8px 10px', color: C.muted, fontSize: 11 }}>
                             {new Date(t.created_at).toLocaleString('vi-VN')}

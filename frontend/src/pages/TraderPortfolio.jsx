@@ -6,6 +6,8 @@ import { useWallet } from "../context/WalletContext";
 import { ethers } from "ethers";
 import { CA_RO_CONTRACTS, ABI } from "../config/config";
 import { getMarketStats } from "../services/marketApi";
+import { formatNumber, formatVND } from '../utils/formatters';
+import { TRADER_KEYS } from '../hooks/useTraderData';
 
 const C = {
   accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
@@ -26,7 +28,7 @@ export default function TraderPortfolio() {
   const [loading, setLoading] = useState(false);
 
   const { data: statsData } = useQuery({
-    queryKey: ["mkt-stats"],
+    queryKey: TRADER_KEYS.prices,
     queryFn: getMarketStats,
     refetchInterval: 15_000,
     staleTime: 10_000,
@@ -109,7 +111,7 @@ export default function TraderPortfolio() {
           <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "18px 20px" }}>
             <div style={{ fontSize: 12, color: C.muted, fontWeight: 500, marginBottom: 8 }}>Tổng Token CaRo</div>
             <div style={{ fontSize: 24, fontWeight: 700, color: C.tealLight, marginBottom: 4 }}>
-              {loading ? "…" : totalQty.toLocaleString("vi-VN")}
+              {loading ? "…" : formatNumber(totalQty)}
             </div>
             <div style={{ fontSize: 11, color: C.muted }}>trên blockchain</div>
           </div>
@@ -117,7 +119,7 @@ export default function TraderPortfolio() {
             <div style={{ fontSize: 12, color: C.muted, fontWeight: 500, marginBottom: 8 }}>Giá trị ước tính</div>
             <div style={{ fontSize: 24, fontWeight: 700, color: "#e2e8f0", marginBottom: 4 }}>
               {totalValue > 0
-                ? (totalValue / 1_000_000).toFixed(2) + " triệu ₫"
+                ? formatNumber(totalValue / 1_000_000, 2) + " triệu VND"
                 : account ? "—" : "—"}
             </div>
             <div style={{ fontSize: 11, color: C.muted }}>theo giá thị trường hiện tại</div>
@@ -171,10 +173,10 @@ export default function TraderPortfolio() {
                         </div>
                       </td>
                       <td style={{ padding: "14px 16px", fontSize: 14, fontWeight: 700, color: qty > 0 ? C.green : C.muted }}>
-                        {loading ? "…" : qty > 0 ? qty.toLocaleString("vi-VN") : "—"}
+                        {loading ? "…" : qty > 0 ? formatNumber(qty) : "—"}
                       </td>
                       <td style={{ padding: "14px 16px", fontSize: 13, color: "#e2e8f0", fontFamily: "monospace" }}>
-                        {price ? Number(price).toLocaleString("vi-VN") + " ₫" : "—"}
+                        {price ? formatVND(price) : "—"}
                       </td>
                       <td style={{ padding: "14px 16px" }}>
                         <span style={{ fontSize: 12, fontWeight: 700, color: change >= 0 ? C.green : C.red }}>
@@ -182,7 +184,7 @@ export default function TraderPortfolio() {
                         </span>
                       </td>
                       <td style={{ padding: "14px 16px", fontSize: 13, fontWeight: 600, color: value > 0 ? "#e2e8f0" : C.muted }}>
-                        {value > 0 ? value.toLocaleString("vi-VN") + " ₫" : "—"}
+                        {value > 0 ? formatVND(value) : "—"}
                       </td>
                       <td style={{ padding: "14px 16px", fontSize: 12, color: C.muted }}>
                         {pct}
@@ -193,12 +195,12 @@ export default function TraderPortfolio() {
                 <tr style={{ background: "rgba(72,117,115,0.05)", borderTop: `1px solid ${C.border}` }}>
                   <td style={{ padding: "12px 16px", fontSize: 12, fontWeight: 700, color: C.muted }}>TỔNG CỘNG</td>
                   <td style={{ padding: "12px 16px", fontSize: 14, fontWeight: 700, color: C.tealLight }}>
-                    {totalQty > 0 ? totalQty.toLocaleString("vi-VN") : "—"}
+                    {totalQty > 0 ? formatNumber(totalQty) : "—"}
                     <span style={{ fontSize: 11, color: C.muted, marginLeft: 4 }}>CaRo</span>
                   </td>
                   <td /><td />
                   <td style={{ padding: "12px 16px", fontSize: 14, fontWeight: 700, color: C.tealLight }}>
-                    {totalValue > 0 ? totalValue.toLocaleString("vi-VN") + " ₫" : "—"}
+                    {totalValue > 0 ? formatVND(totalValue) : "—"}
                   </td>
                   <td style={{ padding: "12px 16px", fontSize: 12, color: C.muted }}>
                     {totalValue > 0 ? "100%" : "—"}

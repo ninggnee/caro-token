@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import TraderLayout from "../components/layout/TraderLayout";
 import axios from "../utils/axiosClient";
+import { formatNumber, formatVND } from '../utils/formatters';
 
 const C = {
   accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
@@ -11,9 +12,6 @@ const C = {
 const PAIRS = ["Tất cả", "CR1/VND", "CR2/VND", "CR3/VND"];
 const SIDES = ["Tất cả", "buy", "sell"];
 
-function fmt(n, dec = 0) {
-  return Number(n || 0).toLocaleString("vi-VN", { minimumFractionDigits: dec, maximumFractionDigits: dec });
-}
 
 function Badge({ side }) {
   const isBuy = side === "buy";
@@ -77,8 +75,8 @@ export default function TradeHistory() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
           {[
             { label: "Tổng giao dịch",     value: String(total),         color: "#e2e8f0", icon: "📋" },
-            { label: "Tổng mua",           value: fmt(totalBuy) + " ₫",  color: C.green,   icon: "📈" },
-            { label: "Tổng bán",           value: fmt(totalSell) + " ₫", color: C.red,     icon: "📉" },
+            { label: "Tổng mua",           value: formatVND(totalBuy),  color: C.green,   icon: "📈" },
+            { label: "Tổng bán",           value: formatVND(totalSell), color: C.red,     icon: "📉" },
           ].map(c => (
             <div key={c.label} style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
               <span style={{ fontSize: 24 }}>{c.icon}</span>
@@ -166,7 +164,7 @@ export default function TradeHistory() {
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
                 <thead>
                   <tr style={{ background: "rgba(255,255,255,0.02)" }}>
-                    {["#", "Cặp GD", "Loại", "Giá (₫)", "Số lượng", "Thành tiền (₫)", "Phí", "Thời gian"].map(h => (
+                    {["#", "Cặp GD", "Loại", "Giá (VND)", "Số lượng", "Thành tiền (VND)", "Phí", "Thời gian"].map(h => (
                       <th key={h} style={{ padding: "9px 14px", fontSize: 11, color: C.muted, fontWeight: 600, textAlign: "left", textTransform: "uppercase", whiteSpace: "nowrap" }}>{h}</th>
                     ))}
                   </tr>
@@ -184,10 +182,10 @@ export default function TradeHistory() {
                         <td style={{ padding: "10px 14px", fontSize: 11, color: C.muted }}>{(page - 1) * pageSize + i + 1}</td>
                         <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{t.pair || "—"}</td>
                         <td style={{ padding: "10px 14px" }}><Badge side={t.side} /></td>
-                        <td style={{ padding: "10px 14px", fontSize: 13, fontFamily: "monospace", color: "#e2e8f0", fontWeight: 600 }}>{fmt(price)}</td>
+                        <td style={{ padding: "10px 14px", fontSize: 13, fontFamily: "monospace", color: "#e2e8f0", fontWeight: 600 }}>{formatNumber(price)}</td>
                         <td style={{ padding: "10px 14px", fontSize: 13, fontFamily: "monospace", color: "#e2e8f0" }}>{qty.toFixed(4)}</td>
-                        <td style={{ padding: "10px 14px", fontSize: 13, fontFamily: "monospace", color: t.side === "buy" ? C.green : C.red, fontWeight: 700 }}>{fmt(total_)}</td>
-                        <td style={{ padding: "10px 14px", fontSize: 12, color: C.muted }}>{fee ? fmt(fee, 0) + " ₫" : "—"}</td>
+                        <td style={{ padding: "10px 14px", fontSize: 13, fontFamily: "monospace", color: t.side === "buy" ? C.green : C.red, fontWeight: 700 }}>{formatVND(total_)}</td>
+                        <td style={{ padding: "10px 14px", fontSize: 12, color: C.muted }}>{fee ? formatVND(fee) : "—"}</td>
                         <td style={{ padding: "10px 14px", fontSize: 11, color: C.muted, whiteSpace: "nowrap" }}>
                           {t.created_at ? new Date(t.created_at).toLocaleString("vi-VN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
                         </td>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import { useMyBatches } from "../hooks/useBatches";
+import { formatKg, formatToken } from '../utils/formatters';
 
 const C = {
   accent: "#487573",
@@ -59,7 +60,7 @@ function BatchCard({ batch, navigate }) {
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4, color: C.tealLight }}>{batch.batch_id}</div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 8 }}>☕ Cà phê Robusta</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
-            <span>⚖️ {Number(batch.quantity).toLocaleString()} kg</span>
+            <span>⚖️ {formatKg(Number(batch.quantity))}</span>
             <span>☕ {batch.coffee_type || "ROBUSTA"}</span>
             {batch.harvest_date && <span>📅 {batch.harvest_date?.slice(0, 10)}</span>}
             {batch.storage_location && <span>📍 {batch.storage_location}</span>}
@@ -83,7 +84,7 @@ function BatchCard({ batch, navigate }) {
           <div style={{ background: "rgba(39,174,96,0.06)", borderRadius: 8, padding: "10px 12px", border: "1px solid rgba(39,174,96,0.1)" }}>
             <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginBottom: 3 }}>Token đã Mint</div>
             <div style={{ fontWeight: 700, color: "#22c55e", fontSize: 15 }}>
-              {Number(batch.minted_amount).toLocaleString()} CaRo
+              {formatToken(Number(batch.minted_amount), "CaRo")}
             </div>
           </div>
           <div style={{ background: "rgba(72,117,115,0.06)", borderRadius: 8, padding: "10px 12px", border: `1px solid ${C.border}` }}>

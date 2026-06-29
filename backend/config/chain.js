@@ -34,20 +34,42 @@ export const getProvider = () => {
   return _provider;
 };
 
-// ABI for CoffeeToken.sol (new) — also backward-compatible with CaRo1/2/3 (mint(address,uint256))
+// ABI for CoffeeToken.sol — full 4-param mint + AccessControl helpers + error types
 export const COFFEE_TOKEN_ABI = [
+  // Write
   'function mint(address to, uint256 amount, string lotCode, string requestId) external',
   'function burn(address from, uint256 amount, string lotCode, string redeemId) external',
+  // Read
   'function balanceOf(address owner) view returns (uint256)',
   'function decimals() view returns (uint8)',
   'function symbol() view returns (string)',
+  'function paused() view returns (bool)',
+  'function hasRole(bytes32 role, address account) view returns (bool)',
+  'function MINTER_ROLE() view returns (bytes32)',
+  'function lotMinted(string lotCode) view returns (bool)',
+  // Custom errors (required for ethers.js v6 to decode revert data)
+  'error AccessControlUnauthorizedAccount(address account, bytes32 neededRole)',
+  'error EnforcedPause()',
 ];
 
-// Legacy ABI for existing CaRo1/2/3 contracts (no lotCode / requestId args)
+// Legacy ABI for old CaRo1/2/3 contracts (2-param mint, no lotCode / requestId)
 export const LEGACY_TOKEN_ABI = [
   'function mint(address to, uint256 amount) external',
   'function balanceOf(address owner) view returns (uint256)',
   'function decimals() view returns (uint8)',
+  'function hasRole(bytes32 role, address account) view returns (bool)',
+  'error AccessControlUnauthorizedAccount(address account, bytes32 neededRole)',
+  'error EnforcedPause()',
+];
+
+// Transfer-only ABI for pre-mint contracts (CaRo1/2/3) that have no mint function.
+// The deployer wallet holds the full initial supply — we transfer from there.
+export const TRANSFER_TOKEN_ABI = [
+  'function transfer(address to, uint256 amount) external returns (bool)',
+  'function balanceOf(address owner) view returns (uint256)',
+  'function decimals() view returns (uint8)',
+  'function symbol() view returns (string)',
+  'function name() view returns (string)',
 ];
 
 export default {
@@ -56,6 +78,7 @@ export default {
   CONTRACT_ADDRESSES,
   COFFEE_TOKEN_ABI,
   LEGACY_TOKEN_ABI,
+  TRANSFER_TOKEN_ABI,
   WAREHOUSE_DOC_REGISTRY_ADDRESS,
   WAREHOUSE_DOC_REGISTRY_ABI,
   getProvider,
