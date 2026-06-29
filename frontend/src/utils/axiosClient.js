@@ -10,15 +10,18 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-// redirect to login on 401
+// Redirect to landing on 401, but NOT for login/refresh endpoints
+// (a 401 from /auth/login just means wrong password — it should NOT clear session)
 client.interceptors.response.use(
   (res) => res,
   (error) => {
-    if (error.response?.status === 401) {
+    const url = error.config?.url || "";
+    const isAuthEndpoint = url.includes("/auth/login") || url.includes("/auth/refresh") || url.includes("/auth/register");
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem("token");
       localStorage.removeItem("caro_refresh_token");
       localStorage.removeItem("user");
-      window.location.href = "/login";
+      window.location.href = "/";
     }
     return Promise.reject(error);
   }

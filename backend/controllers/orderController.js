@@ -280,17 +280,123 @@ export const getTradeHistory = async (req, res) => {
 export const getTickers = async (req, res) => {
   try {
     const [rows] = await db.execute(
-      `SELECT pair,
-              MAX(price) AS high,
-              MIN(price) AS low,
-              SUM(amount) AS volume,
-              (SELECT price FROM trades t2 WHERE t2.pair = t.pair ORDER BY created_at DESC LIMIT 1) AS last_price
+      `SELECT
+         t.pair,
+         MAX(CASE WHEN t.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN t.price END) AS high,
+         MIN(CASE WHEN t.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN t.price END) AS low,
+         COALESCE(SUM(CASE WHEN t.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN t.amount ELSE 0 END), 0) AS volume,
+         (SELECT t2.price FROM trades t2 WHERE t2.pair = t.pair ORDER BY t2.created_at DESC LIMIT 1) AS last_price,
+         (SELECT t2.price FROM trades t2 WHERE t2.pair = t.pair AND t2.created_at <= DATE_SUB(NOW(), INTERVAL 24 HOUR) ORDER BY t2.created_at DESC LIMIT 1) AS price_24h_ago
        FROM trades t
-       GROUP BY pair`
+       GROUP BY t.pair`
     );
-    res.json({ success: true, data: rows });
+    const data = rows.map(r => {
+      const last     = Number(r.last_price  || 0);
+      const old      = Number(r.price_24h_ago || 0);
+      const change24h = old > 0 ? ((last - old) / old) * 100 : 0;
+      return {
+        pair:       r.pair,
+        last_price: last,
+        high:       Number(r.high   || last),
+        low:        Number(r.low    || last),
+        volume:     Number(r.volume || 0),
+        change_24h: Number(change24h.toFixed(2)),
+      };
+    });
+    res.json({ success: true, data });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// ── Public market chart (OHLC from real trades — shared by Farmer view) ─────
+
+export const getPublicMarketChart = async (req, res) => {
+  try {
+    const { token = 'all', time = '24h' } = req.query;
+
+    const TIME_CFG = {
+      '1h':  { ms: 1   * 3600 * 1000,       secs: 60           },
+      '24h': { ms: 24  * 3600 * 1000,       secs: 30  * 60     },
+      '7d':  { ms: 7   * 24 * 3600 * 1000,  secs: 4   * 3600   },
+      '30d': { ms: 30  * 24 * 3600 * 1000,  secs: 86400        },
+      '90d': { ms: 90  * 24 * 3600 * 1000,  secs: 3   * 86400  },
+      '1y':  { ms: 365 * 24 * 3600 * 1000,  secs: 7   * 86400  },
+    };
+
+    const cfg   = TIME_CFG[time] || TIME_CFG['24h'];
+    const since = new Date(Date.now() - cfg.ms);
+
+    const ALL_PAIRS = ['CR1/VND', 'CR2/VND', 'CR3/VND'];
+    const pairs = token === 'all'
+      ? ALL_PAIRS
+      : [`${token.toUpperCase()}/VND`];
+
+    const result = {};
+
+    for (const pair of pairs) {
+      const key = pair.split('/')[0];
+
+      const [trades] = await db.execute(
+        `SELECT price, amount, created_at
+         FROM trades
+         WHERE pair = ? AND created_at >= ?
+         ORDER BY created_at ASC
+         LIMIT 5000`,
+        [pair, since]
+      );
+
+      if (!trades.length) { result[key] = []; continue; }
+
+      const buckets = {};
+      for (const t of trades) {
+        const ts  = Math.floor(new Date(t.created_at).getTime() / 1000);
+        const bkt = Math.floor(ts / cfg.secs) * cfg.secs;
+        const p = Number(t.price), v = Number(t.amount);
+        if (!buckets[bkt]) {
+          buckets[bkt] = { open: p, high: p, low: p, close: p, volume: v };
+        } else {
+          buckets[bkt].high   = Math.max(buckets[bkt].high, p);
+          buckets[bkt].low    = Math.min(buckets[bkt].low,  p);
+          buckets[bkt].close  = p;
+          buckets[bkt].volume += v;
+        }
+      }
+
+      result[key] = Object.entries(buckets)
+        .sort(([a], [b]) => Number(a) - Number(b))
+        .map(([, c]) => c);
+    }
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('getPublicMarketChart error', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// ── Trader: get own token balances (from user_balances) ──────────────────────
+
+export const getMyTokenBalances = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const [rows] = await db.execute(
+      `SELECT token_type, available_balance, locked_balance, balance
+       FROM user_balances WHERE user_id = ?`,
+      [userId]
+    );
+    const data = {};
+    rows.forEach(r => {
+      data[r.token_type] = {
+        available: Number(r.available_balance || 0),
+        locked:    Number(r.locked_balance    || 0),
+        total:     Number(r.balance           || 0),
+      };
+    });
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('getMyTokenBalances error', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };

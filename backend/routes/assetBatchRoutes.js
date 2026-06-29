@@ -11,6 +11,8 @@ import {
   approveBatch,
   rejectBatch,
   updateGrade,
+  supplementBatch,
+  getAvailableBatchesForTrader,
 } from '../controllers/AssetBatchController.js';
 import { verifyToken, requireRole } from '../middleware/auth.js';
 
@@ -83,6 +85,11 @@ router.post('/',
   createBatch
 );
 router.get('/mine', verifyToken, requireRole('farmer'), getFarmerBatches);
+router.post('/:id/supplement',
+  verifyToken, requireRole('farmer'),
+  batchDocFields, attachBuffers,
+  supplementBatch
+);
 
 // ── Admin ─────────────────────────────────────────────────────────────────
 router.get('/',               verifyToken, requireRole('admin'), getAllBatches);
@@ -90,6 +97,9 @@ router.get('/:id/documents',  verifyToken, requireRole('admin'), getBatchDocumen
 router.put('/:id/grade',      verifyToken, requireRole('admin'), updateGrade);
 router.post('/:id/approve',   verifyToken, requireRole('admin'), approveBatch);
 router.post('/:id/reject',    verifyToken, requireRole('admin'), rejectBatch);
+
+// ── Trader: list available (MINTED) batches for redeem page ───────────────────
+router.get('/available', verifyToken, getAvailableBatchesForTrader);
 
 // ── Shared (farmer own or admin) ──────────────────────────────────────────
 router.get('/:id', verifyToken, getBatchById);
