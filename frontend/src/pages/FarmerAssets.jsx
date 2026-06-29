@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import { useMyBatches } from "../hooks/useBatches";
+import { formatKg, formatToken } from '../utils/formatters';
 
 const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#487573", muted: "#6b7a99", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#7fe0c9" };
 
@@ -156,7 +157,7 @@ export default function FarmerAssets() {
                     <span style={{ fontSize: 12, padding: "2px 8px", borderRadius: 4, background: "rgba(72,117,115,0.1)", color: C.tealLight }}>{b.coffee_type || "ROBUSTA"}</span>
                   </td>
                   <td style={{ padding: "12px 16px", fontSize: 13, color: "#e2e8f0", whiteSpace: "nowrap" }}>
-                    {Number(b.quantity).toLocaleString("vi-VN")} <span style={{ color: C.muted, fontSize: 11 }}>kg</span>
+                    {formatKg(b.quantity)}
                   </td>
                   <td style={{ padding: "12px 16px", fontSize: 12, color: C.muted, whiteSpace: "nowrap" }}>
                     {new Date(b.created_at).toLocaleDateString("vi-VN")}
@@ -191,7 +192,7 @@ export default function FarmerAssets() {
             {filtered.filter(b => b.minted_amount).map(b => (
               <div key={b.id} style={{ background: "rgba(14,203,129,0.05)", border: "1px solid rgba(14,203,129,0.12)", borderRadius: 8, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                 <div style={{ fontSize: 12, color: C.muted, fontFamily: "monospace" }}>{b.batch_id}</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.green }}>{Number(b.minted_amount).toLocaleString()} CaRo đã được mint</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.green }}>{formatToken(b.minted_amount, "CaRo")} đã được mint</div>
                 <div style={{ fontSize: 11, color: C.muted }}>{b.minted_at ? new Date(b.minted_at).toLocaleString("vi-VN") : "—"}</div>
                 {b.tx_hash && (
                   <a href={`https://sepolia.etherscan.io/tx/${b.tx_hash}`} target="_blank" rel="noreferrer"

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import * as api from "../services/batchApi";
+import { formatNumber } from '../utils/formatters';
 
 // ── Query keys ──────────────────────────────────────────────────────────────
 export const BATCH_KEYS = {
@@ -79,12 +80,21 @@ export function useApproveBatch() {
   return useMutation({
     mutationFn: ({ id, grade }) => api.approveBatch(id, grade),
     onSuccess: (data) => {
-      const amount = Number(data.minted_amount).toLocaleString("vi-VN");
+      const amount = formatNumber(Number(data.minted_amount));
       toast.success(`Mint thành công! ${amount} ${data.token_type} → ví farmer`);
       qc.invalidateQueries({ queryKey: ["batches"] });
     },
     onError: (e) => {
-      toast.error(e?.response?.data?.message || "Approve thất bại");
+      const raw     = e?.response?.data?.message || e?.message || "Approve thất bại";
+      const isChain = raw.toLowerCase().includes("minter_role") ||
+                      raw.toLowerCase().includes("blockchain") ||
+                      raw.toLowerCase().includes("revert") ||
+                      raw.toLowerCase().includes("paused");
+      if (isChain) {
+        toast.error(`Blockchain Mint thất bại: ${raw}`, { autoClose: 10000 });
+      } else {
+        toast.error(raw);
+      }
     },
   });
 }

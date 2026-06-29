@@ -3,6 +3,7 @@ import { verifyToken, requireRole } from '../middleware/auth.js';
 import {
   uploadProof,
   getWallet,
+  directDeposit, getTransactions,
   createDeposit, listDepositsForUser, listAllDeposits, reviewDeposit,
   createWithdraw, listWithdrawsForUser, listAllWithdraws, reviewWithdraw,
 } from '../controllers/walletController.js';
@@ -10,9 +11,11 @@ import {
 const router = express.Router();
 
 // ── Wallet balance ───────────────────────────────────────────────────────────
-router.get('/balance', verifyToken, getWallet);
+router.get('/balance',      verifyToken, getWallet);
+router.get('/transactions', verifyToken, getTransactions);
 
 // ── Deposits ─────────────────────────────────────────────────────────────────
+router.post  ('/direct-deposit',        verifyToken,                      directDeposit);
 router.post  ('/deposit',               verifyToken,                      uploadProof, createDeposit);
 router.get   ('/deposit',               verifyToken,                      listDepositsForUser);
 router.get   ('/deposit/all',           verifyToken, requireRole('admin'), listAllDeposits);

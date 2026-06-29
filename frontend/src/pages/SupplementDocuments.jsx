@@ -1,9 +1,10 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import { useBatch } from "../hooks/useBatches";
 import axios from "../utils/axiosClient";
+import { formatKg } from '../utils/formatters';
 
 const C = {
   accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
@@ -197,7 +198,7 @@ export default function SupplementDocuments() {
           <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>Lô hàng</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: C.tealLight, fontFamily: "monospace", marginBottom: 4 }}>{batch.batch_id}</div>
           <div style={{ fontSize: 13, color: "#e2e8f0", marginBottom: batch.rejection_reason ? 10 : 0 }}>
-            {Number(batch.quantity).toLocaleString()} kg · {batch.coffee_type || "ROBUSTA"}
+            {formatKg(batch.quantity)} · {batch.coffee_type || "ROBUSTA"}
             {batch.created_at && ` · Ngày tạo: ${new Date(batch.created_at).toLocaleDateString("vi-VN")}`}
           </div>
           {batch.rejection_reason && (

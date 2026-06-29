@@ -5,13 +5,13 @@ import { useNavigate } from "react-router-dom";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import { useAuth } from "../context/AuthContext";
 import { createDeposit, getMyDeposits } from "../services/walletApi";
+import { formatVND } from '../utils/formatters';
 
 const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#487573", muted: "#6b7a99", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#7fe0c9" };
 
 const STATUS_COLOR = { pending: C.gold, approved: C.green, rejected: C.red };
 const STATUS_LABEL = { pending: "⏳ Chờ duyệt", approved: "✓ Đã duyệt", rejected: "✗ Từ chối" };
 
-function fmt(n) { return Number(n || 0).toLocaleString("vi-VN"); }
 
 export default function FarmerDepositPage() {
   const nav = useNavigate();
@@ -113,7 +113,7 @@ export default function FarmerDepositPage() {
                     style={{ width: "100%", padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 7, color: "#fff", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
                   {amount && Number(amount) > 0 && (
                     <div style={{ marginTop: 6, fontSize: 12, color: C.muted }}>
-                      = <strong style={{ color: C.tealLight }}>{fmt(amount)} ₫</strong>
+                      = <strong style={{ color: C.tealLight }}>{formatVND(amount)}</strong>
                     </div>
                   )}
                 </div>
@@ -174,7 +174,7 @@ export default function FarmerDepositPage() {
                 {deposits.map(d => (
                   <div key={d.id} style={{ padding: "13px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: C.green }}>+{fmt(d.amount)} VND</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.green }}>+{formatVND(d.amount)}</div>
                       <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>
                         {new Date(d.created_at).toLocaleString("vi-VN")}
                         {d.note && <span style={{ marginLeft: 8, color: "rgba(255,255,255,0.4)" }}>• {d.note}</span>}

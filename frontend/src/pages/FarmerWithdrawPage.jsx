@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import axios from "../utils/axiosClient";
+import { formatNumber, formatVND, formatKg, formatToken } from '../utils/formatters';
 
 const C = { accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#7fe0c9" };
 const PRICE = { CR1: 100_000, CR2: 85_000, CR3: 70_000 };
@@ -58,7 +59,7 @@ export default function FarmerWithdrawPage() {
           <div style={{ fontSize: 52, marginBottom: 16 }}>✅</div>
           <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Yêu cầu rút tiền đã được gửi</h2>
           <div style={{ fontSize: 14, color: C.muted, marginBottom: 24 }}>
-            Yêu cầu rút <strong style={{ color: C.tealLight }}>{amt.toLocaleString()} {token}</strong> của bạn đã được đưa vào hàng đợi.<br />
+            Yêu cầu rút <strong style={{ color: C.tealLight }}>{formatToken(amt, token)}</strong> của bạn đã được đưa vào hàng đợi.<br />
             Bạn sẽ nhận được token tại địa chỉ ví <strong style={{ color: "#e2e8f0", wordBreak: "break-all" }}>{dest}</strong> sau khi hoàn thành.
           </div>
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
@@ -91,7 +92,7 @@ export default function FarmerWithdrawPage() {
                   <button key={t} onClick={() => { setToken(t); setAmount(""); }}
                     style={{ flex: 1, padding: "10px 8px", background: token === t ? "rgba(72,117,115,0.12)" : "rgba(255,255,255,0.03)", border: `1px solid ${token === t ? C.tealLight : C.border}`, borderRadius: 7, cursor: "pointer", textAlign: "center", transition: "all 0.15s" }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: token === t ? C.tealLight : "#e2e8f0" }}>{t}</div>
-                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{av > 0 ? av.toLocaleString() + " kg" : "Chưa có"}</div>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{av > 0 ? formatKg(av) : "Chưa có"}</div>
                   </button>
                 );
               })}
@@ -102,7 +103,7 @@ export default function FarmerWithdrawPage() {
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
               <label style={{ fontSize: 12, color: C.muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Số lượng (kg)</label>
-              <div style={{ fontSize: 12, color: C.muted }}>Khả dụng: <span style={{ color: C.tealLight, fontWeight: 600 }}>{avail.toLocaleString()} kg</span></div>
+              <div style={{ fontSize: 12, color: C.muted }}>Khả dụng: <span style={{ color: C.tealLight, fontWeight: 600 }}>{formatKg(avail)}</span></div>
             </div>
             <div style={{ position: "relative" }}>
               <input
@@ -135,10 +136,10 @@ export default function FarmerWithdrawPage() {
           {amt > 0 && (
             <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 8, padding: "14px 16px", border: `1px solid ${C.border}` }}>
               {[
-                { label: "Số lượng rút",        value: `${amt.toLocaleString("vi-VN")} ${token}` },
+                { label: "Số lượng rút",        value: formatToken(amt, token) },
                 { label: "Phí rút (0.1%)",      value: `-${fee.toFixed(4)} ${token}`, color: C.red },
-                { label: "Thực nhận",           value: `${netAmt.toLocaleString("vi-VN")} ${token}`, color: C.green, bold: true },
-                { label: "Giá trị ước tính",    value: `≈ ${estVnd.toLocaleString("vi-VN")} ₫`, color: C.muted },
+                { label: "Thực nhận",           value: formatToken(netAmt, token), color: C.green, bold: true },
+                { label: "Giá trị ước tính",    value: `≈ ${formatVND(estVnd)}`, color: C.muted },
               ].map(r => (
                 <div key={r.label} style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                   <span style={{ fontSize: 13, color: C.muted }}>{r.label}</span>
@@ -152,7 +153,7 @@ export default function FarmerWithdrawPage() {
 
           <button onClick={handleSubmit} disabled={!canSubmit}
             style={{ width: "100%", padding: "13px 20px", background: canSubmit ? C.accent : "rgba(255,255,255,0.05)", color: canSubmit ? "#fff" : C.muted, border: "none", borderRadius: 8, fontWeight: 700, cursor: canSubmit ? "pointer" : "not-allowed", fontSize: 15, transition: "all 0.15s" }}>
-            {submitting ? "Đang xử lý..." : `Rút ${amt > 0 ? amt.toLocaleString() + " " + token : ""}`}
+            {submitting ? "Đang xử lý..." : `Rút ${amt > 0 ? formatToken(amt, token) : ""}`}
           </button>
         </div>
 

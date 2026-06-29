@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import { useMyBatches } from "../hooks/useBatches";
+import { formatNumber, formatKg } from '../utils/formatters';
 
 const C = { accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#7fe0c9" };
 
@@ -14,7 +15,7 @@ function batchToNotifs(batches) {
         icon: "🪙",
         color: C.green,
         title: "Đã Mint Lô Hàng Thành Công",
-        body: `${b.batch_id} — Đã mint ${Number(b.minted_amount || b.quantity).toLocaleString()} token CaRo vào ví của bạn`,
+        body: `${b.batch_id} — Đã mint ${formatNumber(Number(b.minted_amount || b.quantity))} token CaRo vào ví của bạn`,
         date: b.minted_at || b.updated_at || b.created_at,
         link: `/farmer/batch/${b.id}`,
       });
@@ -47,7 +48,7 @@ function batchToNotifs(batches) {
         icon: "⏳",
         color: C.gold,
         title: "Lô Hàng Đang Được Kiểm Duyệt",
-        body: `${b.batch_id} — Đã gửi yêu cầu ${Number(b.quantity).toLocaleString()} kg, đang chờ admin phê duyệt`,
+        body: `${b.batch_id} — Đã gửi yêu cầu ${formatKg(Number(b.quantity))}, đang chờ admin phê duyệt`,
         date: b.created_at,
         link: `/farmer/batch/${b.id}`,
       });

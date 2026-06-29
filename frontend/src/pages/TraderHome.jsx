@@ -8,6 +8,8 @@ import { ethers } from "ethers";
 import { CA_RO_CONTRACTS, ABI } from "../config/config";
 import axios from "../utils/axiosClient";
 import { getMarketStats } from "../services/marketApi";
+import { formatNumber, formatVND } from '../utils/formatters';
+import { TRADER_KEYS } from '../hooks/useTraderData';
 
 const C = {
   accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
@@ -16,9 +18,6 @@ const C = {
 const TOKEN_COLORS = { CR1: "#f0b90b", CR2: "#00d4aa", CR3: "#9b87f5" };
 const TOKEN_LABELS = { CR1: "CaRo1", CR2: "CaRo2", CR3: "CaRo3" };
 
-function fmt(n, dec = 0) {
-  return Number(n || 0).toLocaleString("vi-VN", { minimumFractionDigits: dec, maximumFractionDigits: dec });
-}
 
 export default function TraderHome() {
   const { user } = useAuth();
@@ -28,14 +27,14 @@ export default function TraderHome() {
   const [tokenBals, setTokenBals] = useState({ CR1: "0", CR2: "0", CR3: "0" });
 
   const { data: walletData } = useQuery({
-    queryKey: ["trader-wallet-balance"],
+    queryKey: TRADER_KEYS.wallet,
     queryFn: () => axios.get("/wallet/balance").then(r => r.data),
     staleTime: 15_000, refetchInterval: 30_000,
   });
   const vndBalance = Number(walletData?.balance || 0);
 
   const { data: statsData } = useQuery({
-    queryKey: ["mkt-stats"],
+    queryKey: TRADER_KEYS.prices,
     queryFn: getMarketStats,
     staleTime: 10_000, refetchInterval: 15_000,
   });
@@ -101,9 +100,9 @@ export default function TraderHome() {
         {/* Summary cards */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
           {[
-            { label: "Số dư VND",        value: fmt(vndBalance) + " ₫",  sub: "Có thể giao dịch",       color: C.tealLight, icon: "💵" },
-            { label: "Giá trị Token",    value: account ? (tokenValue > 0 ? (tokenValue / 1e6).toFixed(2) + " triệu ₫" : "0 ₫") : "Chưa kết nối ví", sub: "CR1 + CR2 + CR3", color: "#f0b90b", icon: "🪙" },
-            { label: "Tổng tài sản",     value: totalAssets > 0 ? fmt(totalAssets) + " ₫" : "—", sub: "VND + Token on-chain", color: "#e2e8f0", icon: "📊" },
+            { label: "Số dư VND",        value: formatVND(vndBalance),  sub: "Có thể giao dịch",       color: C.tealLight, icon: "💵" },
+            { label: "Giá trị Token",    value: account ? (tokenValue > 0 ? (tokenValue / 1e6).toFixed(2) + " triệu VND" : "0 VND") : "Chưa kết nối ví", sub: "CR1 + CR2 + CR3", color: "#f0b90b", icon: "🪙" },
+            { label: "Tổng tài sản",     value: totalAssets > 0 ? formatVND(totalAssets) : "—", sub: "VND + Token on-chain", color: "#e2e8f0", icon: "📊" },
             { label: "Lệnh đang mở",     value: String(openCount),        sub: "Chờ khớp lệnh",          color: "#9b87f5",   icon: "⏳" },
           ].map(c => (
             <div key={c.label} style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "16px 18px" }}>
@@ -148,13 +147,13 @@ export default function TraderHome() {
                         <span style={{ fontSize: 12, fontWeight: 700, color: TOKEN_COLORS[key] }}>{TOKEN_LABELS[key]}</span>
                       </td>
                       <td style={{ padding: "10px 14px", fontSize: 13, color: qty > 0 ? C.green : C.muted, fontFamily: "monospace" }}>
-                        {account ? (qty > 0 ? fmt(qty, 2) : "—") : "—"}
+                        {account ? (qty > 0 ? formatNumber(qty, 2) : "—") : "—"}
                       </td>
                       <td style={{ padding: "10px 14px", fontSize: 12, color: "#e2e8f0", fontFamily: "monospace" }}>
-                        {price ? fmt(price) + " ₫" : "—"}
+                        {price ? formatVND(price) : "—"}
                       </td>
                       <td style={{ padding: "10px 14px", fontSize: 12, color: value > 0 ? "#e2e8f0" : C.muted }}>
-                        {value > 0 ? fmt(value) + " ₫" : "—"}
+                        {value > 0 ? formatVND(value) : "—"}
                       </td>
                     </tr>
                   );
@@ -202,7 +201,7 @@ export default function TraderHome() {
                     <tr key={t.id || i} style={{ borderBottom: `1px solid ${C.border}` }}>
                       <td style={{ padding: "9px 14px", fontSize: 12, color: "#e2e8f0", fontWeight: 600 }}>{t.pair || "—"}</td>
                       <td style={{ padding: "9px 14px", fontSize: 12, color: t.side === "buy" ? C.green : C.red, fontFamily: "monospace", fontWeight: 700 }}>
-                        {fmt(t.price)} ₫
+                        {formatVND(t.price)}
                       </td>
                       <td style={{ padding: "9px 14px", fontSize: 12, color: "#e2e8f0", fontFamily: "monospace" }}>
                         {Number(t.amount || t.quantity || 0).toFixed(4)}

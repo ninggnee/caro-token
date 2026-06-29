@@ -12,6 +12,9 @@ export const getRecentTrades = (pair) =>
 export const getOpenOrders = (pair) =>
   axios.get("/orders/open", { params: pair ? { pair } : {} }).then((r) => r.data);
 
+export const getAllBuyOrders = (pair) =>
+  axios.get("/orders/buy-orders", { params: pair ? { pair } : {} }).then((r) => r.data);
+
 export const placeOrder = (body) =>
   axios.post("/orders", body).then((r) => r.data);
 

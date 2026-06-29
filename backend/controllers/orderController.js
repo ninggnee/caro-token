@@ -235,6 +235,29 @@ export const getOpenOrders = async (req, res) => {
   }
 };
 
+// All open BUY orders from any trader — visible to farmers so they can sell into them
+export const getAllBuyOrders = async (req, res) => {
+  try {
+    const { pair } = req.query;
+    const whereClause = pair ? `AND o.pair = ?` : '';
+    const params = pair ? [pair] : [];
+    const [rows] = await db.execute(
+      `SELECT o.id, o.pair, o.price, o.amount, o.filled, o.remaining,
+              o.status, o.created_at,
+              u.full_name AS trader_name, u.email AS trader_email
+       FROM orders o
+       JOIN users u ON u.id = o.user_id
+       WHERE o.side = 'buy' ${whereClause} AND o.status IN ('open','partial')
+       ORDER BY o.price DESC, o.created_at ASC`,
+      params
+    );
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 export const getOrderbook = async (req, res) => {
   try {
     const pair = req.query.pair || 'CR1/VND';

@@ -1,13 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import * as api from "../services/orderApi";
+import { formatNumber, formatVND } from '../utils/formatters';
 
 const PAIRS = ["CR1/VND", "CR2/VND", "CR3/VND"];
 const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#487573", muted: "#6b7a99", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#7fe0c9" };
-
-const fmt = (n, dec = 0) => Number(n || 0).toLocaleString("vi-VN", { minimumFractionDigits: dec, maximumFractionDigits: dec });
 
 // ── Order Book Side ────────────────────────────────────────────────────────────
 function BookSide({ rows, side, maxAmt }) {
@@ -20,8 +19,8 @@ function BookSide({ rows, side, maxAmt }) {
         return (
           <div key={i} style={{ position: "relative", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, padding: "3px 6px", borderRadius: 3 }}>
             <div style={{ position: "absolute", inset: 0, borderRadius: 3, background: color, opacity: 0.07, width: `${pct}%`, right: side === "buy" ? 0 : "auto", left: side === "sell" ? 0 : "auto" }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color, position: "relative" }}>{fmt(r.price, 0)}</span>
-            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", position: "relative", textAlign: "right" }}>{fmt(r.amount, 2)}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color, position: "relative" }}>{formatNumber(r.price, 0)}</span>
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", position: "relative", textAlign: "right" }}>{formatNumber(r.amount)}</span>
           </div>
         );
       })}
@@ -30,10 +29,19 @@ function BookSide({ rows, side, maxAmt }) {
 }
 
 // ── Order Form ─────────────────────────────────────────────────────────────────
-function OrderForm({ pair, onPlace, isPlacing }) {
-  const [side,   setSide]   = useState("buy");
-  const [price,  setPrice]  = useState("");
-  const [amount, setAmount] = useState("");
+function OrderForm({ pair, onPlace, isPlacing, prefill, formRef }) {
+  const [side,   setSide]   = useState(prefill?.side   || "buy");
+  const [price,  setPrice]  = useState(prefill?.price  ? String(prefill.price)  : "");
+  const [amount, setAmount] = useState(prefill?.amount ? String(prefill.amount) : "");
+
+  // Apply pre-fill when it changes (triggered by "Bán vào lệnh" button)
+  const prefillRef = useRef(null);
+  if (prefill && prefill !== prefillRef.current) {
+    prefillRef.current = prefill;
+    setSide(prefill.side);
+    setPrice(String(prefill.price || ""));
+    setAmount(String(prefill.amount || ""));
+  }
 
   const total = (Number(price) || 0) * (Number(amount) || 0);
 
@@ -75,7 +83,7 @@ function OrderForm({ pair, onPlace, isPlacing }) {
 
         {total > 0 && (
           <div style={{ padding: "8px 12px", background: isBuy ? "rgba(14,203,129,0.06)" : "rgba(246,70,93,0.06)", borderRadius: 6, fontSize: 12, color: C.muted }}>
-            Tổng giá trị: <strong style={{ color: isBuy ? C.green : C.red }}>{fmt(total)} VND</strong>
+            Tổng giá trị: <strong style={{ color: isBuy ? C.green : C.red }}>{formatVND(total)}</strong>
           </div>
         )}
 
@@ -119,10 +127,10 @@ function OpenOrdersTable({ pair, onCancel, isCancelling }) {
               <td style={{ padding: "9px 10px", color: o.side === "buy" ? C.green : C.red, fontWeight: 700 }}>
                 {o.side === "buy" ? "MUA" : "BÁN"}
               </td>
-              <td style={{ padding: "9px 10px" }}>{fmt(o.price)}</td>
-              <td style={{ padding: "9px 10px" }}>{fmt(o.amount, 2)}</td>
-              <td style={{ padding: "9px 10px", color: C.green }}>{fmt(o.filled, 2)}</td>
-              <td style={{ padding: "9px 10px" }}>{fmt(o.remaining, 2)}</td>
+              <td style={{ padding: "9px 10px" }}>{formatNumber(o.price)}</td>
+              <td style={{ padding: "9px 10px" }}>{formatNumber(o.amount)}</td>
+              <td style={{ padding: "9px 10px", color: C.green }}>{formatNumber(o.filled)}</td>
+              <td style={{ padding: "9px 10px" }}>{formatNumber(o.remaining)}</td>
               <td style={{ padding: "9px 10px" }}>
                 <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4,
                   background: o.status === "partial" ? "rgba(240,185,11,0.12)" : "rgba(72,117,115,0.12)",
@@ -164,11 +172,66 @@ function RecentTrades({ pair }) {
       </div>
       {trades.map((t, i) => (
         <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", padding: "3px 6px" }}>
-          <span style={{ fontSize: 12, color: C.green, fontWeight: 600 }}>{fmt(t.price)}</span>
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{fmt(t.amount, 2)}</span>
+          <span style={{ fontSize: 12, color: C.green, fontWeight: 600 }}>{formatNumber(t.price)}</span>
+          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{formatNumber(t.amount)}</span>
           <span style={{ fontSize: 11, color: C.muted }}>{new Date(t.created_at).toLocaleTimeString("vi-VN")}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ── Trader Buy Orders Table ───────────────────────────────────────────────────
+function TraderBuyOrdersTable({ pair, onSellInto }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["trader-buy-orders", pair],
+    queryFn: () => api.getAllBuyOrders(pair),
+    refetchInterval: 5000,
+  });
+  const orders = data?.data || [];
+
+  if (isLoading) return <div style={{ color: C.muted, fontSize: 13, padding: 12 }}>Đang tải...</div>;
+  if (!orders.length) return <div style={{ color: C.muted, fontSize: 13, padding: "20px 12px", textAlign: "center" }}>Không có lệnh mua nào từ trader</div>;
+
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <thead>
+          <tr style={{ background: "rgba(255,255,255,0.03)" }}>
+            {["Trader", "Cặp", "Giá (VND/kg)", "Còn lại (kg)", "Tổng giá trị", "Trạng thái", "Thời gian", ""].map(h => (
+              <th key={h} style={{ padding: "8px 10px", color: C.muted, fontWeight: 600, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map(o => {
+            const totalVal = Number(o.price) * Number(o.remaining);
+            return (
+              <tr key={o.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                <td style={{ padding: "9px 10px", fontWeight: 600, color: C.tealLight }}>{o.trader_name || o.trader_email}</td>
+                <td style={{ padding: "9px 10px", fontWeight: 600 }}>{o.pair}</td>
+                <td style={{ padding: "9px 10px", color: C.green, fontWeight: 700 }}>{formatNumber(o.price)}</td>
+                <td style={{ padding: "9px 10px" }}>{formatNumber(o.remaining)}</td>
+                <td style={{ padding: "9px 10px", color: C.gold }}>{formatVND(totalVal)}</td>
+                <td style={{ padding: "9px 10px" }}>
+                  <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4,
+                    background: o.status === "partial" ? "rgba(240,185,11,0.12)" : "rgba(72,117,115,0.12)",
+                    color: o.status === "partial" ? C.gold : C.tealLight, fontWeight: 600 }}>
+                    {o.status === "partial" ? "Khớp một phần" : "Mở"}
+                  </span>
+                </td>
+                <td style={{ padding: "9px 10px", color: C.muted }}>{new Date(o.created_at).toLocaleString("vi-VN")}</td>
+                <td style={{ padding: "9px 10px" }}>
+                  <button onClick={() => onSellInto(o)}
+                    style={{ padding: "4px 12px", background: "rgba(14,203,129,0.12)", border: "1px solid rgba(14,203,129,0.3)", color: C.green, borderRadius: 5, cursor: "pointer", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
+                    Bán vào lệnh này
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -178,6 +241,7 @@ export default function FarmerTrading() {
   const qc = useQueryClient();
   const [pair, setPair] = useState("CR1/VND");
   const [activeTab, setActiveTab] = useState("openOrders");
+  const [prefillOrder, setPrefillOrder] = useState(null);
 
   // Order book (auto-refresh every 3s)
   const { data: bookData } = useQuery({
@@ -222,6 +286,13 @@ export default function FarmerTrading() {
     placeMut.mutate(body, { onSuccess: () => reset?.() });
   }, [placeMut]);
 
+  const handleSellInto = useCallback((order) => {
+    setPair(order.pair);
+    setPrefillOrder({ side: "sell", price: Number(order.price), amount: Number(order.remaining) });
+    setActiveTab("openOrders");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
   return (
     <FarmerLayout title="Giao dịch">
       <div style={{ width: "100%" }}>
@@ -250,23 +321,23 @@ export default function FarmerTrading() {
 
           {/* Left: Order form */}
           <div>
-            <OrderForm pair={pair} onPlace={handlePlace} isPlacing={placeMut.isPending} />
+            <OrderForm pair={pair} onPlace={handlePlace} isPlacing={placeMut.isPending} prefill={prefillOrder} />
 
             {/* Spread info */}
             <div style={{ marginTop: 10, padding: "10px 14px", background: C.card, borderRadius: 8, border: `1px solid ${C.border}` }}>
               <div style={{ display: "grid", gap: 6 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
                   <span style={{ color: C.muted }}>Mua tốt nhất</span>
-                  <span style={{ color: C.green, fontWeight: 700 }}>{bids[0] ? fmt(bids[0].price) : "—"}</span>
+                  <span style={{ color: C.green, fontWeight: 700 }}>{bids[0] ? formatNumber(bids[0].price) : "—"}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
                   <span style={{ color: C.muted }}>Bán tốt nhất</span>
-                  <span style={{ color: C.red, fontWeight: 700 }}>{asks[0] ? fmt(asks[0].price) : "—"}</span>
+                  <span style={{ color: C.red, fontWeight: 700 }}>{asks[0] ? formatNumber(asks[0].price) : "—"}</span>
                 </div>
                 {spread !== null && (
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
                     <span style={{ color: C.muted }}>Chênh lệch</span>
-                    <span style={{ color: C.gold }}>{fmt(spread)}</span>
+                    <span style={{ color: C.gold }}>{formatNumber(spread)}</span>
                   </div>
                 )}
               </div>
@@ -317,8 +388,9 @@ export default function FarmerTrading() {
         <div style={{ marginTop: 12, background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
           <div style={{ display: "flex", borderBottom: `1px solid ${C.border}` }}>
             {[
-              { key: "openOrders", label: "Lệnh Mở" },
-              { key: "info",       label: "Hướng dẫn" },
+              { key: "openOrders",      label: "Lệnh Mở" },
+              { key: "traderBuyOrders", label: "Lệnh Mua Trader" },
+              { key: "info",            label: "Hướng dẫn" },
             ].map(t => (
               <button key={t.key} onClick={() => setActiveTab(t.key)}
                 style={{ padding: "11px 20px", background: "none", border: "none", cursor: "pointer", fontSize: 13,
@@ -332,6 +404,15 @@ export default function FarmerTrading() {
 
           {activeTab === "openOrders" && (
             <OpenOrdersTable pair={pair} onCancel={id => cancelMut.mutate(id)} isCancelling={cancelMut.isPending} />
+          )}
+
+          {activeTab === "traderBuyOrders" && (
+            <div>
+              <div style={{ padding: "8px 14px 4px", fontSize: 12, color: C.muted }}>
+                Các lệnh mua đang mở từ trader — nhấn <strong style={{ color: C.green }}>Bán vào lệnh này</strong> để điền sẵn form bán với giá và số lượng phù hợp.
+              </div>
+              <TraderBuyOrdersTable pair={pair} onSellInto={handleSellInto} />
+            </div>
           )}
 
           {activeTab === "info" && (

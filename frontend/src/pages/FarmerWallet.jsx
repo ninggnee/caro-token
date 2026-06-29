@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { ethers } from "ethers";
 import { CA_RO_CONTRACTS, ABI } from "../config/config";
 import axios from "../utils/axiosClient";
+import { formatVND, formatKg } from '../utils/formatters';
 
 const C = {
   accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
@@ -195,9 +196,9 @@ export default function FarmerWallet() {
                 <tr style={{ borderBottom: `1px solid ${C.border}` }}>
                   <td style={{ padding: "12px 0", fontSize: 13, color: "#e2e8f0" }}>VND</td>
                   <td style={{ textAlign: "right", padding: "12px 0", fontSize: 13, color: C.muted }}>—</td>
-                  <td style={{ textAlign: "right", padding: "12px 0", fontSize: 13, color: C.muted }}>1 ₫</td>
+                  <td style={{ textAlign: "right", padding: "12px 0", fontSize: 13, color: C.muted }}>1 VND</td>
                   <td style={{ textAlign: "right", padding: "12px 0", fontSize: 13, fontWeight: 600, color: C.tealLight }}>
-                    {vndQ.isLoading ? "…" : vndAvailable.toLocaleString("vi-VN") + " ₫"}
+                    {vndQ.isLoading ? "…" : formatVND(vndAvailable)}
                   </td>
                 </tr>
 
@@ -211,13 +212,13 @@ export default function FarmerWallet() {
                     <tr key={label} style={{ borderBottom: `1px solid ${C.border}` }}>
                       <td style={{ padding: "12px 0", fontSize: 13, color: "#e2e8f0" }}>{label}</td>
                       <td style={{ textAlign: "right", padding: "12px 0", fontSize: 13, fontWeight: 600, color: qty > 0 ? C.green : C.muted }}>
-                        {(onChain.loading && account) ? "…" : qty.toLocaleString("vi-VN") + " kg"}
+                        {(onChain.loading && account) ? "…" : formatKg(qty)}
                       </td>
                       <td style={{ textAlign: "right", padding: "12px 0", fontSize: 13, color: C.muted }}>
-                        {price.toLocaleString("vi-VN")} ₫
+                        {formatVND(price)}
                       </td>
                       <td style={{ textAlign: "right", padding: "12px 0", fontSize: 13, fontWeight: 600, color: C.tealLight }}>
-                        {(qty * price).toLocaleString("vi-VN")} ₫
+                        {formatVND(qty * price)}
                       </td>
                     </tr>
                   );
@@ -228,9 +229,9 @@ export default function FarmerWallet() {
             {/* VND breakdown */}
             {vndLocked > 0 && (
               <div style={{ marginTop: 12, padding: "10px 12px", background: "rgba(240,185,11,0.06)", border: "1px solid rgba(240,185,11,0.15)", borderRadius: 7, fontSize: 12, color: C.muted }}>
-                Số dư VND: <span style={{ color: "#e2e8f0" }}>{vndTotal.toLocaleString("vi-VN")} ₫</span>
-                {" "}· Đang khoá: <span style={{ color: C.gold }}>{vndLocked.toLocaleString("vi-VN")} ₫</span>
-                {" "}· Khả dụng: <span style={{ color: C.green }}>{vndAvailable.toLocaleString("vi-VN")} ₫</span>
+                Số dư VND: <span style={{ color: "#e2e8f0" }}>{formatVND(vndTotal)}</span>
+                {" "}· Đang khoá: <span style={{ color: C.gold }}>{formatVND(vndLocked)}</span>
+                {" "}· Khả dụng: <span style={{ color: C.green }}>{formatVND(vndAvailable)}</span>
               </div>
             )}
           </div>
@@ -268,7 +269,7 @@ export default function FarmerWallet() {
                         </div>
                       </div>
                       <div style={{ fontSize: 13, fontWeight: 700, color }}>
-                        {sign}{Number(tx.amount).toLocaleString("vi-VN")} ₫
+                        {sign}{formatVND(Number(tx.amount))}
                       </div>
                     </li>
                   );

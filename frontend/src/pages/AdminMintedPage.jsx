@@ -1,6 +1,7 @@
 import { useState } from "react";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import { useAllBatches } from "../hooks/useBatches";
+import { formatNumber, formatKg } from '../utils/formatters';
 
 const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#7fe0c9", muted: "#6b7a99" };
 
@@ -123,11 +124,11 @@ export default function AdminMintedPage() {
                       </span>
                     </td>
                     <td style={{ padding: "14px", fontWeight: 600 }}>
-                      {Number(b.quantity).toLocaleString()} kg
+                      {formatKg(b.quantity)}
                     </td>
                     <td style={{ padding: "14px" }}>
                       <span style={{ fontWeight: 700, color: C.green, fontSize: 14 }}>
-                        {Number(b.minted_amount || b.quantity).toLocaleString()}
+                        {formatNumber(b.minted_amount || b.quantity)}
                       </span>
                       <span style={{ color: C.accent, marginLeft: 6, fontSize: 12 }}>{b.quality_grade || "CR1"}</span>
                     </td>

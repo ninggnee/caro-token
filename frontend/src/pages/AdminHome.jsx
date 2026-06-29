@@ -4,6 +4,7 @@ import DashboardLayout from "../components/layout/DashboardLayout";
 import { useAuth } from "../context/AuthContext";
 import axios from "../utils/axiosClient";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { formatKg, formatToken } from '../utils/formatters';
 
 const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#7fe0c9", muted: "#6b7a99" };
 
@@ -285,14 +286,14 @@ export default function AdminHome() {
           />
           <StatCard 
             label="Khối lượng token hóa" 
-            value={`${Number(val("totalBatchKg")).toLocaleString()} kg`} 
+            value={formatKg(Number(val("totalBatchKg")))} 
             sub="Tổng cà phê số hóa" 
             accent="#e2e8f0" 
             icon="☕" 
           />
           <StatCard 
             label="CaRo đã phát hành" 
-            value={`${Number(val("totalTokens")).toLocaleString()} CaRo`} 
+            value={formatToken(Number(val("totalTokens")), "CaRo")} 
             sub="Tổng cung lưu thông" 
             accent={C.accent} 
             icon="🪙" 
@@ -364,7 +365,7 @@ export default function AdminHome() {
                           <div style={{ fontWeight: 600 }}>{b.farmer_name || "—"}</div>
                           <div style={{ fontSize: 10, color: C.muted }}>{b.farmer_email}</div>
                         </td>
-                        <td style={{ ...tdStyle, fontWeight: 600 }}>{Number(b.quantity).toLocaleString()} kg</td>
+                        <td style={{ ...tdStyle, fontWeight: 600 }}>{formatKg(Number(b.quantity))}</td>
                         <td style={tdStyle}>
                           <StatusBadge status={b.status} />
                         </td>

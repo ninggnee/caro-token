@@ -78,8 +78,10 @@ contract CoffeeToken is ERC20, AccessControl, Pausable {
         onlyRole(MINTER_ROLE)
         whenNotPaused
     {
-        require(amount > 0,          "Amount must be > 0");
-        require(!lotMinted[lotCode], "Lot already minted");
+        require(to != address(0),            "CoffeeToken: mint to zero address");
+        require(amount > 0,                  "CoffeeToken: amount must be > 0");
+        require(bytes(lotCode).length > 0,   "CoffeeToken: lotCode is required");
+        require(!lotMinted[lotCode],         "CoffeeToken: lot already minted");
 
         _mint(to, amount);
 
@@ -115,7 +117,8 @@ contract CoffeeToken is ERC20, AccessControl, Pausable {
         onlyRole(MINTER_ROLE)
         whenNotPaused
     {
-        require(amount > 0, "Amount must be > 0");
+        require(from != address(0), "CoffeeToken: burn from zero address");
+        require(amount > 0,         "CoffeeToken: amount must be > 0");
         _burn(from, amount);
         emit TokenBurned(from, amount, lotCode, redeemId);
     }

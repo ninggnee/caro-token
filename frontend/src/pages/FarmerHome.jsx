@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useMyBatches } from "../hooks/useBatches";
 import { useQuery } from "@tanstack/react-query";
 import axios from "../utils/axiosClient";
+import { formatNumber, formatVND } from '../utils/formatters';
 
 function useTokenBalances() {
   return useQuery({
@@ -82,7 +83,7 @@ function InternalWalletWidget({ balances }) {
       <div style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 4 }}>Tổng giá trị ước tính</div>
         <div style={{ fontSize: 24, fontWeight: 700, color: "#7fe0c9" }}>
-          {totalVnd > 0 ? totalVnd.toLocaleString("vi-VN") + " ₫" : "—"}
+          {totalVnd > 0 ? formatVND(totalVnd) : "—"}
         </div>
       </div>
 
@@ -93,14 +94,14 @@ function InternalWalletWidget({ balances }) {
           return (
             <div key={t} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: "10px 12px" }}>
               <div style={{ fontSize: 12, color: "#7fe0c9", fontWeight: 700, marginBottom: 6 }}>{t}</div>
-              <div style={{ fontSize: 16, fontWeight: 700 }}>{avail > 0 ? avail.toLocaleString() : "0"}</div>
+              <div style={{ fontSize: 16, fontWeight: 700 }}>{avail > 0 ? formatNumber(avail) : "0"}</div>
               {locked > 0 && (
                 <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 3 }}>
-                  {locked.toLocaleString()} khoá
+                  {formatNumber(locked)} khoá
                 </div>
               )}
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>
-                ≈ {(avail * (priceMap[t] || 0)).toLocaleString("vi-VN")}₫
+                ≈ {formatVND(avail * (priceMap[t] || 0))}
               </div>
             </div>
           );
