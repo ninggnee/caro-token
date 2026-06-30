@@ -62,11 +62,13 @@ export default function FarmerWalletOverview() {
   const dashQ  = useDashboard();
   const priceQ = useMarketPrices();
 
-  // ── Token quantities (DB mint records — same source as Dashboard & Token Holdings) ──
-  const holdings = dashQ.data?.tokenBalances || {};
-  const caro1 = Number(holdings.caro1 ?? 0);
-  const caro2 = Number(holdings.caro2 ?? 0);
-  const caro3 = Number(holdings.caro3 ?? 0);
+  // On-chain from new contracts (authoritative) → DB exchange balance (fallback)
+  const onChainBals = dashQ.data?.onChainBalances;
+  const dbHoldings  = dashQ.data?.tokenBalances || {};
+  const useOnChain  = dashQ.data?.dataSource === 'on-chain' && onChainBals;
+  const caro1 = useOnChain ? Number(onChainBals.caro1 ?? 0) : Number(dbHoldings.caro1 ?? 0);
+  const caro2 = useOnChain ? Number(onChainBals.caro2 ?? 0) : Number(dbHoldings.caro2 ?? 0);
+  const caro3 = useOnChain ? Number(onChainBals.caro3 ?? 0) : Number(dbHoldings.caro3 ?? 0);
 
   // Token_CaRo = Khối lượng (total tokens = total kg, 1 CaRo ≡ 1 kg Robusta)
   const totalCaRo = caro1 + caro2 + caro3;
@@ -129,15 +131,15 @@ export default function FarmerWalletOverview() {
             loading={isLoading}
           />
 
-          {/* Khối lượng */}
+          {/* VND Balance */}
           <BalCard
-            label="Khối lượng (kg cà phê)"
-            value={formatKg(totalCaRo)}
-            sub="1 CaRo = 1 kg Robusta"
+            label="Số dư VND trong ví"
+            value={vndBalance > 0 ? formatVND(vndBalance) : "0 VND"}
+            sub={vndLocked > 0 ? `Khả dụng: ${formatVND(vndAvailable)} · Đang khoá: ${formatVND(vndLocked)}` : "Toàn bộ khả dụng"}
             accent={C.green}
             loading={isLoading}
-            action="Giao dịch ngay"
-            onAction={() => nav("/farmer/marketplace")}
+            action="Nạp tiền"
+            onAction={() => nav("/farmer/wallet/deposit")}
           />
 
           {/* Giá trị ước tính */}
@@ -181,7 +183,7 @@ export default function FarmerWalletOverview() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "rgba(255,255,255,0.02)" }}>
-                {["Token", "Token_CaRo (Số dư)", "Khối lượng", "Đơn giá / kg", "Giá trị ước tính"].map(h => (
+                {["Token", "Token_CaRo (Số dư)", "Đơn giá / kg", "Giá trị ước tính"].map(h => (
                   <th key={h} style={{ padding: "10px 16px", fontSize: 11, color: C.muted, fontWeight: 600, textAlign: "left", textTransform: "uppercase", letterSpacing: "0.5px" }}>{h}</th>
                 ))}
               </tr>
@@ -189,7 +191,7 @@ export default function FarmerWalletOverview() {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={5} style={{ padding: 30, textAlign: "center", color: C.muted, fontSize: 13 }}>Đang tải số dư…</td>
+                  <td colSpan={4} style={{ padding: 30, textAlign: "center", color: C.muted, fontSize: 13 }}>Đang tải số dư…</td>
                 </tr>
               )}
 
@@ -210,9 +212,6 @@ export default function FarmerWalletOverview() {
                     <td style={{ padding: "14px 16px", fontSize: 14, fontWeight: 600, color: qty > 0 ? C.green : C.muted }}>
                       {qty > 0 ? formatNumber(qty) : "—"}
                     </td>
-                    <td style={{ padding: "14px 16px", fontSize: 13, color: "#e2e8f0" }}>
-                      {qty > 0 ? formatKg(qty) : "—"}
-                    </td>
                     <td style={{ padding: "14px 16px", fontSize: 13, color: C.muted }}>
                       {priceQ.isLoading ? "…" : formatVND(price)}
                     </td>
@@ -232,9 +231,6 @@ export default function FarmerWalletOverview() {
                       {formatNumber(totalCaRo)}
                     </span>
                     <span style={{ fontSize: 11, color: C.muted, marginLeft: 4 }}>CaRo</span>
-                  </td>
-                  <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>
-                    {totalCaRo > 0 ? formatKg(totalCaRo) : "—"}
                   </td>
                   <td />
                   <td style={{ padding: "12px 16px", fontSize: 14, fontWeight: 700, color: C.tealLight }}>

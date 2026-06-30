@@ -28,15 +28,22 @@
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const TOKENS      = ['CR1', 'CR2', 'CR3'];
-const BASE_PRICES = { CR1: 120_000, CR2: 100_000, CR3: 80_000 };
+const BASE_PRICES = { CR1: 88_000, CR2: 86_500, CR3: 85_000 };
 const SUPPLY      = { CR1: 1_000_000, CR2: 800_000, CR3: 600_000 };
 
-const MEAN_REVERT    = 0.04;   // pull-back toward base price per tick
-const NOISE_PER_TICK = 0.006;  // random noise ± per tick
-const MAX_DRIFT      = 0.15;   // price never drifts more than ±15% from base
-const ORDER_SPREAD   = 0.05;   // ±5% spread for order book levels
+// Rule 6: prices stay in 85,000–92,000 VND range
+// Rule 7: intraday ±0.1%–0.5% per update, max ±3% daily
+const MEAN_REVERT    = 0.06;   // pull-back toward base price per tick
+const NOISE_PER_TICK = 0.003;  // random noise ±0.3% per tick (Rule 7: 0.1%–0.5%)
+const MAX_DRIFT      = 0.03;   // price never drifts more than ±3% from base (Rule 7)
+const ORDER_SPREAD   = 0.02;   // ±2% spread for order book levels
 const BOOK_DEPTH     = 20;     // order book levels per side
 const TRADE_BUFFER   = 200;    // trades kept per token
+
+// Rule 3: tick size 100 VND
+const TICK_SIZE = 100;
+// Rule 2: daily trading band ±7%
+const BAND_PCT  = 0.07;
 
 const TICK_MIN_MS = 10_000;
 const TICK_MAX_MS = 30_000;
@@ -84,6 +91,7 @@ function floorToInterval(date, secs) {
 // All data is module-level variables — only accessible via getter functions.
 
 let _prices     = {};  // { CR1: number }
+let _refPrices  = {};  // { CR1: number } — previous day's closing price (Rule 1: T-1 reference)
 let _stats      = {};  // { CR1: StatObject }
 let _orderBooks = {};  // { CR1: { bids:[{price,qty}], asks:[{price,qty}] } }
 let _trades     = {};  // { CR1: TradeObject[] }
@@ -169,6 +177,10 @@ function seedHistoricalCandles() {
     // Set live price from last 1h candle
     const lastHour = _candles[token]['1h'][_candles[token]['1h'].length - 1];
     _prices[token] = lastHour.close;
+
+    // Rule 1: reference price = previous day's closing price
+    const lastDay = _candles[token]['1d'][_candles[token]['1d'].length - 1];
+    _refPrices[token] = lastDay.close;
   }
 }
 
@@ -251,6 +263,8 @@ function tickToken(token) {
 
   // Reset 24h window at midnight
   if (now.getTime() - st.dayStart >= 24 * 3600_000) {
+    // Rule 1: today's closing price becomes tomorrow's reference price
+    _refPrices[token]  = newPrice;
     st.open_price      = newPrice;
     st.high_24h        = newPrice;
     st.low_24h         = newPrice;
@@ -309,8 +323,25 @@ function refreshOrderBook(token, price) {
 
 // ── Public getters ────────────────────────────────────────────────────────────
 
+// Rule 2: trading band = reference price ±7%
+export function getTradingBand(token) {
+  const ref     = _refPrices[token] || BASE_PRICES[token];
+  const floor   = Math.round(ref * (1 - BAND_PCT));
+  const ceiling = Math.round(ref * (1 + BAND_PCT));
+  return { ref, floor, ceiling, tickSize: TICK_SIZE };
+}
+
+export function getAllTradingBands() {
+  const out = {};
+  for (const t of TOKENS) out[t] = getTradingBand(t);
+  return out;
+}
+
 export function getStats() {
-  return TOKENS.map(t => ({ ..._stats[t] }));
+  return TOKENS.map(t => {
+    const band = getTradingBand(t);
+    return { ..._stats[t], reference_price: band.ref, floor_price: band.floor, ceiling_price: band.ceiling, tick_size: TICK_SIZE };
+  });
 }
 
 export function getPrices() {
@@ -361,7 +392,7 @@ export function isReady() { return _ready; }
 
 export async function initialize() {
   // Reset all state
-  _prices = {}; _stats = {}; _orderBooks = {}; _trades = {}; _candles = {};
+  _prices = {}; _refPrices = {}; _stats = {}; _orderBooks = {}; _trades = {}; _candles = {};
   _tradeId = 1; _ready = false;
 
   for (const t of TOKENS) {

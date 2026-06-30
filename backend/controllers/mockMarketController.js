@@ -11,6 +11,7 @@ import {
   getChart,
   getCandles,
   isReady,
+  getAllTradingBands,
 } from '../services/MockMarketEngine.js';
 
 const TOKEN_ALIAS = {
@@ -88,6 +89,17 @@ export async function getRecentTrades(req, res) {
   try {
     const trades = getTrades(token, limit);
     res.json({ success: true, token, trades });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+// ── GET /api/market/band — reference price, floor, ceiling for all tokens (Rule 1 & 2) ──
+
+export async function getTradingBandHandler(req, res) {
+  if (!isReady()) return notReady(res);
+  try {
+    res.json({ success: true, bands: getAllTradingBands() });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

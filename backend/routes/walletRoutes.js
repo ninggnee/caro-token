@@ -3,7 +3,7 @@ import { verifyToken, requireRole } from '../middleware/auth.js';
 import {
   uploadProof,
   getWallet,
-  directDeposit, getTransactions,
+  directDeposit, simulateDeposit, getTransactions,
   createDeposit, listDepositsForUser, listAllDeposits, reviewDeposit,
   createWithdraw, listWithdrawsForUser, listAllWithdraws, reviewWithdraw,
 } from '../controllers/walletController.js';
@@ -15,6 +15,7 @@ router.get('/balance',      verifyToken, getWallet);
 router.get('/transactions', verifyToken, getTransactions);
 
 // ── Deposits ─────────────────────────────────────────────────────────────────
+router.post  ('/simulate-deposit',      verifyToken,                      simulateDeposit);
 router.post  ('/direct-deposit',        verifyToken,                      directDeposit);
 router.post  ('/deposit',               verifyToken,                      uploadProof, createDeposit);
 router.get   ('/deposit',               verifyToken,                      listDepositsForUser);

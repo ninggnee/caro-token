@@ -35,8 +35,9 @@ import FarmerTxHistory    from '../pages/FarmerTxHistory';
 import FarmerNotifications from '../pages/FarmerNotifications';
 import FarmerSettings     from '../pages/FarmerSettings';
 // Farmer — existing pages (now wrapped in FarmerLayout)
-import FarmerMarketplace   from '../pages/FarmerMarketplace';
-import FarmerTrading       from '../pages/FarmerTrading';
+import FarmerMarketplace    from '../pages/FarmerMarketplace';
+import FarmerMarketOverview from '../pages/FarmerMarketOverview';
+import FarmerTrading        from '../pages/FarmerTrading';
 import FarmerProfile       from '../pages/FarmerProfile';
 import SubmitBatchPage     from '../pages/SubmitBatchPage';
 import FarmerBatchesPage   from '../pages/FarmerBatchesPage';
@@ -69,6 +70,7 @@ import SupplementRequests  from '../pages/SupplementRequests';
 import CreditVnd           from '../pages/CreditVnd';
 import AdminRedeemOrders   from '../pages/AdminRedeemOrders';
 import SystemLogs          from '../pages/SystemLogs';
+import AdminTokenSync      from '../pages/AdminTokenSync';
 
 export default function AppRouter() {
   return (
@@ -90,15 +92,17 @@ export default function AppRouter() {
         <Route path="/trader/wallet"         element={<TraderWallet />} />
         <Route path="/trader/deposit"        element={<DepositPage />} />
         <Route path="/trader/withdraw"       element={<WithdrawPage />} />
-        <Route path="/trader/marketplace"    element={<TraderMarketplace />} />
-        <Route path="/trader/portfolio"      element={<TraderPortfolio />} />
-        <Route path="/trader/trading"        element={<TraderTrading />} />
-        <Route path="/trader/trades"         element={<TradeHistory />} />
-        <Route path="/trader/profile"        element={<TraderProfile />} />
-        <Route path="/trader/connect-wallet" element={<ConnectWallet />} />
-        <Route path="/trader/redeem"         element={<RedeemCoffee />} />
-        <Route path="/trader/market/financing" element={<TraderFinancing />} />
-        <Route path="/trader/market/redeem"    element={<TraderRedeemGoods />} />
+        <Route path="/trader/market/overview"    element={<TraderMarketplace />} />
+        <Route path="/trader/market/trading"     element={<TraderTrading />} />
+        <Route path="/trader/market/financing"   element={<TraderFinancing />} />
+        <Route path="/trader/market/redeem"      element={<TraderRedeemGoods />} />
+        <Route path="/trader/marketplace"        element={<Navigate to="/trader/market/overview" replace />} />
+        <Route path="/trader/trading"            element={<Navigate to="/trader/market/trading" replace />} />
+        <Route path="/trader/portfolio"          element={<TraderPortfolio />} />
+        <Route path="/trader/trades"             element={<TradeHistory />} />
+        <Route path="/trader/profile"            element={<TraderProfile />} />
+        <Route path="/trader/connect-wallet"     element={<ConnectWallet />} />
+        <Route path="/trader/redeem"             element={<RedeemCoffee />} />
 
         {/* ── Farmer — new routes ────────────────────────────── */}
         {/* Root redirects to dashboard */}
@@ -131,8 +135,11 @@ export default function AppRouter() {
         <Route path="/farmer/assets/rejected"  element={<Navigate to="/farmer/status/rejected" replace />} />
         <Route path="/farmer/assets/submit"    element={<Navigate to="/farmer/status/submit" replace />} />
 
-        {/* Marketplace & Trading */}
-        <Route path="/farmer/marketplace"      element={<FarmerMarketplace />} />
+        {/* Market — submenu pages */}
+        <Route path="/farmer/market/overview"  element={<FarmerMarketOverview />} />
+        <Route path="/farmer/market/trading"   element={<FarmerTrading />} />
+        {/* Legacy redirects */}
+        <Route path="/farmer/marketplace"      element={<Navigate to="/farmer/market/overview" replace />} />
         <Route path="/farmer/orders"           element={<FarmerTrading />} />
         <Route path="/farmer/trading"          element={<FarmerTrading />} />
 
@@ -175,6 +182,7 @@ export default function AppRouter() {
         <Route path="/admin/mint-requests"        element={<Navigate to="/admin/batches" replace />} />
         <Route path="/admin/batch/:id"            element={<BatchDetailPage />} />
         <Route path="/admin/warehouse-docs"       element={<WarehouseDocuments />} />
+        <Route path="/admin/token-sync"           element={<AdminTokenSync />} />
 
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

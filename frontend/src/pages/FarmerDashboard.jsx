@@ -9,14 +9,14 @@ import { formatNumber, formatKg, formatPct } from '../utils/formatters';
 
 const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#487573", muted: "#6b7a99" };
 
-// Single aggregated call: DB token balances + batch stats + VND balance.
-// Data flows: Mint Record → user_balances (DB) → this endpoint → Dashboard cards.
+// Returns DB balances + on-chain balances (when wallet registered + RPC live).
+// Backend tries on-chain with 5 s timeout; falls back to DB if unavailable.
 function useDashboard() {
   return useQuery({
     queryKey: ["farmer-dashboard"],
     queryFn: () => axios.get("/farmer/dashboard").then(r => r.data),
     staleTime: 15_000,
-    refetchInterval: 30_000, // auto-refresh every 30 s so newly minted tokens appear
+    refetchInterval: 30_000,
     retry: 2,
   });
 }
@@ -159,8 +159,10 @@ export default function FarmerDashboard() {
   // Recent batch list still needs its own paginated query
   const recentQ = useMyBatches({ limit: 8 });
 
-  const tokenBals = dashQ.data?.tokenBalances  || {};
-  const batchStats = dashQ.data?.batchStats    || {};
+  const tokenBals    = dashQ.data?.tokenBalances   || {};
+  const onChainBals  = dashQ.data?.onChainBalances;   // null when no wallet / RPC down
+  const dataSource   = dashQ.data?.dataSource || 'db'; // 'on-chain' | 'db'
+  const batchStats   = dashQ.data?.batchStats || {};
 
   const pending  = batchStats.PENDING_MINT_APPROVAL ?? 0;
   const minted   = batchStats.MINTED               ?? 0;
@@ -231,30 +233,43 @@ export default function FarmerDashboard() {
           </div>
         </div>
 
-        {/* CaRo1 / CaRo2 / CaRo3 — sourced from user_balances (DB), updated on every mint */}
-        <div className="farmer-grid-3">
-          <StatCard
-            label="CaRo1 (Hạng A)"
-            value={isLoading ? "…" : formatNumber(Number(tokenBals.caro1 || 0))}
-            sub="CR1 · Robusta Cao cấp · từ hồ sơ mint"
-            accent={C.green}
-            icon="🥇"
-          />
-          <StatCard
-            label="CaRo2 (Hạng B)"
-            value={isLoading ? "…" : formatNumber(Number(tokenBals.caro2 || 0))}
-            sub="CR2 · Robusta Tiêu chuẩn · từ hồ sơ mint"
-            accent={C.accent}
-            icon="🥈"
-          />
-          <StatCard
-            label="CaRo3 (Hạng C)"
-            value={isLoading ? "…" : formatNumber(Number(tokenBals.caro3 || 0))}
-            sub="CR3 · Robusta Phổ thông · từ hồ sơ mint"
-            accent={C.gold}
-            icon="🥉"
-          />
-        </div>
+        {/* Token balance cards — primary source: on-chain (new contracts).
+            Falls back to DB exchange balance when wallet not registered or RPC unavailable. */}
+        {(() => {
+          const useOnChain = dataSource === 'on-chain' && onChainBals;
+
+          const val = (key, cr) => {
+            if (isLoading) return "…";
+            const n = useOnChain ? (onChainBals[key] ?? 0) : Number(tokenBals[key] || 0);
+            return formatNumber(n);
+          };
+
+          return (
+            <div className="farmer-grid-3">
+              <StatCard
+                label="CaRo1 (Hạng A)"
+                value={val("caro1", "CR1")}
+                sub="CR1 · Robusta Cao cấp"
+                accent={C.green}
+                icon="🥇"
+              />
+              <StatCard
+                label="CaRo2 (Hạng B)"
+                value={val("caro2", "CR2")}
+                sub="CR2 · Robusta Tiêu chuẩn"
+                accent={C.accent}
+                icon="🥈"
+              />
+              <StatCard
+                label="CaRo3 (Hạng C)"
+                value={val("caro3", "CR3")}
+                sub="CR3 · Robusta Phổ thông"
+                accent={C.gold}
+                icon="🥉"
+              />
+            </div>
+          );
+        })()}
 
         {/* Error banner when dashboard fails */}
         {dashQ.isError && (

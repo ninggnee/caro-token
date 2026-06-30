@@ -1,26 +1,31 @@
 import { useState, useEffect, useCallback } from 'react';
 import TraderLayout from '../components/layout/TraderLayout';
 import { API_URL } from '../config/api';
-import { formatNumber, formatVND } from '../utils/formatters';
+import { formatNumber, formatVND, formatKg } from '../utils/formatters';
+import { getTradingBand } from '../services/marketApi';
 
-const PAIRS = ['CR1/VND', 'CR2/VND', 'CR3/VND'];
+const PAIRS = [
+  { key: 'CR1/VND', label: 'CaRo1/VND', token: 'CR1', tokenLabel: 'CaRo1', color: '#f0b90b' },
+  { key: 'CR2/VND', label: 'CaRo2/VND', token: 'CR2', tokenLabel: 'CaRo2', color: '#0ecb81' },
+  { key: 'CR3/VND', label: 'CaRo3/VND', token: 'CR3', tokenLabel: 'CaRo3', color: '#9b87f5' },
+];
 
 const ORDER_TYPES = [
-  { key: 'limit',  label: 'LIMIT'  },
-  { key: 'market', label: 'MARKET' },
-  { key: 'ato',    label: 'ATO',   comingSoon: true },
-  { key: 'atc',    label: 'ATC',   comingSoon: true },
+  { key: 'limit',  label: 'Limit'  },
+  { key: 'market', label: 'Market' },
 ];
 
 const C = {
-  card:    '#0f1e20',
-  border:  'rgba(255,255,255,0.08)',
-  green:   '#0ecb81',
-  red:     '#f6465d',
-  text:    '#eaecef',
-  muted:   '#848e9c',
-  dim:     '#1e2d2f',
-  input:   '#162020',
+  card:   '#0f1e20',
+  border: 'rgba(255,255,255,0.08)',
+  green:  '#0ecb81',
+  red:    '#f6465d',
+  text:   '#eaecef',
+  muted:  '#848e9c',
+  dim:    '#1e2d2f',
+  input:  '#162020',
+  gold:   '#f0b90b',
+  teal:   '#00d4aa',
 };
 
 function authHeader() {
@@ -36,75 +41,46 @@ async function apiFetch(path, opts = {}) {
   return res.json();
 }
 
-
-function Stepper({ label, value, onChange, step = 1, disabled = false }) {
-  const adj = (delta) => {
-    const cur = parseFloat(value) || 0;
-    const nxt = Math.max(0, cur + delta * step);
-    onChange(nxt % 1 === 0 ? String(nxt) : nxt.toFixed(2));
-  };
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{label}</div>
-      <div style={{ display: 'flex', border: `1px solid ${C.border}`, borderRadius: 6, overflow: 'hidden' }}>
-        <button
-          onClick={() => adj(-1)}
-          disabled={disabled}
-          style={{ width: 34, height: 38, background: C.dim, border: 'none', color: '#bbb', cursor: disabled ? 'default' : 'pointer', fontSize: 20, flexShrink: 0, lineHeight: 1 }}
-        >−</button>
-        <input
-          type="number"
-          value={value}
-          onChange={e => !disabled && onChange(e.target.value)}
-          readOnly={disabled}
-          placeholder="0"
-          style={{ flex: 1, height: 38, padding: '0 6px', background: C.input, border: 'none', color: disabled ? C.muted : C.text, textAlign: 'center', fontSize: 13, outline: 'none' }}
-        />
-        <button
-          onClick={() => adj(1)}
-          disabled={disabled}
-          style={{ width: 34, height: 38, background: C.dim, border: 'none', color: '#bbb', cursor: disabled ? 'default' : 'pointer', fontSize: 20, flexShrink: 0, lineHeight: 1 }}
-        >+</button>
-      </div>
-    </div>
-  );
-}
-
 export default function TraderTrading() {
-  const [pair, setPair]             = useState('CR1/VND');
+  const [pairKey, setPairKey]       = useState('CR1/VND');
   const [bids, setBids]             = useState([]);
   const [asks, setAsks]             = useState([]);
   const [openOrders, setOpenOrders] = useState([]);
-  const [tradeHist,  setTradeHist]  = useState([]);
-  const [tickers,    setTickers]    = useState({});
-  const [vndWallet,  setVndWallet]  = useState({});
-  const [tokenBals,  setTokenBals]  = useState({});
+  const [tradeHist, setTradeHist]   = useState([]);
+  const [tickers, setTickers]       = useState({});
+  const [vndWallet, setVndWallet]   = useState({});
+  const [tokenBals, setTokenBals]   = useState({});
 
-  const [orderType,  setOrderType]  = useState('limit');
-  const [buyPrice,   setBuyPrice]   = useState('');
-  const [buyAmount,  setBuyAmount]  = useState('');
-  const [sellPrice,  setSellPrice]  = useState('');
-  const [sellAmount, setSellAmount] = useState('');
-  const [placing,    setPlacing]    = useState(null);
-  const [msg,        setMsg]        = useState(null);
-  const [bottomTab,  setBottomTab]  = useState('open');
+  const [orderType, setOrderType] = useState('limit');
+  const [side, setSide]           = useState('buy');
+  const [price, setPrice]         = useState('');
+  const [amount, setAmount]       = useState('');
+  const [placing, setPlacing]     = useState(false);
+  const [msg, setMsg]             = useState(null);
+  const [bottomTab, setBottomTab] = useState('open');
+  const [band, setBand]           = useState(null); // { ref, floor, ceiling, tickSize }
+
+  const pairInfo   = PAIRS.find(p => p.key === pairKey) || PAIRS[0];
+  const token      = pairInfo.token;
+  const tokenLabel = pairInfo.tokenLabel;
+  const isMarket   = orderType === 'market';
 
   // ── data loaders ──────────────────────────────────────────────────────────
 
   const loadOrderbook = useCallback(async () => {
-    const d = await apiFetch(`/orders/orderbook?pair=${encodeURIComponent(pair)}`);
+    const d = await apiFetch(`/orders/orderbook?pair=${encodeURIComponent(pairKey)}`);
     if (d.success) { setBids(d.data.bids || []); setAsks(d.data.asks || []); }
-  }, [pair]);
+  }, [pairKey]);
 
   const loadOpenOrders = useCallback(async () => {
-    const d = await apiFetch(`/orders/open?pair=${encodeURIComponent(pair)}`);
+    const d = await apiFetch(`/orders/open?pair=${encodeURIComponent(pairKey)}`);
     if (d.success) setOpenOrders(d.data || []);
-  }, [pair]);
+  }, [pairKey]);
 
   const loadTradeHistory = useCallback(async () => {
-    const d = await apiFetch(`/orders/trades?pair=${encodeURIComponent(pair)}`);
+    const d = await apiFetch(`/orders/trades?pair=${encodeURIComponent(pairKey)}`);
     if (d.success) setTradeHist(d.data || []);
-  }, [pair]);
+  }, [pairKey]);
 
   const loadTickers = useCallback(async () => {
     const d = await apiFetch('/orders/tickers');
@@ -125,75 +101,93 @@ export default function TraderTrading() {
     if (d.success) setTokenBals(d.data || {});
   }, []);
 
+  const loadBand = useCallback(async () => {
+    try {
+      const d = await getTradingBand();
+      if (d.success) setBand(d.bands[token] || null);
+    } catch {}
+  }, [token]);
+
   useEffect(() => {
     loadOrderbook(); loadOpenOrders(); loadTradeHistory();
-    loadTickers(); loadWallet(); loadTokenBals();
+    loadTickers(); loadWallet(); loadTokenBals(); loadBand();
     const iv = setInterval(() => {
-      loadOrderbook(); loadTickers(); loadWallet(); loadTokenBals();
-    }, 5000);
+      loadOrderbook(); loadTickers(); loadWallet(); loadTokenBals(); loadBand();
+    }, 30000);
     return () => clearInterval(iv);
-  }, [pair, loadOrderbook, loadOpenOrders, loadTradeHistory, loadTickers, loadWallet, loadTokenBals]);
+  }, [pairKey, loadOrderbook, loadOpenOrders, loadTradeHistory, loadTickers, loadWallet, loadTokenBals, loadBand]);
 
-  // Auto-fill market price when MARKET type selected or order book updates
+  // Clear price field when switching to market order type
   useEffect(() => {
-    if (orderType === 'market') {
-      const tk = tickers[pair] || {};
-      setBuyPrice(asks[0] ? String(asks[0].price) : (tk.last_price ? String(tk.last_price) : ''));
-      setSellPrice(bids[0] ? String(bids[0].price) : (tk.last_price ? String(tk.last_price) : ''));
-    }
-  }, [orderType, asks, bids, tickers, pair]);
+    if (isMarket) setPrice('');
+  }, [isMarket]);
 
-  // ── derived values ────────────────────────────────────────────────────────
+  // ── derived ────────────────────────────────────────────────────────────────
 
-  const ticker    = tickers[pair] || {};
+  const ticker    = tickers[pairKey] || {};
   const lastPrice = Number(ticker.last_price || 0);
-  const token     = pair.split('/')[0];
+  const chg24h    = Number(ticker.change_24h || 0);
   const vndAvail  = Number(vndWallet.vnd_available || 0);
   const tokAvail  = Number(tokenBals[token]?.available || 0);
+  const priceN    = isMarket ? (asks[0]?.price || bids[0]?.price || lastPrice) : (parseFloat(price) || 0);
+  const amtN      = parseFloat(amount) || 0;
+  const total     = isMarket ? 0 : priceN * amtN; // market orders: total shown as 0 (unknown until execution)
+  const maxBuyQty = priceN > 0 ? vndAvail / priceN : 0;
 
-  const buyPriceN  = parseFloat(buyPrice)   || 0;
-  const buyAmtN    = parseFloat(buyAmount)  || 0;
-  const sellPriceN = parseFloat(sellPrice)  || 0;
-  const sellAmtN   = parseFloat(sellAmount) || 0;
-  const maxBuyQty  = buyPriceN > 0 ? vndAvail / buyPriceN : 0;
+  const maxBid   = Math.max(...bids.map(b => b.amount), 1);
+  const maxAsk   = Math.max(...asks.map(a => a.amount), 1);
+  const dispBids = bids.slice(0, 10);
+  const dispAsks = asks.slice(0, 10);
 
-  const maxBid = Math.max(...bids.map(b => b.amount), 1);
-  const maxAsk = Math.max(...asks.map(a => a.amount), 1);
-  const dispBids = bids.slice(0, 8);
-  const dispAsks = asks.slice(0, 8);
-  const levels   = Math.max(dispBids.length, dispAsks.length, 5);
+  // ── actions ────────────────────────────────────────────────────────────────
 
-  // ── actions ───────────────────────────────────────────────────────────────
+  const selectPrice = (p) => {
+    if (!isMarket) { setPrice(String(p)); }
+  };
 
-  const selectPrice = (price) => {
-    if (orderType !== 'market') {
-      setBuyPrice(String(price));
-      setSellPrice(String(price));
+  const applyPct = (pct) => {
+    if (side === 'buy') {
+      if (priceN <= 0) return;
+      const qty = (vndAvail * pct / 100) / priceN;
+      setAmount(qty > 0 ? qty.toFixed(2) : '');
+    } else {
+      const qty = tokAvail * pct / 100;
+      setAmount(qty > 0 ? qty.toFixed(2) : '');
     }
   };
 
-  const placeOrder = async (side) => {
-    const p = side === 'buy' ? buyPrice  : sellPrice;
-    const a = side === 'buy' ? buyAmount : sellAmount;
-    if (!p || !a || Number(p) <= 0 || Number(a) <= 0) {
-      return setMsg({ ok: false, text: 'Vui lòng nhập Giá và Số lượng hợp lệ' });
+  const placeOrder = async () => {
+    if (!amount || amtN <= 0) {
+      return setMsg({ ok: false, text: 'Vui lòng nhập Số lượng hợp lệ' });
     }
-    setPlacing(side); setMsg(null);
+    if (!isMarket) {
+      if (!price || priceN <= 0) {
+        return setMsg({ ok: false, text: 'Vui lòng nhập Giá hợp lệ' });
+      }
+      // Rule 3: tick size = 100 VND
+      if (priceN % 100 !== 0) {
+        return setMsg({ ok: false, text: 'Giá phải là bội số của 100 VND (Tick Size). Ví dụ: 88.000, 88.100, ...' });
+      }
+      // Rule 2: floor/ceiling
+      if (band && (priceN < band.floor || priceN > band.ceiling)) {
+        return setMsg({ ok: false, text: `Giá nằm ngoài biên độ hôm nay [${formatNumber(band.floor)} – ${formatNumber(band.ceiling)} VND/kg]` });
+      }
+    }
+    setPlacing(true); setMsg(null);
     try {
-      const d = await apiFetch('/orders', {
-        method: 'POST',
-        body: JSON.stringify({ pair, side, price: Number(p), amount: Number(a) }),
-      });
+      const body = { pair: pairKey, side, amount: amtN, type: orderType };
+      if (!isMarket) body.price = priceN;
+      const d = await apiFetch('/orders', { method: 'POST', body: JSON.stringify(body) });
       if (d.success) {
-        setMsg({ ok: true, text: `Đặt lệnh thành công · Trạng thái: ${d.status} · Khớp: ${d.trades} lệnh` });
-        if (side === 'buy')  { setBuyAmount('');  if (orderType !== 'market') setBuyPrice('');  }
-        else                 { setSellAmount(''); if (orderType !== 'market') setSellPrice(''); }
+        setMsg({ ok: true, text: `Đặt lệnh thành công · ${d.status} · Khớp: ${d.trades} lệnh` });
+        setAmount('');
+        if (!isMarket) setPrice('');
         loadOpenOrders(); loadOrderbook(); loadTradeHistory(); loadWallet(); loadTokenBals();
       } else {
         setMsg({ ok: false, text: d.message || 'Lỗi đặt lệnh' });
       }
     } catch { setMsg({ ok: false, text: 'Lỗi kết nối server' }); }
-    setPlacing(null);
+    setPlacing(false);
   };
 
   const cancelOrder = async (id) => {
@@ -202,48 +196,72 @@ export default function TraderTrading() {
     else alert(d.message);
   };
 
-  // ── render ────────────────────────────────────────────────────────────────
+  const switchPair = (key) => {
+    setPairKey(key);
+    setPrice(''); setAmount(''); setMsg(null);
+  };
+
+  const switchSide = (s) => {
+    setSide(s); setMsg(null);
+  };
+
+  // ── shared styles ─────────────────────────────────────────────────────────
+
+  const inputStyle = {
+    width: '100%', padding: '10px 12px', boxSizing: 'border-box',
+    border: `1px solid ${C.border}`, borderRadius: 6,
+    color: C.text, fontSize: 14, outline: 'none',
+  };
+
+  const accentColor = side === 'buy' ? C.green : C.red;
 
   return (
-    <TraderLayout title={`Giao dịch — ${pair}`}>
+    <TraderLayout title={`Giao dịch — ${pairInfo.label}`}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, color: C.text, fontSize: 13 }}>
 
         {/* ── PAIR TABS ── */}
         <div style={{ display: 'flex', gap: 6 }}>
           {PAIRS.map(p => (
-            <button key={p} onClick={() => setPair(p)} style={{
-              padding: '7px 20px', borderRadius: 5, cursor: 'pointer', fontWeight: 600, fontSize: 13,
-              background: p === pair ? 'rgba(14,203,129,0.12)' : 'rgba(255,255,255,0.05)',
-              color: p === pair ? C.green : C.muted,
-              border: p === pair ? '1px solid rgba(14,203,129,0.4)' : `1px solid ${C.border}`,
+            <button key={p.key} onClick={() => switchPair(p.key)} style={{
+              padding: '7px 18px', borderRadius: 6, cursor: 'pointer',
+              fontWeight: 700, fontSize: 13,
+              background: p.key === pairKey ? `${p.color}18` : 'rgba(255,255,255,0.04)',
+              color: p.key === pairKey ? p.color : C.muted,
+              border: p.key === pairKey ? `1px solid ${p.color}55` : `1px solid ${C.border}`,
               transition: 'all 0.15s',
-            }}>{p}</button>
+            }}>{p.label}</button>
           ))}
         </div>
 
         {/* ── TICKER BAR ── */}
         <div style={{ display: 'flex', gap: 24, padding: '10px 18px', background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, alignItems: 'center', flexWrap: 'wrap' }}>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'monospace', lineHeight: 1 }}>
-              {lastPrice ? formatNumber(lastPrice) : '—'}
+            <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'monospace', lineHeight: 1, color: chg24h >= 0 ? C.green : C.red }}>
+              {lastPrice ? formatVND(lastPrice) : '—'}
             </div>
-            <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>VNĐ</div>
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>VND/kg</div>
           </div>
           <div style={{ width: 1, height: 36, background: C.border, flexShrink: 0 }} />
+          <div>
+            <div style={{ fontSize: 11, color: C.muted }}>Thay đổi 24H</div>
+            <div style={{ fontWeight: 700, color: chg24h >= 0 ? C.green : C.red, fontFamily: 'monospace' }}>
+              {chg24h >= 0 ? '+' : ''}{chg24h.toFixed(2)}%
+            </div>
+          </div>
           {[
-            { l: 'Giá cao nhất',   v: ticker.high   ? formatNumber(ticker.high)   : '—', c: C.green },
-            { l: 'Giá thấp nhất',  v: ticker.low    ? formatNumber(ticker.low)    : '—', c: C.red   },
-            { l: 'Khối lượng 24h', v: ticker.volume ? formatNumber(ticker.volume) : '—', c: C.text  },
+            { l: 'Cao nhất 24H',  v: ticker.high   ? formatVND(ticker.high)                  : '—', c: C.green },
+            { l: 'Thấp nhất 24H', v: ticker.low    ? formatVND(ticker.low)                   : '—', c: C.red   },
+            { l: 'KL 24H',        v: ticker.volume ? `${formatNumber(ticker.volume)} kg`      : '—', c: C.text  },
           ].map(x => (
             <div key={x.l}>
               <div style={{ fontSize: 11, color: C.muted }}>{x.l}</div>
-              <div style={{ fontWeight: 600, color: x.c, fontFamily: 'monospace' }}>{x.v}</div>
+              <div style={{ fontWeight: 600, color: x.c, fontFamily: 'monospace', fontSize: 12 }}>{x.v}</div>
             </div>
           ))}
         </div>
 
-        {/* ── MAIN: ORDER BOOK + ORDER PANEL ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: 12, alignItems: 'start' }}>
+        {/* ── MAIN: ORDER BOOK LEFT + ORDER PANEL RIGHT ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 12, alignItems: 'start' }}>
 
           {/* ORDER BOOK */}
           <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
@@ -252,233 +270,243 @@ export default function TraderTrading() {
             </div>
 
             {/* Column headers */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', padding: '5px 10px', color: C.muted, fontSize: 10, fontWeight: 600, borderBottom: `1px solid ${C.border}` }}>
-              <span>KL (Mua)</span>
-              <span style={{ textAlign: 'right' }}>Giá Mua</span>
-              <span style={{ paddingLeft: 10 }}>Giá Bán</span>
-              <span style={{ textAlign: 'right' }}>KL (Bán)</span>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: '4px 10px', color: C.muted, fontSize: 10, fontWeight: 600, borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+              <span>Giá (VND/kg)</span>
+              <span style={{ textAlign: 'right' }}>SL (kg)</span>
             </div>
 
-            {/* Order rows */}
-            {Array.from({ length: levels }, (_, i) => {
-              const bid = dispBids[i];
-              const ask = dispAsks[i];
-              const bPct = bid ? (bid.amount / maxBid) * 100 : 0;
-              const aPct = ask ? (ask.amount / maxAsk) * 100 : 0;
-              return (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', height: 26 }}>
-
-                  {/* BID qty */}
-                  <div
-                    onClick={() => bid && selectPrice(bid.price)}
-                    style={{ position: 'relative', display: 'flex', alignItems: 'center', padding: '0 10px', cursor: bid ? 'pointer' : 'default', overflow: 'hidden' }}
-                  >
-                    <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${bPct}%`, background: 'rgba(14,203,129,0.1)', transition: 'width 0.3s' }} />
-                    <span style={{ color: C.muted, fontSize: 11, fontFamily: 'monospace', position: 'relative', zIndex: 1 }}>
-                      {bid ? formatNumber(bid.amount) : ''}
-                    </span>
+            {/* ASK rows — reversed so lowest ask is near the mid price */}
+            <div style={{ padding: '3px 0 0' }}>
+              {[...dispAsks].reverse().map((ask, i) => {
+                const pct = (ask.amount / maxAsk) * 65;
+                return (
+                  <div key={i} onClick={() => selectPrice(ask.price)}
+                    style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', height: 24, alignItems: 'center', padding: '0 10px', cursor: isMarket ? 'default' : 'pointer' }}>
+                    <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${pct}%`, background: 'rgba(246,70,93,0.08)' }} />
+                    <span style={{ color: C.red, fontSize: 11, fontFamily: 'monospace', fontWeight: 600, position: 'relative' }}>{formatNumber(ask.price)}</span>
+                    <span style={{ color: C.muted, fontSize: 11, fontFamily: 'monospace', textAlign: 'right', position: 'relative' }}>{formatNumber(ask.amount, 1)}</span>
                   </div>
+                );
+              })}
+            </div>
 
-                  {/* BID price */}
-                  <div
-                    onClick={() => bid && selectPrice(bid.price)}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 10px', cursor: bid ? 'pointer' : 'default' }}
-                  >
-                    <span style={{ color: C.green, fontSize: 11, fontFamily: 'monospace', fontWeight: 600 }}>
-                      {bid ? formatNumber(bid.price) : ''}
-                    </span>
-                  </div>
-
-                  {/* ASK price */}
-                  <div
-                    onClick={() => ask && selectPrice(ask.price)}
-                    style={{ display: 'flex', alignItems: 'center', padding: '0 10px', paddingLeft: 12, cursor: ask ? 'pointer' : 'default', borderLeft: `1px solid ${C.border}` }}
-                  >
-                    <span style={{ color: C.red, fontSize: 11, fontFamily: 'monospace', fontWeight: 600 }}>
-                      {ask ? formatNumber(ask.price) : ''}
-                    </span>
-                  </div>
-
-                  {/* ASK qty */}
-                  <div
-                    onClick={() => ask && selectPrice(ask.price)}
-                    style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 10px', cursor: ask ? 'pointer' : 'default', overflow: 'hidden' }}
-                  >
-                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${aPct}%`, background: 'rgba(246,70,93,0.1)', transition: 'width 0.3s' }} />
-                    <span style={{ color: C.muted, fontSize: 11, fontFamily: 'monospace', position: 'relative', zIndex: 1 }}>
-                      {ask ? formatNumber(ask.amount) : ''}
-                    </span>
-                  </div>
-
-                </div>
-              );
-            })}
-
-            {/* Last price strip */}
-            <div style={{ padding: '7px 12px', background: 'rgba(255,255,255,0.02)', borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 15, fontWeight: 700, fontFamily: 'monospace', color: C.text }}>
-                {lastPrice ? formatNumber(lastPrice) : '—'} <span style={{ fontSize: 10, color: C.muted, fontWeight: 400 }}>VNĐ</span>
+            {/* Last price mid */}
+            <div style={{ textAlign: 'center', padding: '6px 0', borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: 'rgba(255,255,255,0.02)' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: chg24h >= 0 ? C.green : C.red }}>
+                {lastPrice ? formatVND(lastPrice) : '—'}
               </span>
-              <div style={{ display: 'flex', gap: 14, fontSize: 11 }}>
-                <span style={{ color: C.muted }}>H: <b style={{ color: C.green }}>{ticker.high ? formatNumber(ticker.high) : '—'}</b></span>
-                <span style={{ color: C.muted }}>L: <b style={{ color: C.red }}>{ticker.low ? formatNumber(ticker.low) : '—'}</b></span>
+              <span style={{ fontSize: 10, color: C.muted, marginLeft: 4 }}>VND/kg</span>
+            </div>
+
+            {/* BID rows */}
+            <div style={{ padding: '0 0 3px' }}>
+              {dispBids.map((bid, i) => {
+                const pct = (bid.amount / maxBid) * 65;
+                return (
+                  <div key={i} onClick={() => selectPrice(bid.price)}
+                    style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', height: 24, alignItems: 'center', padding: '0 10px', cursor: isMarket ? 'default' : 'pointer' }}>
+                    <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${pct}%`, background: 'rgba(14,203,129,0.08)' }} />
+                    <span style={{ color: C.green, fontSize: 11, fontFamily: 'monospace', fontWeight: 600, position: 'relative' }}>{formatNumber(bid.price)}</span>
+                    <span style={{ color: C.muted, fontSize: 11, fontFamily: 'monospace', textAlign: 'right', position: 'relative' }}>{formatNumber(bid.amount, 1)}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {!isMarket && (
+              <div style={{ padding: '5px 10px', fontSize: 10, color: C.muted, textAlign: 'center', borderTop: `1px solid ${C.border}` }}>
+                Nhấn vào giá để điền nhanh
               </div>
-            </div>
-
-            <div style={{ padding: '6px 12px', fontSize: 10, color: C.muted, textAlign: 'center' }}>
-              Nhấn vào giá để điền vào form đặt lệnh
-            </div>
-          </div>
-
-          {/* ── ORDER PANEL ── */}
-          <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, padding: 16 }}>
-
-            {/* Order type tabs */}
-            <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, marginBottom: 16 }}>
-              {ORDER_TYPES.map(ot => (
-                <div key={ot.key} style={{ position: 'relative' }}>
-                  <button
-                    onClick={() => !ot.comingSoon && setOrderType(ot.key)}
-                    title={ot.comingSoon ? 'Tính năng sắp ra mắt' : ''}
-                    style={{
-                      padding: '8px 15px', background: 'transparent', border: 'none',
-                      cursor: ot.comingSoon ? 'default' : 'pointer',
-                      color: orderType === ot.key ? C.text : C.muted,
-                      fontWeight: orderType === ot.key ? 700 : 400,
-                      fontSize: 13,
-                      borderBottom: orderType === ot.key ? `2px solid ${C.green}` : '2px solid transparent',
-                      marginBottom: -1,
-                      opacity: ot.comingSoon ? 0.45 : 1,
-                      transition: 'color 0.15s',
-                    }}
-                  >{ot.label}</button>
-                  {ot.comingSoon && (
-                    <span style={{
-                      position: 'absolute', top: 4, right: 1,
-                      background: 'rgba(132,142,156,0.2)', color: C.muted,
-                      fontSize: 8, padding: '1px 3px', borderRadius: 3, lineHeight: 1.5,
-                      pointerEvents: 'none',
-                    }}>Soon</span>
-                  )}
-                </div>
-              ))}
-              {orderType === 'market' && (
-                <span style={{ marginLeft: 'auto', fontSize: 11, color: C.muted, alignSelf: 'center', paddingRight: 4 }}>
-                  Lệnh khớp ngay theo giá tốt nhất
-                </span>
-              )}
-            </div>
-
-            {/* BUY + SELL forms */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-
-              {/* ─── BUY FORM ─── */}
-              <div>
-                <div style={{ marginBottom: 12, padding: '8px 10px', background: 'rgba(14,203,129,0.05)', borderRadius: 6, border: '1px solid rgba(14,203,129,0.15)' }}>
-                  <div style={{ fontSize: 10, color: C.muted, marginBottom: 3 }}>Sức mua tối đa (VNĐ)</div>
-                  <div style={{ fontWeight: 700, color: C.green, fontSize: 15, fontFamily: 'monospace' }}>
-                    {formatNumber(maxBuyQty)} {token}
-                  </div>
-                  <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>
-                    {formatVND(vndAvail)} khả dụng
-                    {buyPriceN > 0 && (
-                      <span> ÷ {formatNumber(buyPriceN)}</span>
-                    )}
-                  </div>
-                </div>
-
-                <Stepper
-                  label={orderType === 'market' ? 'Giá thị trường (VNĐ)' : 'Giá (VNĐ)'}
-                  value={buyPrice}
-                  onChange={setBuyPrice}
-                  step={1}
-                  disabled={orderType === 'market'}
-                />
-
-                <Stepper
-                  label="Số lượng (token)"
-                  value={buyAmount}
-                  onChange={setBuyAmount}
-                  step={1}
-                />
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '8px 0', borderTop: `1px solid ${C.border}`, marginBottom: 12 }}>
-                  <span style={{ color: C.muted }}>Giá trị lệnh</span>
-                  <span style={{ color: C.text, fontWeight: 700, fontFamily: 'monospace' }}>{formatVND(buyPriceN * buyAmtN)}</span>
-                </div>
-
-                <button
-                  onClick={() => placeOrder('buy')}
-                  disabled={placing === 'buy'}
-                  style={{
-                    width: '100%', padding: '12px 0', borderRadius: 6, border: 'none',
-                    background: placing === 'buy' ? '#1a5c3c' : C.green,
-                    color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer',
-                    letterSpacing: '1px', transition: 'background 0.15s',
-                  }}
-                >{placing === 'buy' ? 'Đang đặt…' : 'MUA'}</button>
-              </div>
-
-              {/* ─── SELL FORM ─── */}
-              <div>
-                <div style={{ marginBottom: 12, padding: '8px 10px', background: 'rgba(246,70,93,0.05)', borderRadius: 6, border: '1px solid rgba(246,70,93,0.15)' }}>
-                  <div style={{ fontSize: 10, color: C.muted, marginBottom: 3 }}>KL có thể bán ({token})</div>
-                  <div style={{ fontWeight: 700, color: C.red, fontSize: 15, fontFamily: 'monospace' }}>
-                    {formatNumber(tokAvail)} {token}
-                  </div>
-                  <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>
-                    {token} khả dụng trong tài khoản
-                  </div>
-                </div>
-
-                <Stepper
-                  label={orderType === 'market' ? 'Giá thị trường (VNĐ)' : 'Giá (VNĐ)'}
-                  value={sellPrice}
-                  onChange={setSellPrice}
-                  step={1}
-                  disabled={orderType === 'market'}
-                />
-
-                <Stepper
-                  label="Số lượng (token)"
-                  value={sellAmount}
-                  onChange={setSellAmount}
-                  step={1}
-                />
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '8px 0', borderTop: `1px solid ${C.border}`, marginBottom: 12 }}>
-                  <span style={{ color: C.muted }}>Giá trị lệnh</span>
-                  <span style={{ color: C.text, fontWeight: 700, fontFamily: 'monospace' }}>{formatVND(sellPriceN * sellAmtN)}</span>
-                </div>
-
-                <button
-                  onClick={() => placeOrder('sell')}
-                  disabled={placing === 'sell'}
-                  style={{
-                    width: '100%', padding: '12px 0', borderRadius: 6, border: 'none',
-                    background: placing === 'sell' ? '#6b1a2a' : C.red,
-                    color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer',
-                    letterSpacing: '1px', transition: 'background 0.15s',
-                  }}
-                >{placing === 'sell' ? 'Đang đặt…' : 'BÁN'}</button>
-              </div>
-
-            </div>
-
-            {/* Status message */}
-            {msg && (
-              <div style={{
-                marginTop: 14, padding: '9px 12px', borderRadius: 6, fontSize: 12,
-                background: msg.ok ? 'rgba(14,203,129,0.07)' : 'rgba(246,70,93,0.07)',
-                border: `1px solid ${msg.ok ? 'rgba(14,203,129,0.25)' : 'rgba(246,70,93,0.25)'}`,
-                color: msg.ok ? C.green : C.red,
-              }}>{msg.text}</div>
             )}
           </div>
 
+          {/* ── ORDER PANEL (Binance-style single column) ── */}
+          <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+
+            {/* Buy / Sell tab switch */}
+            <div style={{ display: 'flex' }}>
+              <button onClick={() => switchSide('buy')} style={{
+                flex: 1, padding: '13px 0', border: 'none', cursor: 'pointer',
+                fontWeight: 700, fontSize: 14, letterSpacing: '0.3px',
+                background: side === 'buy' ? 'rgba(14,203,129,0.1)' : C.dim,
+                color: side === 'buy' ? C.green : C.muted,
+                borderBottom: side === 'buy' ? `2px solid ${C.green}` : `2px solid transparent`,
+                transition: 'all 0.15s',
+              }}>
+                Mua {tokenLabel}
+              </button>
+              <button onClick={() => switchSide('sell')} style={{
+                flex: 1, padding: '13px 0', border: 'none', cursor: 'pointer',
+                fontWeight: 700, fontSize: 14, letterSpacing: '0.3px',
+                background: side === 'sell' ? 'rgba(246,70,93,0.1)' : C.dim,
+                color: side === 'sell' ? C.red : C.muted,
+                borderBottom: side === 'sell' ? `2px solid ${C.red}` : `2px solid transparent`,
+                transition: 'all 0.15s',
+              }}>
+                Bán {tokenLabel}
+              </button>
+            </div>
+
+            <div style={{ padding: '16px 20px 20px' }}>
+
+              {/* Order type sub-tabs */}
+              <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, marginBottom: 16 }}>
+                {ORDER_TYPES.map(ot => (
+                  <button key={ot.key} onClick={() => setOrderType(ot.key)} style={{
+                    padding: '7px 14px', background: 'transparent', border: 'none',
+                    cursor: 'pointer',
+                    color: orderType === ot.key ? C.text : C.muted,
+                    fontWeight: orderType === ot.key ? 700 : 400, fontSize: 13,
+                    borderBottom: orderType === ot.key ? `2px solid ${accentColor}` : '2px solid transparent',
+                    marginBottom: -1, transition: 'color 0.15s',
+                  }}>{ot.label}</button>
+                ))}
+                {isMarket && (
+                  <span style={{ marginLeft: 'auto', fontSize: 11, color: C.muted, alignSelf: 'center' }}>
+                    Khớp theo giá tốt nhất
+                  </span>
+                )}
+              </div>
+
+              {/* Available balance */}
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                marginBottom: 14, padding: '8px 12px', borderRadius: 6,
+                background: side === 'buy' ? 'rgba(14,203,129,0.05)' : 'rgba(246,70,93,0.05)',
+                border: `1px solid ${side === 'buy' ? 'rgba(14,203,129,0.15)' : 'rgba(246,70,93,0.15)'}`,
+              }}>
+                <span style={{ fontSize: 12, color: C.muted }}>Khả dụng</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: accentColor, fontFamily: 'monospace' }}>
+                  {side === 'buy' ? formatVND(vndAvail) : formatKg(tokAvail)}
+                </span>
+              </div>
+
+              {/* Trading band info (Rule 1 & 2) */}
+              {band && (
+                <div style={{ marginBottom: 12, padding: '8px 10px', background: 'rgba(240,185,11,0.06)', borderRadius: 6, border: '1px solid rgba(240,185,11,0.2)', fontSize: 11 }}>
+                  <div style={{ color: C.gold, fontWeight: 700, marginBottom: 4 }}>Biên độ giao dịch hôm nay (±7%)</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: C.muted }}>
+                    <span>Tham chiếu: <b style={{ color: C.text }}>{formatNumber(band.ref)}</b></span>
+                    <span>Sàn: <b style={{ color: C.red }}>{formatNumber(band.floor)}</b></span>
+                    <span>Trần: <b style={{ color: C.green }}>{formatNumber(band.ceiling)}</b></span>
+                  </div>
+                  {!isMarket && <div style={{ marginTop: 3, color: C.muted }}>Bước giá: <b style={{ color: C.text }}>100 VND</b></div>}
+                </div>
+              )}
+
+              {/* Price input — hidden for market orders */}
+              {!isMarket && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 5, fontWeight: 600 }}>
+                    GIÁ (VND/kg)
+                  </div>
+                  <input
+                    type="number"
+                    value={price}
+                    onChange={e => setPrice(e.target.value)}
+                    placeholder="0"
+                    step="100"
+                    style={{ ...inputStyle, background: C.input }}
+                  />
+                </div>
+              )}
+              {isMarket && (
+                <div style={{ marginBottom: 12, padding: '10px 12px', background: C.dim, borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12, color: C.muted, textAlign: 'center' }}>
+                  Khớp tự động tại giá tốt nhất trong sổ lệnh
+                </div>
+              )}
+
+              {/* Amount input */}
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 5, fontWeight: 600, display: 'flex', justifyContent: 'space-between' }}>
+                  <span>SỐ LƯỢNG (kg)</span>
+                  {side === 'buy' && priceN > 0 && (
+                    <span style={{ color: C.muted }}>
+                      Tối đa: <span style={{ color: C.green }}>{formatNumber(maxBuyQty, 2)} kg</span>
+                    </span>
+                  )}
+                </div>
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={e => setAmount(e.target.value)}
+                  placeholder="0"
+                  style={{ ...inputStyle, background: C.input }}
+                />
+              </div>
+
+              {/* Percentage quick-fill buttons */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+                {[25, 50, 75, 100].map(pct => (
+                  <button key={pct} onClick={() => applyPct(pct)}
+                    style={{
+                      flex: 1, padding: '5px 0', borderRadius: 4,
+                      border: `1px solid ${C.border}`,
+                      background: 'rgba(255,255,255,0.03)',
+                      color: C.muted, fontSize: 11, cursor: 'pointer',
+                      transition: 'all 0.12s',
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.color = accentColor;
+                      e.currentTarget.style.borderColor = side === 'buy' ? 'rgba(14,203,129,0.4)' : 'rgba(246,70,93,0.4)';
+                      e.currentTarget.style.background = side === 'buy' ? 'rgba(14,203,129,0.06)' : 'rgba(246,70,93,0.06)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.color = C.muted;
+                      e.currentTarget.style.borderColor = C.border;
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                    }}
+                  >
+                    {pct === 100 ? 'Tối đa' : `${pct}%`}
+                  </button>
+                ))}
+              </div>
+
+              {/* Total */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, marginBottom: 16 }}>
+                <span style={{ color: C.muted, fontSize: 12 }}>Tổng giá trị</span>
+                <span style={{ color: C.text, fontWeight: 700, fontFamily: 'monospace', fontSize: 14 }}>
+                  {isMarket ? <span style={{ color: C.muted, fontSize: 12 }}>Theo giá khớp lệnh</span> : (total > 0 ? formatVND(total) : '—')}
+                </span>
+              </div>
+
+              {/* Submit button */}
+              <button
+                onClick={placeOrder}
+                disabled={placing}
+                style={{
+                  width: '100%', padding: '13px 0', borderRadius: 6, border: 'none',
+                  background: placing
+                    ? (side === 'buy' ? '#1a5c3c' : '#6b1a2a')
+                    : accentColor,
+                  color: '#fff', fontWeight: 800, fontSize: 15,
+                  cursor: placing ? 'not-allowed' : 'pointer',
+                  letterSpacing: '0.5px', transition: 'background 0.15s',
+                }}>
+                {placing ? 'Đang đặt…' : (side === 'buy' ? `Mua ${tokenLabel}` : `Bán ${tokenLabel}`)}
+              </button>
+
+              {/* Status message */}
+              {msg && (
+                <div style={{
+                  marginTop: 12, padding: '9px 12px', borderRadius: 6, fontSize: 12,
+                  background: msg.ok ? 'rgba(14,203,129,0.07)' : 'rgba(246,70,93,0.07)',
+                  border: `1px solid ${msg.ok ? 'rgba(14,203,129,0.25)' : 'rgba(246,70,93,0.25)'}`,
+                  color: msg.ok ? C.green : C.red,
+                }}>{msg.text}</div>
+              )}
+
+              {/* Engine note */}
+              <div style={{ marginTop: 14, padding: '8px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 4, fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
+                Khớp lệnh theo <b style={{ color: C.teal }}>Price-Time Priority</b>.
+                Lệnh Limit được thêm vào sổ lệnh nếu chưa khớp ngay.
+                Lệnh Market khớp theo giá tốt nhất hiện tại.
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* ── BOTTOM TABS ── */}
+        {/* ── BOTTOM TABS: open orders + trade history ── */}
         <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}` }}>
           <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, padding: '0 16px' }}>
             {[
@@ -505,7 +533,7 @@ export default function TraderTrading() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
                       <tr>
-                        {['#ID', 'Cặp', 'Loại', 'Giá (VNĐ)', 'Số lượng', 'Còn lại', 'Trạng thái', ''].map(h => (
+                        {['#ID', 'Cặp', 'Loại', 'Giá (VND/kg)', 'SL (kg)', 'Còn lại (kg)', 'Trạng thái', ''].map(h => (
                           <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
@@ -518,10 +546,18 @@ export default function TraderTrading() {
                           <td style={{ padding: '8px 10px', fontWeight: 700, color: o.side === 'buy' ? C.green : C.red }}>
                             {o.side === 'buy' ? 'MUA' : 'BÁN'}
                           </td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatNumber(o.price)}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{Number(o.amount).toFixed(4)}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{Number(o.remaining).toFixed(4)}</td>
-                          <td style={{ padding: '8px 10px', color: C.muted }}>{o.status}</td>
+                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatVND(o.price)}</td>
+                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatKg(o.amount)}</td>
+                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatKg(o.remaining)}</td>
+                          <td style={{ padding: '8px 10px' }}>
+                            <span style={{
+                              fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600,
+                              background: o.status === 'partial' ? 'rgba(240,185,11,0.12)' : 'rgba(0,212,170,0.1)',
+                              color: o.status === 'partial' ? C.gold : C.teal,
+                            }}>
+                              {o.status === 'partial' ? 'Khớp 1 phần' : 'Đang mở'}
+                            </span>
+                          </td>
                           <td style={{ padding: '8px 10px' }}>
                             <button onClick={() => cancelOrder(o.id)} style={{
                               padding: '3px 10px', background: 'rgba(246,70,93,0.1)', color: C.red,
@@ -544,7 +580,7 @@ export default function TraderTrading() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
                       <tr>
-                        {['#ID', 'Giá (VNĐ)', 'Số lượng', 'Thời gian'].map(h => (
+                        {['#ID', 'Giá (VND/kg)', 'SL (kg)', 'Tổng (VND)', 'Thời gian'].map(h => (
                           <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
@@ -553,8 +589,9 @@ export default function TraderTrading() {
                       {tradeHist.slice(0, 30).map(t => (
                         <tr key={t.id} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)` }}>
                           <td style={{ padding: '8px 10px', color: C.muted }}>#{t.id}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatNumber(t.price)}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{Number(t.amount).toFixed(4)}</td>
+                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatVND(t.price)}</td>
+                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatKg(t.amount)}</td>
+                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatVND(t.price * t.amount)}</td>
                           <td style={{ padding: '8px 10px', color: C.muted, fontSize: 11 }}>
                             {new Date(t.created_at).toLocaleString('vi-VN')}
                           </td>
@@ -565,7 +602,6 @@ export default function TraderTrading() {
                 </div>
               )
             )}
-
           </div>
         </div>
 

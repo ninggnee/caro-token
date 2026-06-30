@@ -21,114 +21,195 @@ import db                    from '../config/db.js';
 import { lockBalance, unlockBalance, creditMint, deductAvailable } from '../services/BalanceService.js';
 import { matchOrder }        from '../services/MatchingEngineService.js';
 import { logAction, auditMeta } from '../services/AuditService.js';
+import { getTradingBand }   from '../services/MockMarketEngine.js';
 
 const VALID_PAIRS  = ['CR1/VND', 'CR2/VND', 'CR3/VND'];
 const TOKEN_OF     = { 'CR1/VND': 'CR1', 'CR2/VND': 'CR2', 'CR3/VND': 'CR3' };
+const TICK_SIZE    = 100;
 
 // ── Place order ─────────────────────────────────────────────────────────────
 
 export const placeOrder = async (req, res) => {
   try {
     const userId = req.user?.id;
-    const { pair, side, price, amount } = req.body;
+    const { pair, side, price, amount, type = 'limit' } = req.body;
 
+    // ── Basic validation ──────────────────────────────────────────────────────
     if (!VALID_PAIRS.includes(pair)) {
       return res.status(400).json({ message: `Invalid pair. Valid: ${VALID_PAIRS.join(', ')}` });
     }
     if (!['buy', 'sell'].includes(side)) {
       return res.status(400).json({ message: 'side must be buy or sell' });
     }
-    if (!price || Number(price) <= 0) {
-      return res.status(400).json({ message: 'price must be > 0' });
+    if (!['limit', 'market'].includes(type)) {
+      return res.status(400).json({ message: 'type must be limit or market' });
     }
     if (!amount || Number(amount) <= 0) {
       return res.status(400).json({ message: 'amount must be > 0' });
     }
 
-    const tokenType   = TOKEN_OF[pair];
-    const numPrice    = Number(price);
-    const numAmount   = Number(amount);
-    const vndRequired = numPrice * numAmount; // VND needed for a buy
+    const tokenType = TOKEN_OF[pair];
+    const numAmount = Number(amount);
+
+    // ── Limit order: price rules (Rules 2 & 3) ────────────────────────────────
+    let numPrice;
+    if (type === 'limit') {
+      if (!price || Number(price) <= 0) {
+        return res.status(400).json({ message: 'price must be > 0 for limit orders' });
+      }
+      numPrice = Number(price);
+
+      // Rule 3: tick size = 100 VND
+      if (numPrice % TICK_SIZE !== 0) {
+        return res.status(422).json({ message: `Giá phải là bội số của ${TICK_SIZE} VND (Tick Size). Ví dụ: 88.000, 88.100, 88.200` });
+      }
+
+      // Rule 2: price must be within daily trading band (reference ±7%)
+      const band = getTradingBand(tokenType);
+      if (numPrice < band.floor || numPrice > band.ceiling) {
+        return res.status(422).json({
+          message: `Giá vượt ngoài biên độ giao dịch hôm nay [${band.floor.toLocaleString()} – ${band.ceiling.toLocaleString()} VND/kg]. Giá tham chiếu: ${band.ref.toLocaleString()} VND/kg`,
+          band,
+        });
+      }
+    }
+
+    // ── Market order: resolve price from order book ────────────────────────────
+    if (type === 'market') {
+      const oppSide    = side === 'buy' ? 'sell' : 'buy';
+      const priceOrder = side === 'buy' ? 'ASC' : 'DESC';
+      const [[bestRow]] = await db.execute(
+        `SELECT price FROM orders WHERE pair = ? AND side = ? AND status IN ('open','partial')
+         ORDER BY price ${priceOrder}, created_at ASC LIMIT 1`,
+        [pair, oppSide]
+      );
+      if (!bestRow) {
+        return res.status(422).json({ message: 'Sổ lệnh đang trống, không thể đặt lệnh thị trường. Vui lòng thử lại sau.' });
+      }
+      // For market BUY: match at any ask ≤ a very high price (sweep all asks)
+      // For market SELL: match at any bid ≥ 0 (sweep all bids)
+      numPrice = side === 'buy' ? 999_999_999 : 0;
+    }
 
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
 
-      // Pre-trade locks
+      // ── Pre-trade locks ───────────────────────────────────────────────────────
+      let vndLocked = 0;
       if (side === 'sell') {
-        // Lock seller tokens
         await lockBalance(userId, tokenType, numAmount, conn);
       } else {
-        // Lock buyer VND — update wallets.vnd_locked
+        // For market BUY, lock at best ask; for limit BUY lock at order price
+        let lockPrice = numPrice;
+        if (type === 'market') {
+          const [[best]] = await conn.execute(
+            `SELECT price FROM orders WHERE pair = ? AND side = 'sell' AND status IN ('open','partial')
+             ORDER BY price ASC, created_at ASC LIMIT 1`,
+            [pair]
+          );
+          if (!best) {
+            await conn.rollback();
+            return res.status(422).json({ message: 'Sổ lệnh đang trống, không thể đặt lệnh thị trường.' });
+          }
+          lockPrice = Number(best.price);
+        }
+        vndLocked = lockPrice * numAmount;
         const [[wallet]] = await conn.execute(
           `SELECT vnd_balance, vnd_locked FROM wallets WHERE user_id = ? FOR UPDATE`,
           [userId]
         );
-        if (!wallet || Number(wallet.vnd_balance) - Number(wallet.vnd_locked) < vndRequired) {
+        if (!wallet || Number(wallet.vnd_balance) - Number(wallet.vnd_locked) < vndLocked) {
           await conn.rollback();
-          return res.status(422).json({ message: `Insufficient VND. Need ${vndRequired.toLocaleString()}` });
+          return res.status(422).json({ message: `Số dư VND không đủ. Cần tối thiểu ${vndLocked.toLocaleString()} VND` });
         }
         await conn.execute(
           `UPDATE wallets SET vnd_locked = vnd_locked + ? WHERE user_id = ?`,
-          [vndRequired, userId]
+          [vndLocked, userId]
         );
       }
 
-      // Insert order
+      // ── Insert order ──────────────────────────────────────────────────────────
       const [r] = await conn.execute(
         `INSERT INTO orders (user_id, pair, side, type, price, amount, filled, remaining, status, created_at)
-         VALUES (?, ?, ?, 'limit', ?, ?, 0, ?, 'open', NOW())`,
-        [userId, pair, side, numPrice, numAmount, numAmount]
+         VALUES (?, ?, ?, ?, ?, ?, 0, ?, 'open', NOW())`,
+        [userId, pair, side, type, numPrice, numAmount, numAmount]
       );
 
       const newOrder = {
-        id: r.insertId, user_id: userId, pair, side, type: 'limit',
+        id: r.insertId, user_id: userId, pair, side, type,
         price: numPrice, amount: numAmount, filled: 0, remaining: numAmount,
       };
 
-      // Run matching engine
+      // ── Run matching engine ───────────────────────────────────────────────────
       const { trades, filledAmount, remainingAmount } = await matchOrder(conn, newOrder);
 
-      // Settle each trade
+      // ── Settle each trade ─────────────────────────────────────────────────────
+      let vndActuallySpent = 0;
       for (const trade of trades) {
-        // Credit tokens to buyer
         await creditMint(trade.buyerId, tokenType, trade.amount, conn);
-        // Deduct locked tokens from seller
         await conn.execute(
           `UPDATE user_balances
            SET locked_balance = locked_balance - ?, balance = balance - ?
            WHERE user_id = ? AND token_type = ?`,
           [trade.amount, trade.amount, trade.sellerId, tokenType]
         );
-        // Deduct VND from buyer (locked → spent)
         const vndCost = trade.price * trade.amount;
+        vndActuallySpent += vndCost;
         await conn.execute(
-          `UPDATE wallets
-           SET vnd_balance = vnd_balance - ?, vnd_locked = vnd_locked - ?
-           WHERE user_id = ?`,
+          `UPDATE wallets SET vnd_balance = vnd_balance - ?, vnd_locked = vnd_locked - ? WHERE user_id = ?`,
           [vndCost, vndCost, trade.buyerId]
         );
-        // Credit VND to seller
         await conn.execute(
           `UPDATE wallets SET vnd_balance = vnd_balance + ? WHERE user_id = ?`,
           [vndCost, trade.sellerId]
         );
       }
 
-      // Update new order status
-      const newFilled = filledAmount;
-      const newStatus = remainingAmount <= 0 ? 'filled' : (newFilled > 0 ? 'partial' : 'open');
+      // ── Determine final order status ──────────────────────────────────────────
+      let newStatus;
+      if (remainingAmount <= 0) {
+        newStatus = 'filled';
+      } else if (type === 'market') {
+        // Market orders: cancel unfilled remainder immediately (Rule 5)
+        newStatus = 'cancelled';
+        // Release VND locked for unfilled portion
+        if (side === 'buy') {
+          // vndLocked was at bestAskPrice × totalAmount; trades deducted at maker prices
+          // Release: total locked - actually spent = over-locked
+          const vndExcess = vndLocked - vndActuallySpent;
+          if (vndExcess > 0) {
+            // vndExcess = overLocked from favorable prices + locked for unfilled qty
+            // Add back only the portion for unfilled qty at lockPrice (vndLocked / numAmount per unit)
+            const lockPricePerUnit = vndLocked / numAmount;
+            const refundBalance    = vndExcess - lockPricePerUnit * remainingAmount; // overLocked on filled trades
+            const releaseFromLock  = vndExcess;
+            await conn.execute(
+              `UPDATE wallets SET vnd_locked = vnd_locked - ?, vnd_balance = vnd_balance + ? WHERE user_id = ?`,
+              [releaseFromLock, Math.max(0, refundBalance), userId]
+            );
+          }
+        } else {
+          // SELL market: unlock unfilled tokens
+          if (remainingAmount > 0) {
+            await unlockBalance(userId, tokenType, remainingAmount, conn);
+          }
+        }
+      } else {
+        newStatus = filledAmount > 0 ? 'partial' : 'open';
+      }
+
       await conn.execute(
         `UPDATE orders SET filled = ?, remaining = ?, status = ?, updated_at = NOW() WHERE id = ?`,
-        [newFilled, remainingAmount, newStatus, r.insertId]
+        [filledAmount, remainingAmount, newStatus, r.insertId]
       );
 
       await conn.commit();
 
       await logAction({
-        actorId: userId, action: `order:place:${side}`,
+        actorId: userId, action: `order:place:${side}:${type}`,
         entityType: 'order', entityId: r.insertId,
-        newData: { pair, side, price: numPrice, amount: numAmount, trades: trades.length },
+        newData: { pair, side, type, price: numPrice, amount: numAmount, trades: trades.length },
         ...auditMeta(req),
       });
 
@@ -136,7 +217,7 @@ export const placeOrder = async (req, res) => {
         success: true,
         id:       r.insertId,
         status:   newStatus,
-        filled:   newFilled,
+        filled:   filledAmount,
         remaining: remainingAmount,
         trades:   trades.length,
       });

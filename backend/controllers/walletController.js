@@ -147,6 +147,78 @@ export const directDeposit = async (req, res) => {
   }
 };
 
+// ── Simulated deposit (immediately credits VND — no real bank transaction) ────
+
+const VALID_PAYMENT_METHODS = ['vietqr', 'bank_transfer', 'vnpay', 'momo', 'zalopay', 'atm_card'];
+
+export const simulateDeposit = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { amount, payment_method } = req.body;
+
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ message: 'amount must be > 0' });
+    }
+    if (!VALID_PAYMENT_METHODS.includes(payment_method)) {
+      return res.status(400).json({ message: `payment_method must be one of: ${VALID_PAYMENT_METHODS.join(', ')}` });
+    }
+
+    const numAmount = Number(amount);
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      await ensureWallet(userId, conn);
+
+      // Credit VND balance immediately
+      await conn.execute(
+        `UPDATE wallets SET vnd_balance = vnd_balance + ? WHERE user_id = ?`,
+        [numAmount, userId]
+      );
+
+      // Insert deposit record
+      const [r] = await conn.execute(
+        `INSERT INTO deposit_requests
+           (user_id, amount, status, payment_method, note, created_at, reviewed_at)
+         VALUES (?, ?, 'approved', ?, 'Nạp tiền mô phỏng', NOW(), NOW())`,
+        [userId, numAmount, payment_method]
+      );
+
+      // Generate unique transaction code: DEP-YYYY-NNNN
+      const year   = new Date().getFullYear();
+      const txCode = `DEP-${year}-${String(r.insertId).padStart(4, '0')}`;
+      await conn.execute(
+        `UPDATE deposit_requests SET transaction_code = ? WHERE id = ?`,
+        [txCode, r.insertId]
+      );
+
+      await conn.commit();
+
+      await logAction({
+        actorId: userId, action: 'deposit:simulate',
+        entityType: 'deposit', entityId: r.insertId,
+        newData: { amount: numAmount, payment_method, transaction_code: txCode },
+        ...auditMeta(req),
+      });
+
+      res.status(200).json({
+        success: true,
+        id:               r.insertId,
+        transaction_code: txCode,
+        amount:           numAmount,
+        payment_method,
+      });
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 // ── Combined transaction history ─────────────────────────────────────────────
 
 export const getTransactions = async (req, res) => {
@@ -155,13 +227,13 @@ export const getTransactions = async (req, res) => {
     const limit  = Math.min(Number(req.query.limit) || 20, 100);
 
     const [deposits] = await db.execute(
-      `SELECT id, 'deposit' AS type, amount, status, note, created_at
+      `SELECT id, 'deposit' AS type, amount, status, note, payment_method, transaction_code, created_at
        FROM deposit_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
       [userId, limit]
     );
 
     const [withdraws] = await db.execute(
-      `SELECT id, 'withdraw' AS type, amount, status, note, created_at
+      `SELECT id, 'withdraw' AS type, amount, status, note, NULL AS payment_method, NULL AS transaction_code, created_at
        FROM withdraw_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
       [userId, limit]
     );

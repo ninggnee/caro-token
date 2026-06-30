@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import * as api from "../services/orderApi";
 import { formatNumber, formatVND } from '../utils/formatters';
+import { getTradingBand } from '../services/marketApi';
 
 const PAIRS = ["CR1/VND", "CR2/VND", "CR3/VND"];
 const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#487573", muted: "#6b7a99", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#7fe0c9" };
@@ -29,34 +30,49 @@ function BookSide({ rows, side, maxAmt }) {
 }
 
 // ── Order Form ─────────────────────────────────────────────────────────────────
-function OrderForm({ pair, onPlace, isPlacing, prefill, formRef }) {
-  const [side,   setSide]   = useState(prefill?.side   || "buy");
-  const [price,  setPrice]  = useState(prefill?.price  ? String(prefill.price)  : "");
-  const [amount, setAmount] = useState(prefill?.amount ? String(prefill.amount) : "");
+function OrderForm({ pair, onPlace, isPlacing, prefill, band }) {
+  const [side,      setSide]      = useState(prefill?.side || "buy");
+  const [orderType, setOrderType] = useState(prefill?.type || "limit");
+  const [price,     setPrice]     = useState(prefill?.price  ? String(prefill.price)  : "");
+  const [amount,    setAmount]    = useState(prefill?.amount ? String(prefill.amount) : "");
+
+  const isMarket = orderType === "market";
 
   // Apply pre-fill when it changes (triggered by "Bán vào lệnh" button)
   const prefillRef = useRef(null);
   if (prefill && prefill !== prefillRef.current) {
     prefillRef.current = prefill;
     setSide(prefill.side);
+    setOrderType(prefill.type || "limit");
     setPrice(String(prefill.price || ""));
     setAmount(String(prefill.amount || ""));
   }
 
-  const total = (Number(price) || 0) * (Number(amount) || 0);
+  const total = isMarket ? 0 : (Number(price) || 0) * (Number(amount) || 0);
 
   const submit = () => {
-    const p = Number(price), a = Number(amount);
-    if (!p || p <= 0) { toast.error("Giá phải > 0"); return; }
+    const a = Number(amount);
     if (!a || a <= 0) { toast.error("Số lượng phải > 0"); return; }
-    onPlace({ pair, side, price: p, amount: a }, () => { setPrice(""); setAmount(""); });
+    if (!isMarket) {
+      const p = Number(price);
+      if (!p || p <= 0) { toast.error("Giá phải > 0"); return; }
+      // Rule 3: tick size = 100 VND
+      if (p % 100 !== 0) { toast.error("Giá phải là bội số của 100 VND (Tick Size). Ví dụ: 88.000, 88.100, ..."); return; }
+      // Rule 2: trading band
+      if (band && (p < band.floor || p > band.ceiling)) {
+        toast.error(`Giá nằm ngoài biên độ hôm nay [${formatNumber(band.floor)} – ${formatNumber(band.ceiling)} VND/kg]`); return;
+      }
+      onPlace({ pair, side, type: "limit", price: p, amount: a }, () => { setPrice(""); setAmount(""); });
+    } else {
+      onPlace({ pair, side, type: "market", amount: a }, () => { setAmount(""); });
+    }
   };
 
   const isBuy = side === "buy";
   return (
     <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}` }}>
       {/* Side toggle */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", marginBottom: 14, background: "rgba(255,255,255,0.04)", borderRadius: 7, padding: 3 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", marginBottom: 10, background: "rgba(255,255,255,0.04)", borderRadius: 7, padding: 3 }}>
         {["buy", "sell"].map(s => (
           <button key={s} onClick={() => setSide(s)}
             style={{ padding: "8px 0", borderRadius: 5, border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer",
@@ -67,13 +83,47 @@ function OrderForm({ pair, onPlace, isPlacing, prefill, formRef }) {
         ))}
       </div>
 
-      <div style={{ display: "grid", gap: 10 }}>
-        <div>
-          <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>Giá (VND/kg)</label>
-          <input type="number" min="0" value={price} onChange={e => setPrice(e.target.value)}
-            placeholder="0"
-            style={{ width: "100%", padding: "9px 12px", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 6, color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+      {/* Order type toggle */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 12, borderBottom: `1px solid ${C.border}`, paddingBottom: 10 }}>
+        {["limit", "market"].map(t => (
+          <button key={t} onClick={() => { setOrderType(t); if (t === "market") setPrice(""); }}
+            style={{ flex: 1, padding: "5px 0", border: "none", borderRadius: 5, cursor: "pointer", fontSize: 12,
+              fontWeight: orderType === t ? 700 : 400,
+              background: orderType === t ? (isBuy ? "rgba(14,203,129,0.15)" : "rgba(246,70,93,0.15)") : "rgba(255,255,255,0.04)",
+              color: orderType === t ? (isBuy ? C.green : C.red) : C.muted }}>
+            {t === "limit" ? "Limit" : "Market"}
+          </button>
+        ))}
+      </div>
+
+      {/* Trading band info (Rule 1 & 2) */}
+      {band && (
+        <div style={{ marginBottom: 10, padding: "7px 10px", background: "rgba(240,185,11,0.06)", borderRadius: 6, border: "1px solid rgba(240,185,11,0.2)", fontSize: 11 }}>
+          <div style={{ color: C.gold, fontWeight: 700, marginBottom: 3 }}>Biên độ hôm nay (±7%)</div>
+          <div style={{ display: "flex", justifyContent: "space-between", color: C.muted, gap: 4 }}>
+            <span>Tham chiếu: <b style={{ color: "#e2e8f0" }}>{formatNumber(band.ref)}</b></span>
+            <span>Sàn: <b style={{ color: C.red }}>{formatNumber(band.floor)}</b></span>
+            <span>Trần: <b style={{ color: C.green }}>{formatNumber(band.ceiling)}</b></span>
+          </div>
+          {!isMarket && <div style={{ marginTop: 2, color: C.muted }}>Bước giá: <b style={{ color: "#e2e8f0" }}>100 VND</b></div>}
         </div>
+      )}
+
+      <div style={{ display: "grid", gap: 10 }}>
+        {/* Price input — hidden for market orders */}
+        {!isMarket ? (
+          <div>
+            <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>Giá (VND/kg)</label>
+            <input type="number" min="0" step="100" value={price} onChange={e => setPrice(e.target.value)}
+              placeholder="88.000, 88.100, ..."
+              style={{ width: "100%", padding: "9px 12px", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 6, color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+          </div>
+        ) : (
+          <div style={{ padding: "9px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12, color: C.muted, textAlign: "center" }}>
+            Khớp tự động tại giá tốt nhất trong sổ lệnh
+          </div>
+        )}
+
         <div>
           <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>Số lượng (kg)</label>
           <input type="number" min="0" value={amount} onChange={e => setAmount(e.target.value)}
@@ -81,7 +131,7 @@ function OrderForm({ pair, onPlace, isPlacing, prefill, formRef }) {
             style={{ width: "100%", padding: "9px 12px", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 6, color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
         </div>
 
-        {total > 0 && (
+        {!isMarket && total > 0 && (
           <div style={{ padding: "8px 12px", background: isBuy ? "rgba(14,203,129,0.06)" : "rgba(246,70,93,0.06)", borderRadius: 6, fontSize: 12, color: C.muted }}>
             Tổng giá trị: <strong style={{ color: isBuy ? C.green : C.red }}>{formatVND(total)}</strong>
           </div>
@@ -243,6 +293,16 @@ export default function FarmerTrading() {
   const [activeTab, setActiveTab] = useState("openOrders");
   const [prefillOrder, setPrefillOrder] = useState(null);
 
+  const token = pair.split("/")[0]; // CR1, CR2, or CR3
+
+  // Trading band (Rule 1 & 2) — refresh every 30s
+  const { data: bandData } = useQuery({
+    queryKey: ["trading-band"],
+    queryFn: getTradingBand,
+    refetchInterval: 30000,
+  });
+  const band = bandData?.bands?.[token] || null;
+
   // Order book (auto-refresh every 3s)
   const { data: bookData } = useQuery({
     queryKey: ["orderbook", pair],
@@ -283,12 +343,15 @@ export default function FarmerTrading() {
   });
 
   const handlePlace = useCallback((body, reset) => {
-    placeMut.mutate(body, { onSuccess: () => reset?.() });
+    placeMut.mutate(body, {
+      onSuccess: () => reset?.(),
+      onError: (e) => toast.error(e?.response?.data?.message || "Đặt lệnh thất bại"),
+    });
   }, [placeMut]);
 
   const handleSellInto = useCallback((order) => {
     setPair(order.pair);
-    setPrefillOrder({ side: "sell", price: Number(order.price), amount: Number(order.remaining) });
+    setPrefillOrder({ side: "sell", type: "limit", price: Number(order.price), amount: Number(order.remaining) });
     setActiveTab("openOrders");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
@@ -321,7 +384,7 @@ export default function FarmerTrading() {
 
           {/* Left: Order form */}
           <div>
-            <OrderForm pair={pair} onPlace={handlePlace} isPlacing={placeMut.isPending} prefill={prefillOrder} />
+            <OrderForm pair={pair} onPlace={handlePlace} isPlacing={placeMut.isPending} prefill={prefillOrder} band={band} />
 
             {/* Spread info */}
             <div style={{ marginTop: 10, padding: "10px 14px", background: C.card, borderRadius: 8, border: `1px solid ${C.border}` }}>

@@ -24,8 +24,8 @@ export async function matchOrder(conn, order) {
   const { id: orderId, user_id, pair, side, price, remaining, type } = order;
   const trades = [];
 
-  // Only limit orders are supported
-  if (type !== 'limit') return trades;
+  // Only limit and market orders are matched
+  if (type !== 'limit' && type !== 'market') return { trades, filledAmount: 0, remainingAmount: Number(remaining) };
 
   // Opposite side to match against
   const oppSide = side === 'buy' ? 'sell' : 'buy';

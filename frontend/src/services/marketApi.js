@@ -38,6 +38,13 @@ export const getMockTrades = (token, limit = 50) =>
 export const getCandles = (token, interval = '1h', limit = 100) =>
   axios.get('/market/candles', { params: { token, interval, limit } }).then(r => r.data);
 
+/**
+ * GET /api/market/band — reference price, floor, ceiling per token (Rules 1 & 2)
+ * Returns { bands: { CR1: { ref, floor, ceiling, tickSize }, ... } }
+ */
+export const getTradingBand = () =>
+  axios.get('/market/band').then(r => r.data);
+
 // ── Real-data equivalents (sync with Trader activity via orders DB) ──────────
 
 /** GET /api/orders/tickers — live 24h stats from real trades */
