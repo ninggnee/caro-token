@@ -26,6 +26,8 @@ import warehouseDocumentRoutes from './routes/warehouseDocumentRoutes.js';
 import mockMarketRoutes        from './routes/mockMarketRoutes.js';
 import MockMarketEngine        from './services/MockMarketEngine.js';
 import farmerRoutes            from './routes/farmerDashboardRoutes.js';
+import adminSyncRoutes         from './routes/adminSyncRoutes.js';
+import financeRoutes           from './routes/financeRoutes.js';
 
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
@@ -55,6 +57,8 @@ app.use('/api/market-legacy', marketRoutes);     // legacy market (kept for back
 app.use('/api/redeem',       redeemRoutes);
 app.use('/api/migrate',      migrateRoutes);
 app.use('/api/admin/setup',  adminSetupRoutes);
+app.use('/api/admin/sync',   adminSyncRoutes);            // On-chain balance sync
+app.use('/api/finance',      financeRoutes);              // Trader finance (collateral loan + token discounting)
 
 // ── New routes (Parts 4, 5, 8, 11) ───────────────────────────────────────────
 app.use('/api/orders',       orderRoutes);        // matching engine
@@ -88,6 +92,32 @@ async function applyV6Migration() {
     console.log('✅ v6 migration applied');
   } catch (err) {
     console.warn('⚠️  v6 migration check failed (non-fatal):', err.message);
+  }
+}
+
+// Auto-apply v4 migration (finance tables).
+async function applyV4Migration() {
+  try {
+    const [[cl]] = await db.execute(
+      `SELECT 1 FROM INFORMATION_SCHEMA.TABLES
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'collateral_loans' LIMIT 1`
+    );
+    if (cl) {
+      console.log('✅ v4 migration already applied — skipping');
+      return;
+    }
+    console.log('⏳ Applying v4 migration (finance tables)...');
+    const sqlPath = path.join(__dirname, 'migrations', 'v4_finance_tables.sql');
+    const sql = fs.readFileSync(sqlPath, 'utf8');
+    const stmts = sql.split(/;\s*(?:\r?\n|$)/).map(s => s.split('\n').filter(l => !l.trim().startsWith('--')).join('\n').trim()).filter(s => s.length > 0);
+    for (const stmt of stmts) {
+      try { await db.execute(stmt); } catch (e) {
+        console.warn(`  ⚠️  v4 stmt warning: ${e.message.slice(0, 120)}`);
+      }
+    }
+    console.log('✅ v4 migration applied');
+  } catch (err) {
+    console.warn('⚠️  v4 migration check failed (non-fatal):', err.message);
   }
 }
 
@@ -139,6 +169,7 @@ app.listen(PORT, async () => {
     console.error('   Check DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME in .env');
   }
 
+  await applyV4Migration();
   await applyV6Migration();
   await applyV5Migration();
 

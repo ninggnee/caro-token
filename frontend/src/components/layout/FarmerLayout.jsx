@@ -33,7 +33,15 @@ const I = {
 const MENU = [
   { id: "dash",   label: "Trang chủ",         icon: "home",   path: "/farmer/dashboard"      },
   { id: "status", label: "Trạng thái lô hàng", icon: "box",    path: "/farmer/status"         },
-  { id: "wallet", label: "Ví tài khoản",       icon: "wallet", path: "/farmer/wallet"         },
+  {
+    id: "wallet",
+    label: "Ví tài khoản",
+    icon: "wallet",
+    children: [
+      { label: "Tổng quan", path: "/farmer/wallet" },
+      { label: "Tài chính", path: "/farmer/wallet/financing" },
+    ],
+  },
   {
     id: "market",
     label: "Thị trường",

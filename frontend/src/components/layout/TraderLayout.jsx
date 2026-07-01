@@ -42,9 +42,15 @@ const TOP_MENU = [
   { id: "dash", label: "Bảng điều khiển", icon: "home", path: "/trader" },
 ];
 
+const WALLET_SUB = [
+  { id: "wallet-overview", label: "Tổng quan",  path: "/trader/wallet"           },
+  { id: "financing",       label: "Tài chính",  path: "/trader/wallet/financing" },
+];
+
+const WALLET_PATHS = WALLET_SUB.map(s => s.path);
+
 const BOTTOM_MENU = [
   { id: "portfolio", label: "Danh mục đầu tư",   icon: "bar",    path: "/trader/portfolio" },
-  { id: "wallet",    label: "Ví tài khoản",       icon: "wallet", path: "/trader/wallet"    },
   { id: "history",   label: "Lịch sử giao dịch", icon: "list",   path: "/trader/trades"    },
   { id: "profile",   label: "Hồ sơ cá nhân",     icon: "user",   path: "/trader/profile"   },
 ];
@@ -56,11 +62,17 @@ export default function TraderLayout({ children, title = "Trader Portal" }) {
   const nav = useNavigate();
 
   const isOnMarket = MARKET_PATHS.some(p => loc.pathname === p || loc.pathname.startsWith(p + "/"));
+  const isOnWallet = WALLET_PATHS.some(p => loc.pathname === p || loc.pathname.startsWith(p + "/"));
   const [marketOpen, setMarketOpen] = useState(false);
+  const [walletOpen, setWalletOpen] = useState(false);
 
   useEffect(() => {
     if (isOnMarket) setMarketOpen(true);
   }, [isOnMarket]);
+
+  useEffect(() => {
+    if (isOnWallet) setWalletOpen(true);
+  }, [isOnWallet]);
 
   const isActive = (path) =>
     path === "/trader"
@@ -70,7 +82,7 @@ export default function TraderLayout({ children, title = "Trader Portal" }) {
   const initials = (user?.full_name || user?.email || "T")[0].toUpperCase();
 
   // Breadcrumb active item
-  const allItems = [...TOP_MENU, ...BOTTOM_MENU];
+  const allItems = [...TOP_MENU, ...BOTTOM_MENU, ...WALLET_SUB];
   const activePage = allItems.find(m => isActive(m.path));
 
   const css = `
@@ -388,6 +400,36 @@ export default function TraderLayout({ children, title = "Trader Portal" }) {
           )}
 
           <div className="trader-nav-label" style={{ marginTop: 8 }}>Tài khoản</div>
+          {/* Wallet group */}
+          <button
+            onClick={() => setWalletOpen(o => !o)}
+            className={`trader-market-btn${isOnWallet ? " active" : ""}`}
+            onMouseEnter={e => { if (!isOnWallet) { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.color = "#f1f5f9"; } }}
+            onMouseLeave={e => { if (!isOnWallet) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#94a3b8"; } }}
+          >
+            <Ico d={I.wallet} size={15} />
+            <span style={{ flex: 1 }}>Ví tài khoản</span>
+            <span style={{ fontSize: 10, transition: "transform 0.2s", display: "block", transform: walletOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
+              <Ico d={I.chevron} size={12} />
+            </span>
+          </button>
+
+          {walletOpen && (
+            <div style={{ paddingBottom: 4 }}>
+              {WALLET_SUB.map(s => {
+                const act = isActive(s.path);
+                return (
+                  <Link key={s.id} to={s.path}
+                    className={`trader-sub-item${act ? " active" : ""}`}
+                  >
+                    <span style={{ width: 5, height: 5, borderRadius: "50%", background: act ? "#408A71" : "#334155", flexShrink: 0 }} />
+                    {s.label}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
           {BOTTOM_MENU.map(renderNavItem)}
         </nav>
 
