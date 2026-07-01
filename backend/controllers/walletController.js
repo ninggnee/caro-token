@@ -442,12 +442,21 @@ export const simulateWithdraw = async (req, res) => {
         [numAmount, userId]
       );
 
+      const { bank_name, account_number, account_name } = req.body;
+
       // Record as an approved withdrawal
       const [r] = await conn.execute(
         `INSERT INTO withdraw_requests
            (user_id, amount, bank_name, account_number, account_name, status, note, created_at, reviewed_at)
-         VALUES (?, ?, 'Mô phỏng', 'SIM-AUTO', 'Hệ thống', 'approved', ?, NOW(), NOW())`,
-        [userId, numAmount, `SIM:${payment_method}`]
+         VALUES (?, ?, ?, ?, ?, 'approved', ?, NOW(), NOW())`,
+        [
+          userId,
+          numAmount,
+          bank_name || 'Mô phỏng',
+          account_number || 'SIM-AUTO',
+          account_name || 'Hệ thống',
+          `SIM:${payment_method}`
+        ]
       );
 
       const year   = new Date().getFullYear();
@@ -468,6 +477,9 @@ export const simulateWithdraw = async (req, res) => {
         transaction_code: txCode,
         amount:           numAmount,
         payment_method,
+        bank_name:        bank_name || 'Mô phỏng',
+        account_number:   account_number || 'SIM-AUTO',
+        account_name:     account_name || 'Hệ thống',
       });
     } catch (err) {
       await conn.rollback();

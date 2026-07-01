@@ -214,7 +214,7 @@ export default function FarmerWithdrawPage() {
   // Simulated withdraw mutation
   const simulateWithdrawMut = useMutation({
     mutationFn: ({ amount, bank_name, account_number, account_name }) =>
-      axios.post('/wallet/simulate-withdraw', { amount: Number(amount), bank_name, account_number, account_name }).then(r => r.data),
+      axios.post('/wallet/simulate-withdraw', { amount: Number(amount), payment_method: 'bank_transfer', bank_name, account_number, account_name }).then(r => r.data),
     onSuccess: (data) => {
       setWdResult(data);
       setWdStep('success');
