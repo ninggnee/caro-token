@@ -1,0 +1,893 @@
+/* ============================================================
+   CaRo RWA Platform — Global Component Library (theme.css)
+   Prefix: .caro-* to avoid conflicts with existing styles
+   ============================================================ */
+
+/* ── Animations ── */
+@keyframes caro-fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes caro-fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes caro-slideInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes caro-pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(176, 228, 204,0); }
+  50%       { box-shadow: 0 0 16px 4px rgba(176, 228, 204,0.2); }
+}
+@keyframes caro-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes caro-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+@keyframes caro-scanline {
+  0%   { top: 0%; opacity: 0.7; }
+  100% { top: 100%; opacity: 0; }
+}
+
+/* ── Card ── */
+.caro-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.caro-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 60%);
+  pointer-events: none;
+}
+.caro-card:hover {
+  border-color: rgba(176, 228, 204,0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+}
+
+.caro-card-sm {
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+}
+
+/* ── Glass Card ── */
+.caro-glass {
+  background: rgba(22, 37, 56, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-xl);
+}
+
+a:hover {
+  text-decoration: none !important;
+}
+
+/* ── Section Header ── */
+.caro-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.caro-card > .caro-section-header {
+  margin: -24px -24px 24px -24px;
+  padding: 18px 24px;
+}
+.caro-card[style*="padding: 0"] > .caro-section-header,
+.caro-card[style*="padding:0"] > .caro-section-header,
+.caro-card[style*="padding: 0px"] > .caro-section-header,
+.caro-card[style*="padding:0px"] > .caro-section-header {
+  margin: 0 !important;
+}
+.caro-section-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  font-family: var(--font-display);
+}
+
+/* ── Stat Card ── */
+.caro-stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.caro-stat-card::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(176, 228, 204,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+.caro-stat-card:hover {
+  border-color: rgba(176, 228, 204,0.25);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.caro-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.caro-stat-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+  font-family: var(--font-display);
+}
+.caro-stat-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.caro-stat-icon {
+  position: absolute;
+  top: 16px; right: 16px;
+  width: 36px; height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+/* ── Buttons ── */
+.caro-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  border: none;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.caro-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.caro-btn-primary {
+  background: linear-gradient(135deg, #B0E4CC, #408A71);
+  color: #091413;
+  box-shadow: 0 4px 14px rgba(176, 228, 204, 0.3);
+}
+.caro-btn-primary:hover {
+  background: linear-gradient(135deg, #408A71, #285A48);
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(176, 228, 204, 0.4);
+  transform: translateY(-1px);
+}
+
+.caro-btn-secondary {
+  background: var(--secondary-dim);
+  color: var(--secondary);
+  border: 1px solid rgba(64, 138, 113,0.25);
+}
+.caro-btn-secondary:hover {
+  background: rgba(64, 138, 113,0.2);
+  border-color: var(--secondary);
+}
+
+.caro-btn-ghost {
+  background: rgba(255,255,255,0.05);
+  color: var(--text-sub);
+  border: 1px solid var(--border);
+}
+.caro-btn-ghost:hover {
+  background: rgba(255,255,255,0.09);
+  color: var(--text);
+  border-color: rgba(255,255,255,0.15);
+}
+
+.caro-btn-danger {
+  background: var(--danger-dim);
+  color: var(--danger);
+  border: 1px solid rgba(239,68,68,0.25);
+}
+.caro-btn-danger:hover {
+  background: rgba(239,68,68,0.2);
+  border-color: var(--danger);
+}
+
+.caro-btn-sm {
+  padding: 6px 14px;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+}
+.caro-btn-lg {
+  padding: 13px 28px;
+  font-size: 15px;
+  border-radius: var(--radius-md);
+}
+.caro-btn-full { width: 100%; }
+
+/* ── Inputs ── */
+.caro-input {
+  width: 100%;
+  padding: 11px 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  transition: var(--transition-fast);
+  outline: none;
+}
+.caro-input::placeholder { color: var(--text-muted); }
+.caro-input:hover { border-color: rgba(255,255,255,0.14); }
+.caro-input:focus {
+  border-color: rgba(176, 228, 204,0.5);
+  box-shadow: 0 0 0 3px rgba(176, 228, 204,0.1);
+  background: rgba(176, 228, 204,0.04);
+}
+.caro-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.caro-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+.caro-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-sub);
+  margin-bottom: 6px;
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.caro-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+/* ── Badges ── */
+.caro-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.caro-badge-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.caro-badge-success {
+  background: rgba(176, 228, 204,0.12);
+  color: #B0E4CC;
+  border: 1px solid rgba(176, 228, 204,0.2);
+}
+.caro-badge-warning {
+  background: rgba(245,158,11,0.12);
+  color: #f59e0b;
+  border: 1px solid rgba(245,158,11,0.2);
+}
+.caro-badge-danger {
+  background: rgba(239,68,68,0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239,68,68,0.2);
+}
+.caro-badge-info {
+  background: rgba(64, 138, 113,0.12);
+  color: #408A71;
+  border: 1px solid rgba(64, 138, 113,0.2);
+}
+.caro-badge-muted {
+  background: rgba(148,163,184,0.1);
+  color: #94a3b8;
+  border: 1px solid rgba(148,163,184,0.15);
+}
+.caro-badge-purple {
+  background: rgba(139,92,246,0.12);
+  color: #8b5cf6;
+  border: 1px solid rgba(139,92,246,0.2);
+}
+.caro-badge-gold {
+  background: rgba(251,191,36,0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(251,191,36,0.2);
+}
+
+/* ── Table ── */
+.caro-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.caro-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.caro-table thead tr {
+  border-bottom: 1px solid var(--border);
+}
+.caro-table thead th {
+  padding: 11px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+}
+.caro-table tbody tr {
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background var(--transition-fast);
+}
+.caro-table tbody tr:hover {
+  background: rgba(255,255,255,0.03);
+}
+.caro-table tbody tr:last-child {
+  border-bottom: none;
+}
+.caro-table td {
+  padding: 12px 16px;
+  color: var(--text-sub);
+  vertical-align: middle;
+}
+.caro-table td:first-child { color: var(--text); font-weight: 500; }
+
+/* ── Divider ── */
+.caro-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 16px 0;
+}
+
+/* ── Empty State ── */
+.caro-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 24px;
+  color: var(--text-muted);
+  text-align: center;
+}
+.caro-empty-icon {
+  font-size: 36px;
+  opacity: 0.5;
+}
+.caro-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-sub);
+}
+.caro-empty-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ── Loading Skeleton ── */
+.caro-skeleton {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.04) 25%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: caro-shimmer 1.6s infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Grid Utilities ── */
+.caro-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.caro-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.caro-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+@media (max-width: 1280px) {
+  .caro-grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 1024px) {
+  .caro-grid-3 { grid-template-columns: repeat(2, 1fr); }
+  .caro-grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .caro-grid-2,
+  .caro-grid-3,
+  .caro-grid-4 { grid-template-columns: 1fr; }
+}
+
+/* ── Flex Utilities ── */
+.caro-flex         { display: flex; }
+.caro-flex-center  { display: flex; align-items: center; justify-content: center; }
+.caro-flex-between { display: flex; align-items: center; justify-content: space-between; }
+.caro-flex-col     { display: flex; flex-direction: column; }
+.caro-gap-8  { gap: 8px; }
+.caro-gap-12 { gap: 12px; }
+.caro-gap-16 { gap: 16px; }
+.caro-gap-24 { gap: 24px; }
+
+/* ── Text Utilities ── */
+.caro-text-primary  { color: var(--primary); }
+.caro-text-secondary{ color: var(--secondary); }
+.caro-text-warning  { color: var(--warning); }
+.caro-text-danger   { color: var(--danger); }
+.caro-text-muted    { color: var(--text-muted); }
+.caro-text-sub      { color: var(--text-sub); }
+.caro-text-sm       { font-size: 12px; }
+.caro-text-xs       { font-size: 11px; }
+.caro-font-mono     { font-family: var(--font-mono); }
+.caro-truncate      { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* ── Page Wrapper ── */
+.caro-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  animation: caro-fadeUp 0.4s ease;
+}
+
+/* ── Page Header ── */
+.caro-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.caro-page-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+  font-family: var(--font-display);
+  line-height: 1.2;
+}
+.caro-page-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-weight: 400;
+}
+
+/* ── Avatar ── */
+.caro-avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #B0E4CC, #408A71);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+  color: #091413;
+  flex-shrink: 0;
+  font-family: var(--font-display);
+}
+.caro-avatar-sm { width: 28px; height: 28px; font-size: 11px; }
+.caro-avatar-lg { width: 48px; height: 48px; font-size: 18px; }
+.caro-avatar-xl { width: 72px; height: 72px; font-size: 26px; }
+
+/* ── Glow Ring (for avatar in header) ── */
+.caro-avatar-ring {
+  box-shadow: 0 0 0 2px var(--card), 0 0 0 4px rgba(176, 228, 204,0.35);
+}
+
+/* ── Tag Input / Chip ── */
+.caro-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  color: var(--text-sub);
+  font-weight: 500;
+}
+
+/* ── Wallet Address ── */
+.caro-wallet-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(176, 228, 204,0.08);
+  border: 1px solid rgba(176, 228, 204,0.25);
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.caro-wallet-pill:hover {
+  background: rgba(176, 228, 204,0.14);
+  border-color: rgba(176, 228, 204,0.4);
+}
+.caro-wallet-pill-connect {
+  background: linear-gradient(135deg, rgba(176, 228, 204,0.15), rgba(64, 138, 113,0.1));
+  border: 1px solid rgba(176, 228, 204,0.3);
+  color: var(--primary);
+}
+.caro-wallet-pill-connect:hover {
+  background: linear-gradient(135deg, rgba(176, 228, 204,0.22), rgba(64, 138, 113,0.15));
+}
+
+/* ── Gradient Text ── */
+.caro-gradient-text {
+  background: linear-gradient(135deg, #B0E4CC, #408A71);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Brand Logo Icon ── */
+.caro-brand-icon {
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #B0E4CC 0%, #408A71 60%, #285A48 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(176, 228, 204,0.3);
+}
+
+/* ── Sidebar Nav Items (used in layout overrides) ── */
+.caro-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  margin: 1px 8px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-sub);
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: calc(100% - 16px);
+  text-align: left;
+  transition: var(--transition-fast);
+  font-family: var(--font-sans);
+}
+.caro-nav-item:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--text);
+}
+.caro-nav-item.active {
+  background: rgba(176, 228, 204,0.10);
+  color: var(--primary);
+  font-weight: 700;
+}
+.caro-nav-item.active .caro-nav-icon {
+  color: var(--primary);
+}
+
+.caro-nav-section-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding: 12px 22px 4px;
+}
+
+/* ── Info Row (label: value pairs) ── */
+.caro-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 13px;
+}
+.caro-info-row:last-child { border-bottom: none; }
+.caro-info-label {
+  color: var(--text-muted);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.caro-info-value {
+  color: var(--text);
+  font-weight: 600;
+  text-align: right;
+}
+
+/* ── Step / Progress indicator ── */
+.caro-step-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: var(--transition-fast);
+}
+.caro-step-dot.done  { background: var(--primary); }
+.caro-step-dot.error { background: var(--danger); }
+
+/* ── Responsive sidebar collapse ── */
+@media (max-width: 768px) {
+  .caro-page { gap: 16px; }
+  .caro-card { padding: 16px; }
+  .caro-stat-value { font-size: 20px; }
+}
+
+/* ── Modal Overlay Fix ── */
+.caro-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(8, 17, 31, 0.85);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  padding: 20px;
+  animation: caro-fade-in 0.25s ease-out;
+}
+
+@keyframes caro-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── Web3 Notification Dropdown ── */
+.caro-notif-container {
+  position: relative;
+  display: inline-block;
+}
+
+.caro-notif-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-sub);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: var(--transition-fast);
+}
+
+.caro-notif-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.caro-notif-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 2px solid #091413;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+}
+
+.caro-notif-dropdown {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 380px;
+  max-width: 90vw;
+  background: #122622;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  z-index: 1000;
+  overflow: hidden;
+  animation: caro-notif-slide-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top right;
+}
+
+@keyframes caro-notif-slide-in {
+  from { opacity: 0; transform: scale(0.95) translateY(-8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.caro-notif-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.caro-notif-title {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  font-family: var(--font-display);
+}
+
+.caro-notif-clear-btn {
+  background: transparent;
+  border: none;
+  color: var(--secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: var(--transition-fast);
+}
+
+.caro-notif-clear-btn:hover {
+  background: rgba(64, 138, 113, 0.08);
+}
+
+.caro-notif-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.caro-notif-item {
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  display: flex;
+  gap: 12px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  text-decoration: none !important;
+}
+
+.caro-notif-item:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.caro-notif-item.unread {
+  background: rgba(64, 138, 113, 0.03);
+}
+
+.caro-notif-item-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.caro-notif-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.caro-notif-item-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.4;
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.caro-notif-item-unread-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--secondary);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.caro-notif-item-body {
+  font-size: 12px;
+  color: var(--text-sub);
+  line-height: 1.5;
+  margin-bottom: 6px;
+  word-break: break-word;
+}
+
+.caro-notif-item-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.caro-notif-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.caro-notif-footer {
+  padding: 12px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: center;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.caro-notif-view-all {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+  transition: var(--transition-fast);
+}
+
+.caro-notif-view-all:hover {
+  color: #B0E4CC;
+  text-decoration: underline;
+}
+

@@ -15,13 +15,6 @@ async function apiFetch(path, opts = {}) {
   return res.json();
 }
 
-const STATUS_COLOR = {
-  pending:  '#f39c12',
-  approved: '#3498db',
-  minted:   '#27ae60',
-  rejected: '#e74c3c',
-};
-
 export default function AdminMint() {
   const [requests, setRequests] = useState([]);
   const [loading,  setLoading]  = useState(true);
@@ -63,130 +56,163 @@ export default function AdminMint() {
     if (data.success) load();
   };
 
-  const explorerUrl = (txHash) =>
-    `https://sepolia.etherscan.io/tx/${txHash}`;
+  const explorerUrl = (txHash) => `https://sepolia.etherscan.io/tx/${txHash}`;
 
   const translateStatus = (s) => {
-    if (s === 'pending') return 'CHỜ DUYỆT';
-    if (s === 'approved') return 'ĐÃ DUYỆT';
-    if (s === 'minted') return 'ĐÃ MINT';
-    if (s === 'rejected') return 'BỊ TỪ CHỐI';
+    if (s === 'pending') return 'Chờ duyệt';
+    if (s === 'approved') return 'Đã duyệt';
+    if (s === 'minted') return 'Đã Mint';
+    if (s === 'rejected') return 'Từ chối';
     return s.toUpperCase();
   };
 
   return (
     <DashboardLayout title="Mint Token (Quản trị)">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Danh sách yêu cầu Token hóa</h2>
-        <button onClick={load} style={{ padding: '6px 14px', borderRadius: 6, cursor: 'pointer', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(72,117,115,0.15)', color: '#fff', fontSize: 13, fontWeight: 600 }}>
-          🔄 Làm mới
-        </button>
-      </div>
-
-      {loading ? (
-        <div style={{ color: '#aaa', fontSize: 14 }}>Đang tải...</div>
-      ) : requests.length === 0 ? (
-        <div style={{ color: '#aaa', fontSize: 14 }}>Không có yêu cầu nào</div>
-      ) : (
-        <div style={{ display: 'grid', gap: 12 }}>
-          {requests.map(r => {
-            const res = results[r.id];
-            return (
-              <div key={r.id} style={{
-                padding: 16, borderRadius: 8, background: '#172524',
-                border: `1px solid rgba(72,117,115,0.15)`,
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>Yêu cầu #{r.id} — {r.full_name} ({r.email})</div>
-                    <div style={{ fontSize: 13, color: '#9aa5b4', marginTop: 4 }}>
-                      {r.kg_amount} kg → {r.token_amount} token
-                      {r.grade && ` | Grade: ${r.grade}`}
-                      {r.token_type && ` | Loại: ${r.token_type}`}
-                    </div>
-                    {r.lot_code && (
-                      <div style={{ fontSize: 12, color: '#6b7a99', marginTop: 4 }}>Mã lô: {r.lot_code}</div>
-                    )}
-                    {r.receipt_code && (
-                      <div style={{ fontSize: 12, color: '#0ecb81', marginTop: 4 }}>✅ Chứng từ kho: {r.receipt_code}</div>
-                    )}
-                    {r.lot_id_ref && !r.receipt_code && (
-                      <div style={{ fontSize: 12, color: '#f6465d', marginTop: 4 }}>⚠ Chưa có Chứng từ kho</div>
-                    )}
-                  </div>
-                  <span style={{
-                    padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600,
-                    background: `${STATUS_COLOR[r.status] || '#555'}20`,
-                    color: STATUS_COLOR[r.status] || '#fff',
-                  }}>{translateStatus(r.status)}</span>
-                </div>
-
-                {/* Actions */}
-                <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-                  {r.status === 'pending' && (
-                    <>
-                      {['CR1','CR2','CR3'].map(type => (
-                        <button
-                          key={type}
-                          onClick={() => review(r.id, 'approve', type)}
-                          disabled={reviewingId === r.id}
-                          style={{ padding: '6px 12px', borderRadius: 6, cursor: 'pointer',
-                            background: '#487573', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600 }}
-                        >
-                          ✅ Duyệt ({type})
-                        </button>
-                      ))}
-                      <button
-                        onClick={() => review(r.id, 'reject')}
-                        disabled={reviewingId === r.id}
-                        style={{ padding: '6px 12px', borderRadius: 6, cursor: 'pointer',
-                          background: '#f6465d', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600 }}
-                      >
-                        ❌ Từ chối
-                      </button>
-                    </>
-                  )}
-
-                  {r.status === 'approved' && (
-                    <button
-                      onClick={() => mint(r.id)}
-                      disabled={mintingId === r.id}
-                      style={{ padding: '6px 16px', borderRadius: 6, cursor: 'pointer',
-                        background: '#0ecb81', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13 }}
-                    >
-                      {mintingId === r.id ? '⏳ Đang mint trên blockchain...' : '🪙 Mint Token'}
-                    </button>
-                  )}
-                </div>
-
-                {/* Mint result */}
-                {res && (
-                  <div style={{ marginTop: 10, padding: 8, borderRadius: 6,
-                    background: res.success ? 'rgba(14,203,129,0.1)' : 'rgba(246,70,93,0.1)' }}>
-                    {res.loading && <span style={{ fontSize: 13 }}>⏳ Đang xử lý...</span>}
-                    {res.success && (
-                      <div>
-                        <div style={{ color: '#0ecb81', fontWeight: 600, fontSize: 13 }}>✅ Mint thành công!</div>
-                        <div style={{ fontSize: 12, marginTop: 4 }}>
-                          TxHash:{' '}
-                          <a href={explorerUrl(res.txHash)} target="_blank" rel="noreferrer"
-                            style={{ color: '#7fe0c9', wordBreak: 'break-all', textDecoration: 'none' }}>
-                            {res.txHash}
-                          </a>
-                        </div>
-                        <div style={{ fontSize: 12, color: '#9aa5b4' }}>Block: #{res.block}</div>
-                      </div>
-                    )}
-                    {res.success === false && (
-                      <div style={{ color: '#f6465d', fontSize: 13 }}>❌ {res.error}</div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+      <div className="caro-page">
+        <div className="caro-page-header">
+          <div>
+            <h1 className="caro-page-title">Quản lý Mint Token</h1>
+            <p className="caro-page-subtitle">Duyệt và phát hành Token RWA từ các lô hàng đã được kiểm định</p>
+          </div>
+          <button onClick={load} className="caro-btn caro-btn-ghost">
+            🔄 Làm mới
+          </button>
         </div>
-      )}
+
+        {loading ? (
+          <div className="caro-empty">
+            <span style={{ display: "inline-block", animation: "caro-spin 1s linear infinite", fontSize: 24 }}>🔄</span>
+            <div className="caro-empty-title" style={{ marginTop: 10 }}>Đang tải danh sách...</div>
+          </div>
+        ) : requests.length === 0 ? (
+          <div className="caro-empty caro-card" style={{ padding: "40px 20px" }}>
+            <div className="caro-empty-icon">📭</div>
+            <div className="caro-empty-title">Không có yêu cầu Mint Token nào</div>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: 16 }}>
+            {requests.map(r => {
+              const res = results[r.id];
+              let statusClass = 'caro-badge-muted';
+              if (r.status === 'pending') statusClass = 'caro-badge-warning';
+              else if (r.status === 'approved') statusClass = 'caro-badge-success';
+              else if (r.status === 'minted') statusClass = 'caro-badge-info';
+              else if (r.status === 'rejected') statusClass = 'caro-badge-danger';
+
+              return (
+                <div key={r.id} className="caro-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <div style={{ fontWeight: 800, fontSize: 16, color: "#f8fafc" }}>#{r.id} — {r.full_name}</div>
+                        <span className={`caro-badge ${statusClass}`}>{translateStatus(r.status)}</span>
+                      </div>
+                      
+                      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 16, rowGap: 6, fontSize: 13 }}>
+                        <div style={{ color: "#64748b" }}>Email:</div>
+                        <div style={{ color: "#e2e8f0" }}>{r.email}</div>
+                        
+                        <div style={{ color: "#64748b" }}>Chuyển đổi:</div>
+                        <div style={{ color: "#e2e8f0", fontWeight: 700 }}>{r.kg_amount} kg → <span style={{ color: "#408A71" }}>{r.token_amount} CR</span></div>
+                        
+                        {(r.grade || r.token_type) && (
+                          <>
+                            <div style={{ color: "#64748b" }}>Phân loại:</div>
+                            <div style={{ color: "#e2e8f0" }}>{r.grade && `Grade ${r.grade} `}{r.token_type && `(${r.token_type})`}</div>
+                          </>
+                        )}
+                        
+                        {r.lot_code && (
+                          <>
+                            <div style={{ color: "#64748b" }}>Mã lô:</div>
+                            <div style={{ color: "#e2e8f0" }}>{r.lot_code}</div>
+                          </>
+                        )}
+                      </div>
+
+                      {r.receipt_code ? (
+                        <div style={{ fontSize: 12, color: '#B0E4CC', marginTop: 12, display: "flex", alignItems: "center", gap: 6, background: "rgba(176, 228, 204,0.1)", padding: "6px 10px", borderRadius: 6, display: "inline-flex" }}>
+                          ✅ Chứng từ kho: <strong>{r.receipt_code}</strong>
+                        </div>
+                      ) : r.lot_id_ref ? (
+                        <div style={{ fontSize: 12, color: '#ef4444', marginTop: 12, display: "flex", alignItems: "center", gap: 6, background: "rgba(239,68,68,0.1)", padding: "6px 10px", borderRadius: 6, display: "inline-flex" }}>
+                          ⚠ Chưa có Chứng từ kho
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display: 'flex', gap: 10, marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.05)", flexWrap: 'wrap' }}>
+                    {r.status === 'pending' && (
+                      <>
+                        {['CR1','CR2','CR3'].map(type => (
+                          <button
+                            key={type}
+                            onClick={() => review(r.id, 'approve', type)}
+                            disabled={reviewingId === r.id}
+                            className="caro-btn caro-btn-success"
+                          >
+                            ✅ Duyệt ({type})
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => review(r.id, 'reject')}
+                          disabled={reviewingId === r.id}
+                          className="caro-btn caro-btn-danger"
+                        >
+                          ❌ Từ chối
+                        </button>
+                      </>
+                    )}
+
+                    {r.status === 'approved' && (
+                      <button
+                        onClick={() => mint(r.id)}
+                        disabled={mintingId === r.id}
+                        className="caro-btn caro-btn-primary"
+                        style={{ fontSize: 14 }}
+                      >
+                        {mintingId === r.id ? '⏳ Đang mint trên blockchain...' : '🪙 Mint Token'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Mint result */}
+                  {res && (
+                    <div style={{ marginTop: 16, padding: 12, borderRadius: 8,
+                      background: res.success ? 'rgba(176, 228, 204,0.1)' : 'rgba(239,68,68,0.1)',
+                      border: `1px solid ${res.success ? 'rgba(176, 228, 204,0.2)' : 'rgba(239,68,68,0.2)'}`
+                    }}>
+                      {res.loading && <span style={{ fontSize: 13, color: "#408A71" }}>⏳ Đang xử lý giao dịch trên blockchain...</span>}
+                      {res.success && (
+                        <div>
+                          <div style={{ color: '#B0E4CC', fontWeight: 700, fontSize: 14 }}>✅ Mint Token thành công!</div>
+                          <div style={{ fontSize: 13, marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <span style={{ color: "#64748b" }}>TxHash:</span>
+                              <a href={explorerUrl(res.txHash)} target="_blank" rel="noreferrer" style={{ color: '#408A71', wordBreak: 'break-all', textDecoration: 'none', fontFamily: "monospace" }}>
+                                {res.txHash} ↗
+                              </a>
+                            </div>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <span style={{ color: "#64748b" }}>Block:</span>
+                              <span style={{ color: "#e2e8f0" }}>#{res.block}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {res.success === false && (
+                        <div style={{ color: '#ef4444', fontSize: 13, fontWeight: 600 }}>❌ {res.error}</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </DashboardLayout>
   );
 }

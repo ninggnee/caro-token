@@ -5,59 +5,57 @@ import { useMyBatches } from "../hooks/useBatches";
 import { getMyDeposits, getMyWithdraws } from "../services/walletApi";
 import { formatNumber } from '../utils/formatters';
 
-const C = { accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#7fe0c9" };
-
 const TX_TYPES = ["All", "Mint", "Deposit", "Withdraw"];
 const TX_LABELS = { All: "Tất cả", Mint: "Mint", Deposit: "Nạp tiền", Withdraw: "Rút tiền" };
 const TYPE_DISPLAY = { Mint: "Mint Token", Deposit: "Nạp tiền", Withdraw: "Rút tiền" };
 
 const TYPE_META = {
-  Mint:    { icon: "🪙", color: C.green,  sign: "+" },
-  Deposit: { icon: "⬇️", color: C.tealLight, sign: "+" },
-  Withdraw:{ icon: "⬆️", color: C.red,    sign: "-" },
+  Mint:    { icon: "🪙", color: "#B0E4CC",  sign: "+" },
+  Deposit: { icon: "⬇️", color: "#408A71", sign: "+" },
+  Withdraw:{ icon: "⬆️", color: "#ef4444",    sign: "-" },
 };
 
 function StatusBadge({ status }) {
   const map = {
-    completed: { bg: "rgba(14,203,129,0.1)",  color: C.green, label: "Hoàn thành" },
-    approved:  { bg: "rgba(14,203,129,0.1)",  color: C.green, label: "Đã duyệt"   },
-    pending:   { bg: "rgba(240,185,11,0.1)",  color: C.gold,  label: "Chờ duyệt"  },
-    rejected:  { bg: "rgba(246,70,93,0.1)",   color: C.red,   label: "Từ chối"    },
+    completed: { cls: "caro-badge-success", label: "Hoàn thành" },
+    approved:  { cls: "caro-badge-success", label: "Đã duyệt"   },
+    pending:   { cls: "caro-badge-warning",  label: "Chờ duyệt"  },
+    rejected:  { cls: "caro-badge-danger",   label: "Từ chối"    },
   };
   const m = map[status] || map.pending;
   return (
-    <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, background: m.bg, color: m.color, fontWeight: 600, textTransform: "uppercase", whiteSpace: "nowrap" }}>
+    <span className={`caro-badge ${m.cls}`}>
       {m.label}
     </span>
   );
 }
 
 function TxRow({ type, title, amount, token, date, status, txHash }) {
-  const meta = TYPE_META[type] || { icon: "📋", color: C.muted, sign: "" };
+  const meta = TYPE_META[type] || { icon: "📋", color: "#94a3b8", sign: "" };
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderBottom: `1px solid ${C.border}`, transition: "background 0.1s" }}
-      onMouseEnter={e => e.currentTarget.style.background = "rgba(72,117,115,0.04)"}
+    <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", borderBottom: "1px solid var(--border)", transition: "background 0.2s" }}
+      onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
       onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-      <div style={{ width: 36, height: 36, borderRadius: "50%", background: `${meta.color}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
+      <div style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(255,255,255,0.05)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
         {meta.icon}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, color: "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</div>
-        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#f8fafc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 4 }}>{title}</div>
+        <div style={{ fontSize: 12, color: "#94a3b8" }}>
           {TYPE_DISPLAY[type] || type}
           {txHash && (
             <> · <a href={`https://sepolia.etherscan.io/tx/${txHash}`} target="_blank" rel="noreferrer"
-              style={{ color: C.tealLight, textDecoration: "none" }}>tx: {txHash.slice(0, 10)}…</a></>
+              style={{ color: "#408A71", textDecoration: "none", fontWeight: 600 }}>tx: {txHash.slice(0, 10)}…</a></>
           )}
         </div>
       </div>
       <div style={{ textAlign: "right", flexShrink: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: meta.color }}>
-          {meta.sign}{amount} {token || "VND"}
+        <div style={{ fontSize: 15, fontWeight: 800, color: meta.color, fontFamily: "monospace" }}>
+          {meta.sign}{amount} <span style={{ fontSize: 12, fontWeight: 600 }}>{token || "VND"}</span>
         </div>
-        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{date}</div>
+        <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>{date}</div>
       </div>
-      <div style={{ flexShrink: 0 }}>
+      <div style={{ flexShrink: 0, width: 100, textAlign: "right" }}>
         <StatusBadge status={status} />
       </div>
     </div>
@@ -66,11 +64,11 @@ function TxRow({ type, title, amount, token, date, status, txHash }) {
 
 function Skeleton() {
   return (
-    <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 14, alignItems: "center" }}>
-      <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.06)", flexShrink: 0 }} />
+    <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", gap: 16, alignItems: "center" }}>
+      <div style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(255,255,255,0.05)", flexShrink: 0 }} />
       <div style={{ flex: 1 }}>
-        <div style={{ height: 13, background: "rgba(255,255,255,0.06)", borderRadius: 4, marginBottom: 8, width: "60%" }} />
-        <div style={{ height: 11, background: "rgba(255,255,255,0.04)", borderRadius: 4, width: "30%" }} />
+        <div style={{ height: 14, background: "rgba(255,255,255,0.05)", borderRadius: 4, marginBottom: 8, width: "60%" }} />
+        <div style={{ height: 12, background: "rgba(255,255,255,0.03)", borderRadius: 4, width: "30%" }} />
       </div>
     </div>
   );
@@ -131,24 +129,28 @@ export default function FarmerTxHistory() {
 
   return (
     <FarmerLayout title="Lịch sử giao dịch">
-      <div style={{ display: "grid", gap: 16, width: "100%" }}>
+      <div className="caro-page">
 
         {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>📊 Lịch Sử Giao Dịch</h2>
-          <div style={{ fontSize: 12, color: C.muted }}>{filtered.length} giao dịch</div>
+        <div className="caro-page-header">
+          <div>
+            <h2 className="caro-page-title">📊 Lịch Sử Giao Dịch</h2>
+            <p className="caro-page-subtitle">Quản lý giao dịch nạp, rút và đúc token</p>
+          </div>
+          <div style={{ fontSize: 13, color: "#94a3b8", fontWeight: 600, background: "rgba(255,255,255,0.05)", padding: "8px 16px", borderRadius: 20 }}>
+            {filtered.length} giao dịch
+          </div>
         </div>
 
         {/* Filter tabs */}
-        <div style={{ display: "flex", gap: 0, background: C.card, borderRadius: 8, padding: 3, border: `1px solid ${C.border}`, width: "fit-content" }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
           {TX_TYPES.map(t => {
             const act = filter === t;
             return (
-              <button key={t} onClick={() => setFilter(t)}
-                style={{ padding: "6px 16px", borderRadius: 6, background: act ? C.accent : "transparent", color: act ? "#fff" : C.muted, border: "none", cursor: "pointer", fontSize: 12, fontWeight: act ? 700 : 400, display: "flex", alignItems: "center", gap: 5, transition: "all 0.15s" }}>
+              <button key={t} onClick={() => setFilter(t)} className={`caro-btn caro-btn-sm ${act ? "caro-btn-primary" : "caro-btn-ghost"}`}>
                 {TX_LABELS[t]}
                 {counts[t] > 0 && (
-                  <span style={{ fontSize: 10, background: act ? "rgba(0,0,0,0.2)" : "rgba(255,255,255,0.1)", borderRadius: 10, padding: "1px 5px" }}>
+                  <span style={{ fontSize: 11, background: act ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)", borderRadius: 12, padding: "2px 6px", marginLeft: 8 }}>
                     {counts[t]}
                   </span>
                 )}
@@ -158,31 +160,24 @@ export default function FarmerTxHistory() {
         </div>
 
         {/* Table */}
-        <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-          <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.border}`, display: "grid", gridTemplateColumns: "1fr auto", gap: 10 }}>
-            <div style={{ display: "flex", gap: 20 }}>
-              {["Giao dịch", "Loại", "Số tiền", "Trạng thái"].map(h => (
-                <div key={h} style={{ fontSize: 11, color: C.muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>{h}</div>
-              ))}
-            </div>
-          </div>
-
+        <div className="caro-card" style={{ padding: 0, overflow: "hidden" }}>
           {isLoading ? (
             [1, 2, 3, 4].map(i => <Skeleton key={i} />)
           ) : filtered.length === 0 ? (
-            <div style={{ padding: 60, textAlign: "center", color: C.muted }}>
-              <div style={{ fontSize: 36, marginBottom: 10 }}>📭</div>
-              <div style={{ fontSize: 14 }}>Không có giao dịch {filter !== "All" ? `loại ${TX_LABELS[filter]}` : ""}</div>
-              {filter === "Mint" && <div style={{ fontSize: 12, marginTop: 6 }}>Gửi batch và được admin duyệt để thấy lịch sử mint</div>}
-              {filter === "Deposit" && <div style={{ fontSize: 12, marginTop: 6 }}>Nạp tiền VND để thấy lịch sử nạp</div>}
+            <div className="caro-empty">
+              <div className="caro-empty-icon">📭</div>
+              <div className="caro-empty-title">Không có giao dịch {filter !== "All" ? `loại ${TX_LABELS[filter]}` : ""}</div>
+              {filter === "Mint" && <div className="caro-empty-desc">Gửi batch và được admin duyệt để thấy lịch sử mint</div>}
+              {filter === "Deposit" && <div className="caro-empty-desc">Nạp tiền VND để thấy lịch sử nạp</div>}
             </div>
           ) : (
             filtered.map((tx, i) => <TxRow key={i} {...tx} />)
           )}
         </div>
 
-        <div style={{ padding: "10px 16px", background: "rgba(72,117,115,0.05)", border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.muted, lineHeight: 1.7 }}>
-          📋 Hiển thị tất cả Mint (từ lô hàng đã duyệt), Nạp tiền và Rút tiền của tài khoản bạn.
+        <div style={{ padding: "16px", background: "rgba(176, 228, 204,0.05)", border: "1px solid rgba(176, 228, 204,0.1)", borderRadius: 8, fontSize: 13, color: "#94a3b8", lineHeight: 1.6, marginTop: 24 }}>
+          <span style={{ color: "#B0E4CC", fontWeight: 700, marginRight: 6 }}>📋 Lưu ý:</span>
+          Hiển thị tất cả Mint (từ lô hàng đã duyệt), Nạp tiền và Rút tiền của tài khoản bạn.
           Giao dịch Nạp/Rút đang chờ duyệt sẽ được cập nhật khi admin xử lý.
         </div>
 

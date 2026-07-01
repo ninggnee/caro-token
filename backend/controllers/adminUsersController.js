@@ -309,3 +309,38 @@ export const updateUser = async (req, res) => {
     });
   }
 };
+
+/**
+ * GET /admin/users/abnormal
+ * Lấy danh sách các tài khoản có hành vi rút token bất thường
+ */
+export const getAbnormalActivities = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        aa.id,
+        aa.user_id,
+        aa.activity_type,
+        aa.description,
+        aa.created_at,
+        u.email,
+        u.role,
+        u.full_name
+      FROM abnormal_activities aa
+      JOIN users u ON aa.user_id = u.id
+      ORDER BY aa.id DESC
+      LIMIT 100
+    `;
+    const [rows] = await db.execute(query);
+    res.json({
+      success: true,
+      activities: rows
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+  }
+};

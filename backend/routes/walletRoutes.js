@@ -4,7 +4,7 @@ import {
   uploadProof,
   getWallet,
   directDeposit, getTransactions,
-  createDeposit, listDepositsForUser, listAllDeposits, reviewDeposit,
+  createDeposit, createTokenDeposit, listDepositsForUser, listAllDeposits, reviewDeposit,
   createWithdraw, listWithdrawsForUser, listAllWithdraws, reviewWithdraw,
 } from '../controllers/walletController.js';
 
@@ -17,6 +17,7 @@ router.get('/transactions', verifyToken, getTransactions);
 // ── Deposits ─────────────────────────────────────────────────────────────────
 router.post  ('/direct-deposit',        verifyToken,                      directDeposit);
 router.post  ('/deposit',               verifyToken,                      uploadProof, createDeposit);
+router.post  ('/deposit-token',         verifyToken,                      createTokenDeposit);
 router.get   ('/deposit',               verifyToken,                      listDepositsForUser);
 router.get   ('/deposit/all',           verifyToken, requireRole('admin'), listAllDeposits);
 router.post  ('/deposit/:id/review',    verifyToken, requireRole('admin'), reviewDeposit);

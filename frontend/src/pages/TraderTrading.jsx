@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import TraderLayout from '../components/layout/TraderLayout';
 import { API_URL } from '../config/api';
 import { formatNumber, formatVND } from '../utils/formatters';
+import { toast } from 'react-toastify';
 
 const PAIRS = ['CR1/VND', 'CR2/VND', 'CR3/VND'];
 
@@ -11,17 +12,6 @@ const ORDER_TYPES = [
   { key: 'ato',    label: 'ATO',   comingSoon: true },
   { key: 'atc',    label: 'ATC',   comingSoon: true },
 ];
-
-const C = {
-  card:    '#0f1e20',
-  border:  'rgba(255,255,255,0.08)',
-  green:   '#0ecb81',
-  red:     '#f6465d',
-  text:    '#eaecef',
-  muted:   '#848e9c',
-  dim:     '#1e2d2f',
-  input:   '#162020',
-};
 
 function authHeader() {
   const t = localStorage.getItem('token');
@@ -44,26 +34,31 @@ function Stepper({ label, value, onChange, step = 1, disabled = false }) {
     onChange(nxt % 1 === 0 ? String(nxt) : nxt.toFixed(2));
   };
   return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{label}</div>
-      <div style={{ display: 'flex', border: `1px solid ${C.border}`, borderRadius: 6, overflow: 'hidden' }}>
+    <div className="caro-field" style={{ marginBottom: 12 }}>
+      <label className="caro-label">{label}</label>
+      <div style={{ display: 'flex', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', overflow: 'hidden', background: 'rgba(255,255,255,0.04)' }}>
         <button
           onClick={() => adj(-1)}
           disabled={disabled}
-          style={{ width: 34, height: 38, background: C.dim, border: 'none', color: '#bbb', cursor: disabled ? 'default' : 'pointer', fontSize: 20, flexShrink: 0, lineHeight: 1 }}
+          style={{ width: 36, background: 'rgba(0,0,0,0.2)', border: 'none', color: '#94a3b8', cursor: disabled ? 'default' : 'pointer', fontSize: 20, flexShrink: 0, transition: 'background 0.2s' }}
+          onMouseEnter={e => !disabled && (e.target.style.background = 'rgba(0,0,0,0.4)')}
+          onMouseLeave={e => !disabled && (e.target.style.background = 'rgba(0,0,0,0.2)')}
         >−</button>
         <input
           type="number"
+          className="caro-input"
           value={value}
           onChange={e => !disabled && onChange(e.target.value)}
           readOnly={disabled}
           placeholder="0"
-          style={{ flex: 1, height: 38, padding: '0 6px', background: C.input, border: 'none', color: disabled ? C.muted : C.text, textAlign: 'center', fontSize: 13, outline: 'none' }}
+          style={{ flex: 1, border: 'none', background: 'transparent', textAlign: 'center', borderRadius: 0, padding: '8px 12px' }}
         />
         <button
           onClick={() => adj(1)}
           disabled={disabled}
-          style={{ width: 34, height: 38, background: C.dim, border: 'none', color: '#bbb', cursor: disabled ? 'default' : 'pointer', fontSize: 20, flexShrink: 0, lineHeight: 1 }}
+          style={{ width: 36, background: 'rgba(0,0,0,0.2)', border: 'none', color: '#94a3b8', cursor: disabled ? 'default' : 'pointer', fontSize: 20, flexShrink: 0, transition: 'background 0.2s' }}
+          onMouseEnter={e => !disabled && (e.target.style.background = 'rgba(0,0,0,0.4)')}
+          onMouseLeave={e => !disabled && (e.target.style.background = 'rgba(0,0,0,0.2)')}
         >+</button>
       </div>
     </div>
@@ -86,7 +81,6 @@ export default function TraderTrading() {
   const [sellPrice,  setSellPrice]  = useState('');
   const [sellAmount, setSellAmount] = useState('');
   const [placing,    setPlacing]    = useState(null);
-  const [msg,        setMsg]        = useState(null);
   const [bottomTab,  setBottomTab]  = useState('open');
 
   // ── data loaders ──────────────────────────────────────────────────────────
@@ -159,9 +153,9 @@ export default function TraderTrading() {
 
   const maxBid = Math.max(...bids.map(b => b.amount), 1);
   const maxAsk = Math.max(...asks.map(a => a.amount), 1);
-  const dispBids = bids.slice(0, 8);
-  const dispAsks = asks.slice(0, 8);
-  const levels   = Math.max(dispBids.length, dispAsks.length, 5);
+  const dispBids = bids.slice(0, 10);
+  const dispAsks = asks.slice(0, 10);
+  const levels   = Math.max(dispBids.length, dispAsks.length, 6);
 
   // ── actions ───────────────────────────────────────────────────────────────
 
@@ -176,86 +170,86 @@ export default function TraderTrading() {
     const p = side === 'buy' ? buyPrice  : sellPrice;
     const a = side === 'buy' ? buyAmount : sellAmount;
     if (!p || !a || Number(p) <= 0 || Number(a) <= 0) {
-      return setMsg({ ok: false, text: 'Vui lòng nhập Giá và Số lượng hợp lệ' });
+      toast.warning('Vui lòng nhập Giá và Số lượng hợp lệ');
+      return;
     }
-    setPlacing(side); setMsg(null);
+    setPlacing(side);
     try {
       const d = await apiFetch('/orders', {
         method: 'POST',
         body: JSON.stringify({ pair, side, price: Number(p), amount: Number(a) }),
       });
       if (d.success) {
-        setMsg({ ok: true, text: `Đặt lệnh thành công · Trạng thái: ${d.status} · Khớp: ${d.trades} lệnh` });
+        toast.success(`Đặt lệnh thành công · Trạng thái: ${d.status} · Khớp: ${d.trades} lệnh`);
         if (side === 'buy')  { setBuyAmount('');  if (orderType !== 'market') setBuyPrice('');  }
         else                 { setSellAmount(''); if (orderType !== 'market') setSellPrice(''); }
         loadOpenOrders(); loadOrderbook(); loadTradeHistory(); loadWallet(); loadTokenBals();
       } else {
-        setMsg({ ok: false, text: d.message || 'Lỗi đặt lệnh' });
+        toast.error(d.message || 'Lỗi đặt lệnh');
       }
-    } catch { setMsg({ ok: false, text: 'Lỗi kết nối server' }); }
+    } catch { toast.error('Lỗi kết nối server'); }
     setPlacing(null);
   };
 
   const cancelOrder = async (id) => {
     const d = await apiFetch(`/orders/${id}`, { method: 'DELETE' });
-    if (d.success) { loadOpenOrders(); loadOrderbook(); loadWallet(); loadTokenBals(); }
-    else alert(d.message);
+    if (d.success) {
+      toast.success(`Hủy lệnh #${id} thành công`);
+      loadOpenOrders(); loadOrderbook(); loadWallet(); loadTokenBals();
+    }
+    else toast.error(d.message);
   };
 
   // ── render ────────────────────────────────────────────────────────────────
 
   return (
     <TraderLayout title={`Giao dịch — ${pair}`}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, color: C.text, fontSize: 13 }}>
+      <div className="caro-page">
 
         {/* ── PAIR TABS ── */}
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
           {PAIRS.map(p => (
-            <button key={p} onClick={() => setPair(p)} style={{
-              padding: '7px 20px', borderRadius: 5, cursor: 'pointer', fontWeight: 600, fontSize: 13,
-              background: p === pair ? 'rgba(14,203,129,0.12)' : 'rgba(255,255,255,0.05)',
-              color: p === pair ? C.green : C.muted,
-              border: p === pair ? '1px solid rgba(14,203,129,0.4)' : `1px solid ${C.border}`,
-              transition: 'all 0.15s',
-            }}>{p}</button>
+            <button key={p} onClick={() => setPair(p)} className={`caro-btn caro-btn-sm ${p === pair ? 'caro-btn-secondary' : 'caro-btn-ghost'}`}>
+              {p}
+            </button>
           ))}
         </div>
 
         {/* ── TICKER BAR ── */}
-        <div style={{ display: 'flex', gap: 24, padding: '10px 18px', background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="caro-card" style={{ display: 'flex', gap: 24, padding: '16px 24px', alignItems: 'center', flexWrap: 'wrap' }}>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'monospace', lineHeight: 1 }}>
+            <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'monospace', lineHeight: 1, color: "#f8fafc" }}>
               {lastPrice ? formatNumber(lastPrice) : '—'}
             </div>
-            <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>VNĐ</div>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>VNĐ</div>
           </div>
-          <div style={{ width: 1, height: 36, background: C.border, flexShrink: 0 }} />
+          <div style={{ width: 1, height: 40, background: "var(--border)", flexShrink: 0 }} />
           {[
-            { l: 'Giá cao nhất',   v: ticker.high   ? formatNumber(ticker.high)   : '—', c: C.green },
-            { l: 'Giá thấp nhất',  v: ticker.low    ? formatNumber(ticker.low)    : '—', c: C.red   },
-            { l: 'Khối lượng 24h', v: ticker.volume ? formatNumber(ticker.volume) : '—', c: C.text  },
+            { l: 'Giá cao nhất',   v: ticker.high   ? formatNumber(ticker.high)   : '—', c: "#B0E4CC" },
+            { l: 'Giá thấp nhất',  v: ticker.low    ? formatNumber(ticker.low)    : '—', c: "#ef4444"   },
+            { l: 'Khối lượng 24h', v: ticker.volume ? formatNumber(ticker.volume) : '—', c: "#e2e8f0"  },
           ].map(x => (
             <div key={x.l}>
-              <div style={{ fontSize: 11, color: C.muted }}>{x.l}</div>
-              <div style={{ fontWeight: 600, color: x.c, fontFamily: 'monospace' }}>{x.v}</div>
+              <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>{x.l}</div>
+              <div style={{ fontWeight: 700, color: x.c, fontFamily: 'monospace', fontSize: 15, marginTop: 2 }}>{x.v}</div>
             </div>
           ))}
         </div>
 
         {/* ── MAIN: ORDER BOOK + ORDER PANEL ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: 12, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: 24, alignItems: 'start' }}>
 
           {/* ORDER BOOK */}
-          <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
-            <div style={{ padding: '10px 12px 8px', borderBottom: `1px solid ${C.border}`, fontWeight: 700, fontSize: 13 }}>
-              Sổ lệnh
+          <div className="caro-card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="caro-section-header">
+              <h3 className="caro-section-title">Sổ lệnh</h3>
             </div>
 
             {/* Column headers */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', padding: '5px 10px', color: C.muted, fontSize: 10, fontWeight: 600, borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', padding: '8px 12px', color: "#94a3b8", fontSize: 11, fontWeight: 700, borderBottom: '1px solid var(--border)' }}>
               <span>KL (Mua)</span>
               <span style={{ textAlign: 'right' }}>Giá Mua</span>
-              <span style={{ paddingLeft: 10 }}>Giá Bán</span>
+              <span style={{ paddingLeft: 12 }}>Giá Bán</span>
               <span style={{ textAlign: 'right' }}>KL (Bán)</span>
             </div>
 
@@ -266,15 +260,15 @@ export default function TraderTrading() {
               const bPct = bid ? (bid.amount / maxBid) * 100 : 0;
               const aPct = ask ? (ask.amount / maxAsk) * 100 : 0;
               return (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', height: 26 }}>
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', height: 28 }}>
 
                   {/* BID qty */}
                   <div
                     onClick={() => bid && selectPrice(bid.price)}
-                    style={{ position: 'relative', display: 'flex', alignItems: 'center', padding: '0 10px', cursor: bid ? 'pointer' : 'default', overflow: 'hidden' }}
+                    style={{ position: 'relative', display: 'flex', alignItems: 'center', padding: '0 12px', cursor: bid ? 'pointer' : 'default', overflow: 'hidden' }}
                   >
-                    <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${bPct}%`, background: 'rgba(14,203,129,0.1)', transition: 'width 0.3s' }} />
-                    <span style={{ color: C.muted, fontSize: 11, fontFamily: 'monospace', position: 'relative', zIndex: 1 }}>
+                    <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${bPct}%`, background: 'rgba(176, 228, 204,0.15)', transition: 'width 0.3s' }} />
+                    <span style={{ color: "#94a3b8", fontSize: 12, fontFamily: 'monospace', position: 'relative', zIndex: 1 }}>
                       {bid ? formatNumber(bid.amount) : ''}
                     </span>
                   </div>
@@ -282,9 +276,9 @@ export default function TraderTrading() {
                   {/* BID price */}
                   <div
                     onClick={() => bid && selectPrice(bid.price)}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 10px', cursor: bid ? 'pointer' : 'default' }}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 12px', cursor: bid ? 'pointer' : 'default' }}
                   >
-                    <span style={{ color: C.green, fontSize: 11, fontFamily: 'monospace', fontWeight: 600 }}>
+                    <span style={{ color: "#B0E4CC", fontSize: 12, fontFamily: 'monospace', fontWeight: 700 }}>
                       {bid ? formatNumber(bid.price) : ''}
                     </span>
                   </div>
@@ -292,9 +286,9 @@ export default function TraderTrading() {
                   {/* ASK price */}
                   <div
                     onClick={() => ask && selectPrice(ask.price)}
-                    style={{ display: 'flex', alignItems: 'center', padding: '0 10px', paddingLeft: 12, cursor: ask ? 'pointer' : 'default', borderLeft: `1px solid ${C.border}` }}
+                    style={{ display: 'flex', alignItems: 'center', padding: '0 12px', paddingLeft: 14, cursor: ask ? 'pointer' : 'default', borderLeft: '1px solid var(--border)' }}
                   >
-                    <span style={{ color: C.red, fontSize: 11, fontFamily: 'monospace', fontWeight: 600 }}>
+                    <span style={{ color: "#ef4444", fontSize: 12, fontFamily: 'monospace', fontWeight: 700 }}>
                       {ask ? formatNumber(ask.price) : ''}
                     </span>
                   </div>
@@ -302,10 +296,10 @@ export default function TraderTrading() {
                   {/* ASK qty */}
                   <div
                     onClick={() => ask && selectPrice(ask.price)}
-                    style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 10px', cursor: ask ? 'pointer' : 'default', overflow: 'hidden' }}
+                    style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 12px', cursor: ask ? 'pointer' : 'default', overflow: 'hidden' }}
                   >
-                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${aPct}%`, background: 'rgba(246,70,93,0.1)', transition: 'width 0.3s' }} />
-                    <span style={{ color: C.muted, fontSize: 11, fontFamily: 'monospace', position: 'relative', zIndex: 1 }}>
+                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${aPct}%`, background: 'rgba(239,68,68,0.15)', transition: 'width 0.3s' }} />
+                    <span style={{ color: "#94a3b8", fontSize: 12, fontFamily: 'monospace', position: 'relative', zIndex: 1 }}>
                       {ask ? formatNumber(ask.amount) : ''}
                     </span>
                   </div>
@@ -315,71 +309,66 @@ export default function TraderTrading() {
             })}
 
             {/* Last price strip */}
-            <div style={{ padding: '7px 12px', background: 'rgba(255,255,255,0.02)', borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 15, fontWeight: 700, fontFamily: 'monospace', color: C.text }}>
-                {lastPrice ? formatNumber(lastPrice) : '—'} <span style={{ fontSize: 10, color: C.muted, fontWeight: 400 }}>VNĐ</span>
+            <div style={{ padding: '10px 16px', background: 'rgba(255,255,255,0.03)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 16, fontWeight: 800, fontFamily: 'monospace', color: "#f8fafc" }}>
+                {lastPrice ? formatNumber(lastPrice) : '—'} <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>VNĐ</span>
               </span>
-              <div style={{ display: 'flex', gap: 14, fontSize: 11 }}>
-                <span style={{ color: C.muted }}>H: <b style={{ color: C.green }}>{ticker.high ? formatNumber(ticker.high) : '—'}</b></span>
-                <span style={{ color: C.muted }}>L: <b style={{ color: C.red }}>{ticker.low ? formatNumber(ticker.low) : '—'}</b></span>
+              <div style={{ display: 'flex', gap: 16, fontSize: 12, fontWeight: 600 }}>
+                <span style={{ color: "#94a3b8" }}>H: <b style={{ color: "#B0E4CC" }}>{ticker.high ? formatNumber(ticker.high) : '—'}</b></span>
+                <span style={{ color: "#94a3b8" }}>L: <b style={{ color: "#ef4444" }}>{ticker.low ? formatNumber(ticker.low) : '—'}</b></span>
               </div>
             </div>
 
-            <div style={{ padding: '6px 12px', fontSize: 10, color: C.muted, textAlign: 'center' }}>
-              Nhấn vào giá để điền vào form đặt lệnh
+            <div style={{ padding: '8px 16px', fontSize: 11, color: "#64748b", textAlign: 'center', fontStyle: 'italic' }}>
+              * Nhấn vào một mức giá để tự điền vào form đặt lệnh
             </div>
           </div>
 
           {/* ── ORDER PANEL ── */}
-          <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, padding: 16 }}>
+          <div className="caro-card">
 
             {/* Order type tabs */}
-            <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, marginBottom: 16 }}>
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
               {ORDER_TYPES.map(ot => (
                 <div key={ot.key} style={{ position: 'relative' }}>
                   <button
                     onClick={() => !ot.comingSoon && setOrderType(ot.key)}
                     title={ot.comingSoon ? 'Tính năng sắp ra mắt' : ''}
                     style={{
-                      padding: '8px 15px', background: 'transparent', border: 'none',
+                      padding: '10px 18px', background: 'transparent', border: 'none',
                       cursor: ot.comingSoon ? 'default' : 'pointer',
-                      color: orderType === ot.key ? C.text : C.muted,
-                      fontWeight: orderType === ot.key ? 700 : 400,
+                      color: orderType === ot.key ? "#f8fafc" : "#94a3b8",
+                      fontWeight: orderType === ot.key ? 700 : 500,
                       fontSize: 13,
-                      borderBottom: orderType === ot.key ? `2px solid ${C.green}` : '2px solid transparent',
+                      borderBottom: orderType === ot.key ? '2px solid #B0E4CC' : '2px solid transparent',
                       marginBottom: -1,
                       opacity: ot.comingSoon ? 0.45 : 1,
                       transition: 'color 0.15s',
                     }}
                   >{ot.label}</button>
                   {ot.comingSoon && (
-                    <span style={{
-                      position: 'absolute', top: 4, right: 1,
-                      background: 'rgba(132,142,156,0.2)', color: C.muted,
-                      fontSize: 8, padding: '1px 3px', borderRadius: 3, lineHeight: 1.5,
-                      pointerEvents: 'none',
-                    }}>Soon</span>
+                    <span className="caro-badge caro-badge-muted" style={{ position: 'absolute', top: 4, right: 2, padding: "2px 4px", fontSize: 9 }}>Soon</span>
                   )}
                 </div>
               ))}
               {orderType === 'market' && (
-                <span style={{ marginLeft: 'auto', fontSize: 11, color: C.muted, alignSelf: 'center', paddingRight: 4 }}>
+                <span style={{ marginLeft: 'auto', fontSize: 11, color: "#64748b", alignSelf: 'center', paddingRight: 4 }}>
                   Lệnh khớp ngay theo giá tốt nhất
                 </span>
               )}
             </div>
 
             {/* BUY + SELL forms */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
 
               {/* ─── BUY FORM ─── */}
               <div>
-                <div style={{ marginBottom: 12, padding: '8px 10px', background: 'rgba(14,203,129,0.05)', borderRadius: 6, border: '1px solid rgba(14,203,129,0.15)' }}>
-                  <div style={{ fontSize: 10, color: C.muted, marginBottom: 3 }}>Sức mua tối đa (VNĐ)</div>
-                  <div style={{ fontWeight: 700, color: C.green, fontSize: 15, fontFamily: 'monospace' }}>
-                    {formatNumber(maxBuyQty)} {token}
+                <div style={{ marginBottom: 16, padding: '12px 14px', background: 'rgba(176, 228, 204,0.05)', borderRadius: 8, border: '1px solid rgba(176, 228, 204,0.15)' }}>
+                  <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, fontWeight: 600 }}>SỨC MUA TỐI ĐA</div>
+                  <div style={{ fontWeight: 800, color: "#B0E4CC", fontSize: 16, fontFamily: 'monospace' }}>
+                    {formatNumber(maxBuyQty)} <span style={{ fontSize: 12 }}>{token}</span>
                   </div>
-                  <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>
+                  <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
                     {formatVND(vndAvail)} khả dụng
                     {buyPriceN > 0 && (
                       <span> ÷ {formatNumber(buyPriceN)}</span>
@@ -388,7 +377,7 @@ export default function TraderTrading() {
                 </div>
 
                 <Stepper
-                  label={orderType === 'market' ? 'Giá thị trường (VNĐ)' : 'Giá (VNĐ)'}
+                  label={orderType === 'market' ? 'Giá thị trường (VNĐ)' : 'Giá Mua (VNĐ)'}
                   value={buyPrice}
                   onChange={setBuyPrice}
                   step={1}
@@ -396,43 +385,39 @@ export default function TraderTrading() {
                 />
 
                 <Stepper
-                  label="Số lượng (token)"
+                  label={`Số lượng (${token})`}
                   value={buyAmount}
                   onChange={setBuyAmount}
                   step={1}
                 />
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '8px 0', borderTop: `1px solid ${C.border}`, marginBottom: 12 }}>
-                  <span style={{ color: C.muted }}>Giá trị lệnh</span>
-                  <span style={{ color: C.text, fontWeight: 700, fontFamily: 'monospace' }}>{formatVND(buyPriceN * buyAmtN)}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '10px 0', borderTop: '1px solid rgba(255,255,255,0.05)', marginBottom: 16 }}>
+                  <span style={{ color: "#94a3b8" }}>Tổng giá trị lệnh</span>
+                  <span style={{ color: "#f8fafc", fontWeight: 700, fontFamily: 'monospace' }}>{formatVND(buyPriceN * buyAmtN)}</span>
                 </div>
 
                 <button
                   onClick={() => placeOrder('buy')}
                   disabled={placing === 'buy'}
-                  style={{
-                    width: '100%', padding: '12px 0', borderRadius: 6, border: 'none',
-                    background: placing === 'buy' ? '#1a5c3c' : C.green,
-                    color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer',
-                    letterSpacing: '1px', transition: 'background 0.15s',
-                  }}
+                  className="caro-btn caro-btn-success"
+                  style={{ width: '100%', padding: '12px 0', fontSize: 15 }}
                 >{placing === 'buy' ? 'Đang đặt…' : 'MUA'}</button>
               </div>
 
               {/* ─── SELL FORM ─── */}
               <div>
-                <div style={{ marginBottom: 12, padding: '8px 10px', background: 'rgba(246,70,93,0.05)', borderRadius: 6, border: '1px solid rgba(246,70,93,0.15)' }}>
-                  <div style={{ fontSize: 10, color: C.muted, marginBottom: 3 }}>KL có thể bán ({token})</div>
-                  <div style={{ fontWeight: 700, color: C.red, fontSize: 15, fontFamily: 'monospace' }}>
-                    {formatNumber(tokAvail)} {token}
+                <div style={{ marginBottom: 16, padding: '12px 14px', background: 'rgba(239,68,68,0.05)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.15)' }}>
+                  <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, fontWeight: 600 }}>SỐ LƯỢNG CÓ THỂ BÁN</div>
+                  <div style={{ fontWeight: 800, color: "#ef4444", fontSize: 16, fontFamily: 'monospace' }}>
+                    {formatNumber(tokAvail)} <span style={{ fontSize: 12 }}>{token}</span>
                   </div>
-                  <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>
-                    {token} khả dụng trong tài khoản
+                  <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+                    {token} khả dụng trong ví
                   </div>
                 </div>
 
                 <Stepper
-                  label={orderType === 'market' ? 'Giá thị trường (VNĐ)' : 'Giá (VNĐ)'}
+                  label={orderType === 'market' ? 'Giá thị trường (VNĐ)' : 'Giá Bán (VNĐ)'}
                   value={sellPrice}
                   onChange={setSellPrice}
                   step={1}
@@ -440,93 +425,88 @@ export default function TraderTrading() {
                 />
 
                 <Stepper
-                  label="Số lượng (token)"
+                  label={`Số lượng (${token})`}
                   value={sellAmount}
                   onChange={setSellAmount}
                   step={1}
                 />
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '8px 0', borderTop: `1px solid ${C.border}`, marginBottom: 12 }}>
-                  <span style={{ color: C.muted }}>Giá trị lệnh</span>
-                  <span style={{ color: C.text, fontWeight: 700, fontFamily: 'monospace' }}>{formatVND(sellPriceN * sellAmtN)}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '10px 0', borderTop: '1px solid rgba(255,255,255,0.05)', marginBottom: 16 }}>
+                  <span style={{ color: "#94a3b8" }}>Tổng thu về</span>
+                  <span style={{ color: "#f8fafc", fontWeight: 700, fontFamily: 'monospace' }}>{formatVND(sellPriceN * sellAmtN)}</span>
                 </div>
 
                 <button
                   onClick={() => placeOrder('sell')}
                   disabled={placing === 'sell'}
-                  style={{
-                    width: '100%', padding: '12px 0', borderRadius: 6, border: 'none',
-                    background: placing === 'sell' ? '#6b1a2a' : C.red,
-                    color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer',
-                    letterSpacing: '1px', transition: 'background 0.15s',
-                  }}
+                  className="caro-btn caro-btn-danger"
+                  style={{ width: '100%', padding: '12px 0', fontSize: 15 }}
                 >{placing === 'sell' ? 'Đang đặt…' : 'BÁN'}</button>
               </div>
 
             </div>
 
-            {/* Status message */}
-            {msg && (
-              <div style={{
-                marginTop: 14, padding: '9px 12px', borderRadius: 6, fontSize: 12,
-                background: msg.ok ? 'rgba(14,203,129,0.07)' : 'rgba(246,70,93,0.07)',
-                border: `1px solid ${msg.ok ? 'rgba(14,203,129,0.25)' : 'rgba(246,70,93,0.25)'}`,
-                color: msg.ok ? C.green : C.red,
-              }}>{msg.text}</div>
-            )}
           </div>
 
         </div>
 
         {/* ── BOTTOM TABS ── */}
-        <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}` }}>
-          <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, padding: '0 16px' }}>
+        <div className="caro-card" style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 20px', background: "rgba(255,255,255,0.02)" }}>
             {[
               { key: 'open',    label: `Lệnh đang mở (${openOrders.length})` },
               { key: 'history', label: 'Lịch sử khớp lệnh' },
             ].map(t => (
               <button key={t.key} onClick={() => setBottomTab(t.key)} style={{
-                padding: '11px 16px', border: 'none', background: 'transparent', cursor: 'pointer',
-                color: bottomTab === t.key ? C.text : C.muted,
-                fontWeight: bottomTab === t.key ? 700 : 400, fontSize: 13,
-                borderBottom: bottomTab === t.key ? `2px solid ${C.green}` : '2px solid transparent',
+                padding: '14px 20px', border: 'none', background: 'transparent', cursor: 'pointer',
+                color: bottomTab === t.key ? "#f8fafc" : "#94a3b8",
+                fontWeight: bottomTab === t.key ? 700 : 500, fontSize: 14,
+                borderBottom: bottomTab === t.key ? '2px solid #B0E4CC' : '2px solid transparent',
                 marginBottom: -1, transition: 'color 0.15s',
               }}>{t.label}</button>
             ))}
           </div>
 
-          <div style={{ padding: 16 }}>
+          <div>
 
             {bottomTab === 'open' && (
               openOrders.length === 0
-                ? <div style={{ color: C.muted, textAlign: 'center', padding: '24px 0' }}>Không có lệnh đang mở</div>
+                ? <div className="caro-empty" style={{ padding: "40px" }}><div className="caro-empty-icon">📂</div><div className="caro-empty-title">Không có lệnh mở</div></div>
                 : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <div className="caro-table-wrap">
+                  <table className="caro-table">
                     <thead>
                       <tr>
-                        {['#ID', 'Cặp', 'Loại', 'Giá (VNĐ)', 'Số lượng', 'Còn lại', 'Trạng thái', ''].map(h => (
-                          <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>{h}</th>
-                        ))}
+                        <th>#ID</th>
+                        <th>Cặp</th>
+                        <th>Loại</th>
+                        <th>Giá (VNĐ)</th>
+                        <th>Số lượng</th>
+                        <th>Còn lại</th>
+                        <th>Trạng thái</th>
+                        <th></th>
                       </tr>
                     </thead>
                     <tbody>
                       {openOrders.map(o => (
-                        <tr key={o.id} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)` }}>
-                          <td style={{ padding: '8px 10px', color: C.muted }}>#{o.id}</td>
-                          <td style={{ padding: '8px 10px' }}>{o.pair}</td>
-                          <td style={{ padding: '8px 10px', fontWeight: 700, color: o.side === 'buy' ? C.green : C.red }}>
+                        <tr key={o.id}>
+                          <td style={{ color: "#94a3b8" }}>#{o.id}</td>
+                          <td><span className="caro-badge caro-badge-muted">{o.pair}</span></td>
+                          <td style={{ fontWeight: 800, color: o.side === 'buy' ? "#B0E4CC" : "#ef4444" }}>
                             {o.side === 'buy' ? 'MUA' : 'BÁN'}
                           </td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatNumber(o.price)}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{Number(o.amount).toFixed(4)}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{Number(o.remaining).toFixed(4)}</td>
-                          <td style={{ padding: '8px 10px', color: C.muted }}>{o.status}</td>
-                          <td style={{ padding: '8px 10px' }}>
-                            <button onClick={() => cancelOrder(o.id)} style={{
-                              padding: '3px 10px', background: 'rgba(246,70,93,0.1)', color: C.red,
-                              border: '1px solid rgba(246,70,93,0.3)', borderRadius: 4, cursor: 'pointer', fontSize: 11,
-                            }}>Hủy</button>
+                          <td style={{ fontFamily: 'monospace', color: "#f8fafc" }}>{formatNumber(o.price)}</td>
+                          <td style={{ fontFamily: 'monospace' }}>{Number(o.amount).toFixed(4)}</td>
+                          <td style={{ fontFamily: 'monospace' }}>{Number(o.remaining).toFixed(4)}</td>
+                          <td>
+                            <span className={`caro-badge ${o.status === "partial" ? "caro-badge-warning" : "caro-badge-info"}`}>
+                              {o.status === "partial" ? "Khớp 1 phần" : "Mở"}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <button onClick={() => cancelOrder(o.id)} className="caro-btn caro-btn-ghost caro-btn-sm" style={{ color: "#ef4444" }}>
+                              Hủy lệnh
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -538,24 +518,25 @@ export default function TraderTrading() {
 
             {bottomTab === 'history' && (
               tradeHist.length === 0
-                ? <div style={{ color: C.muted, textAlign: 'center', padding: '24px 0' }}>Chưa có lịch sử giao dịch</div>
+                ? <div className="caro-empty" style={{ padding: "40px" }}><div className="caro-empty-icon">⏳</div><div className="caro-empty-title">Chưa có lịch sử khớp lệnh</div></div>
                 : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <div className="caro-table-wrap">
+                  <table className="caro-table">
                     <thead>
                       <tr>
-                        {['#ID', 'Giá (VNĐ)', 'Số lượng', 'Thời gian'].map(h => (
-                          <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>{h}</th>
-                        ))}
+                        <th>#ID</th>
+                        <th>Giá (VNĐ)</th>
+                        <th>Số lượng</th>
+                        <th>Thời gian</th>
                       </tr>
                     </thead>
                     <tbody>
                       {tradeHist.slice(0, 30).map(t => (
-                        <tr key={t.id} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)` }}>
-                          <td style={{ padding: '8px 10px', color: C.muted }}>#{t.id}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatNumber(t.price)}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{Number(t.amount).toFixed(4)}</td>
-                          <td style={{ padding: '8px 10px', color: C.muted, fontSize: 11 }}>
+                        <tr key={t.id}>
+                          <td style={{ color: "#94a3b8" }}>#{t.id}</td>
+                          <td style={{ fontFamily: 'monospace', color: "#f8fafc", fontWeight: 600 }}>{formatNumber(t.price)}</td>
+                          <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{Number(t.amount).toFixed(4)}</td>
+                          <td style={{ color: "#94a3b8" }}>
                             {new Date(t.created_at).toLocaleString('vi-VN')}
                           </td>
                         </tr>

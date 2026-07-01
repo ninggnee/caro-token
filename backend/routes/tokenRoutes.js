@@ -17,11 +17,11 @@ router.post('/requests', verifyToken, requireRole('farmer'), createTokenRequest)
 router.get('/requests',  verifyToken, requireRole('farmer'), listTokenRequestsForUser);
 
 // Internal DB balances
-router.get('/balances',         verifyToken, requireRole('farmer'), getUserBalances);
-router.get('/holdings',         verifyToken, requireRole('farmer'), getUserBalances);  // alias
+router.get('/balances',         verifyToken, getUserBalances);
+router.get('/holdings',         verifyToken, getUserBalances);  // alias
 
 // Live on-chain balances (requires registered wallet address)
-router.get('/balances/onchain', verifyToken, requireRole('farmer'), getOnChainBalances);
+router.get('/balances/onchain', verifyToken, getOnChainBalances);
 
 // admin
 router.get('/admin/requests',          verifyToken, requireRole('admin'), listTokenRequests);

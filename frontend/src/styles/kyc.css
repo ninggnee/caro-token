@@ -21,9 +21,9 @@
   justify-content:flex-start; /* Move content up */
   padding:120px 80px 80px 80px; /* Higher top padding */
   background:
-    radial-gradient(circle at top left,#6fa9a6 0%,transparent 35%),
-    radial-gradient(circle at bottom right,#2d4d4b 0%,transparent 40%),
-    linear-gradient(135deg,#3f6664,#203433);
+    radial-gradient(circle at top left,#408A71 0%,transparent 35%),
+    radial-gradient(circle at bottom right,#18332d 0%,transparent 40%),
+    linear-gradient(135deg,#285A48,#091413);
 }
 
 .kyc-left h1{
@@ -45,7 +45,7 @@
   padding: 8px 14px;
   border-radius: 999px;
   background: rgba(127, 224, 201, 0.08);
-  color: #7fe0c9;
+  color: #B0E4CC;
   margin-bottom: 16px;
   width: fit-content;
   font-size: 13px;
@@ -103,7 +103,7 @@
 }
 
 .kyc-card h2{
-  color:#2f5f5d;
+  color:#285A48;
   font-size:30px;
   font-weight:700;
   margin-bottom:12px;
@@ -146,20 +146,20 @@
   align-items:center;
   justify-content:center;
 
-  background:#e5ecec;
+  background:#122622;
   color:#666;
   font-weight:700;
 }
 
 .step.active{
-  background:#487573;
+  background:#408A71;
   color:white;
 }
 
 .line{
   width:100px;
   height:2px;
-  background:#d9e1e1;
+  background:#18332d;
   margin-top:20px;
 }
 
@@ -189,11 +189,11 @@
 }
 
 .upload-box:hover{
-  border-color:#487573;
+  border-color:#408A71;
 }
 
 .upload-box h4{
-  color:#487573;
+  color:#408A71;
   margin-bottom:10px;
 }
 
@@ -211,7 +211,7 @@
 }
 
 .ocr-section h3{
-  color:#487573;
+  color:#408A71;
   margin-bottom:20px;
 }
 
@@ -228,7 +228,7 @@
 }
 
 .form-group label{
-  color:#365f5d;
+  color:#285A48;
   font-weight:600;
   font-size:14px;
   display:block;
@@ -240,14 +240,14 @@
   padding:14px;
   border-radius:10px;
   border:1px solid #d8e0e0;
-  background:#fafcfc;
-  color:#243b3a;
+  background:#122622;
+  color:#091413;
   outline:none;
   font-size:14px;
 }
 
 .form-group input:focus{
-  border-color:#487573;
+  border-color:#408A71;
   box-shadow:0 0 0 4px rgba(72,117,115,.12);
 }
 
@@ -263,12 +263,12 @@
   align-items:center;
   gap:10px;
   font-size:15px;
-  color:#243b3a;
+  color:#091413;
   font-weight:600;
 }
 
 .kyc-role-card strong{
-  color:#487573;
+  color:#408A71;
   font-weight:700;
 }
 
@@ -278,7 +278,7 @@
   width:100%;
   margin-top:30px;
 
-  background:#487573;
+  background:#408A71;
   color:white;
 
   border:none;
@@ -303,7 +303,7 @@
 .ocr-title{
   font-size:20px;
   font-weight:700;
-  color:#2f5f5d;
+  color:#285A48;
   margin-bottom:16px;
 }
 
@@ -334,7 +334,7 @@
   border-radius:10px;
   border:1.5px solid #d8e0e0;
   background:white;
-  color:#487573;
+  color:#408A71;
   font-size:15px;
   font-weight:600;
   cursor:pointer;
@@ -343,7 +343,7 @@
 
 .secondary-btn:hover{
   background:rgba(72,117,115,0.04);
-  border-color:#487573;
+  border-color:#408A71;
 }
 
 .primary-btn{
@@ -351,7 +351,7 @@
   padding:14px 24px;
   border:none;
   border-radius:10px;
-  background:#487573;
+  background:#408A71;
   color:white;
   font-size:15px;
   font-weight:600;
@@ -417,14 +417,14 @@
   align-items:center;
   justify-content:center;
 
-  background:#fafcfc;
+  background:#122622;
 
   transition:.2s;
 }
 
 .upload-box:hover{
-  border-color:#487573;
-  background:#f6fbfb;
+  border-color:#408A71;
+  background:#122622;
 }
 
 .upload-icon{
@@ -433,7 +433,7 @@
 }
 
 .upload-label{
-  color:#487573;
+  color:#408A71;
   font-weight:700;
 }
 

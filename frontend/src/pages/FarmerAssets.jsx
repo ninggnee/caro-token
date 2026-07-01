@@ -4,13 +4,11 @@ import FarmerLayout from "../components/layout/FarmerLayout";
 import { useMyBatches } from "../hooks/useBatches";
 import { formatKg, formatToken } from '../utils/formatters';
 
-const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#487573", muted: "#6b7a99", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#7fe0c9" };
-
 const STATUS = {
-  PENDING_MINT_APPROVAL: { label: "Chờ duyệt",  color: C.gold,   bg: "rgba(240,185,11,0.12)"  },
-  MINTED:                { label: "Đã Mint",   color: C.green,  bg: "rgba(14,203,129,0.12)"  },
-  REJECTED:              { label: "Từ chối", color: C.red,    bg: "rgba(246,70,93,0.12)"   },
-  APPROVED:              { label: "Đã duyệt", color: C.tealLight, bg: "rgba(72,117,115,0.12)"   },
+  PENDING_MINT_APPROVAL: { label: "Chờ duyệt",  cls: "caro-badge-warning"  },
+  MINTED:                { label: "Đã Mint",   cls: "caro-badge-success"  },
+  REJECTED:              { label: "Từ chối", cls: "caro-badge-danger"   },
+  APPROVED:              { label: "Đã duyệt", cls: "caro-badge-info"   },
 };
 
 const TABS = [
@@ -20,11 +18,48 @@ const TABS = [
   { label: "Bị từ chối",        status: "REJECTED",              path: "/farmer/status/rejected"  },
 ];
 
-function Badge({ status }) {
-  const m = STATUS[status] || { label: status, color: C.muted, bg: "rgba(255,255,255,0.06)" };
+const LOGISTICS_LABELS = {
+  PENDING_PICKUP: "Chờ lấy hàng",
+  IN_TRANSIT:     "Đang vận chuyển",
+  DELIVERED:      "Đã đến nhà máy",
+  STANDARDIZED:   "Đã chuẩn hóa",
+  STORED:         "Đã nhập kho",
+  INSPECTED:      "Đã kiểm định",
+  MINTED:         "Đã đúc Token",
+};
+
+function Badge({ batch, status }) {
+  const b = batch || {};
+  const currentStatus = b.status || status;
+
+  let label = "";
+  let cls = "caro-badge-muted";
+
+  if (currentStatus === "MINTED") {
+    label = "Đã Mint";
+    cls = "caro-badge-success";
+  } else if (currentStatus === "REJECTED") {
+    label = "Từ chối";
+    cls = "caro-badge-danger";
+  } else if (currentStatus === "APPROVED") {
+    label = "Đã duyệt";
+    cls = "caro-badge-info";
+  } else if (currentStatus === "PENDING_MINT_APPROVAL") {
+    if (b.logistics_status === "INSPECTED") {
+      label = "Chờ duyệt";
+      cls = "caro-badge-warning";
+    } else {
+      label = LOGISTICS_LABELS[b.logistics_status] || "Chờ lấy hàng";
+      cls = "caro-badge-info";
+    }
+  } else {
+    label = currentStatus || "—";
+    cls = "caro-badge-muted";
+  }
+
   return (
-    <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: m.bg, color: m.color }}>
-      {m.label}
+    <span className={`caro-badge ${cls}`} style={{ padding: "4px 10px", fontSize: 11 }}>
+      {label}
     </span>
   );
 }
@@ -33,8 +68,8 @@ function SkRow() {
   return (
     <tr>
       {[40, 120, 80, 80, 90, 60].map((w, i) => (
-        <td key={i} style={{ padding: "14px 16px" }}>
-          <div style={{ height: 12, background: "rgba(255,255,255,0.06)", borderRadius: 4, width: w, animation: "pulse 1.5s infinite" }} />
+        <td key={i} style={{ padding: "16px" }}>
+          <div style={{ height: 16, background: "rgba(255,255,255,0.05)", borderRadius: 4, width: w, animation: "caro-spin 1.5s infinite" }} />
         </td>
       ))}
     </tr>
@@ -82,28 +117,28 @@ export default function FarmerAssets() {
 
   return (
     <FarmerLayout title={PAGE_TITLE[activeStatus] ?? "Trạng thái lô hàng"}>
-      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}`}</style>
-      <div style={{ display: "grid", gap: 16, width: "100%" }}>
+      <div className="caro-page">
 
         {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+        <div className="caro-page-header">
           <div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>📦 {PAGE_TITLE[activeStatus] ?? "Trạng thái lô hàng"}</h2>
-            <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>Tổng cộng {total} lô hàng</div>
+            <h2 className="caro-page-title">📦 {PAGE_TITLE[activeStatus] ?? "Trạng thái lô hàng"}</h2>
+            <p className="caro-page-subtitle">Tổng cộng {total} lô hàng</p>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => refetch()} style={{ padding: "7px 12px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: "#e2e8f0", borderRadius: 6, cursor: "pointer", fontSize: 13 }}>↺</button>
-            <button onClick={() => nav("/farmer/status/submit")} style={{ padding: "7px 16px", background: C.accent, color: "#fff", border: "none", borderRadius: 6, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>+ Gửi lô hàng mới</button>
+          <div style={{ display: "flex", gap: 12 }}>
+            <button onClick={() => refetch()} className="caro-btn caro-btn-ghost">🔄</button>
+            <button onClick={() => nav("/farmer/status/submit")} className="caro-btn caro-btn-primary">+ Gửi lô hàng mới</button>
           </div>
         </div>
 
         {/* Tabs */}
-        <div style={{ display: "flex", gap: 0, background: C.card, borderRadius: 8, padding: 3, width: "fit-content", border: `1px solid ${C.border}` }}>
+        <div style={{ display: "flex", gap: 8, background: "var(--card-bg)", borderRadius: 12, padding: 6, width: "fit-content", border: "1px solid var(--border)", marginBottom: 16 }}>
           {TABS.map(t => {
             const act = activeStatus === t.status;
             return (
               <button key={t.label} onClick={() => nav(t.path)}
-                style={{ padding: "6px 16px", borderRadius: 6, background: act ? C.accent : "transparent", color: act ? "#fff" : C.muted, border: "none", cursor: "pointer", fontSize: 12, fontWeight: act ? 700 : 400, transition: "all 0.15s" }}>
+                className={`caro-btn caro-btn-sm ${act ? 'caro-btn-secondary' : 'caro-btn-ghost'}`}
+                style={{ padding: "8px 20px" }}>
                 {t.label}
               </button>
             );
@@ -111,62 +146,66 @@ export default function FarmerAssets() {
         </div>
 
         {/* Search */}
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Tìm kiếm theo mã lô hoặc kho lưu trữ..."
-          style={{ padding: "9px 14px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 7, color: "#e2e8f0", fontSize: 13, outline: "none", width: 320, boxSizing: "border-box" }}
-        />
+        <div className="caro-field" style={{ marginBottom: 24, maxWidth: 400 }}>
+          <input
+            className="caro-input"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Tìm kiếm theo mã lô hoặc kho lưu trữ..."
+          />
+        </div>
 
         {/* Table */}
-        <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div className="caro-table-container">
+          <table className="caro-table">
             <thead>
-              <tr style={{ background: "rgba(255,255,255,0.02)", borderBottom: `1px solid ${C.border}` }}>
+              <tr>
                 {["Mã lô", "Loại cà phê", "Khối lượng", "Ngày tạo", "Trạng thái", ""].map(h => (
-                  <th key={h} style={{ padding: "10px 16px", fontSize: 11, color: C.muted, fontWeight: 600, textAlign: "left", textTransform: "uppercase", letterSpacing: "0.5px", whiteSpace: "nowrap" }}>{h}</th>
+                  <th key={h}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {isLoading && [1, 2, 3, 4, 5].map(i => <SkRow key={i} />)}
               {isError && (
-                <tr><td colSpan={6} style={{ padding: 40, textAlign: "center", color: C.red }}>
-                  Lỗi khi tải dữ liệu. <button onClick={() => refetch()} style={{ color: C.tealLight, background: "none", border: "none", cursor: "pointer" }}>Thử lại</button>
+                <tr><td colSpan={6} style={{ padding: 40, textAlign: "center", color: "#ef4444" }}>
+                  Lỗi khi tải dữ liệu. <button onClick={() => refetch()} className="caro-btn caro-btn-ghost caro-btn-sm" style={{ color: "#408A71", marginLeft: 8 }}>Thử lại</button>
                 </td></tr>
               )}
               {!isLoading && !isError && filtered.length === 0 && (
-                <tr><td colSpan={6} style={{ padding: 60, textAlign: "center", color: C.muted }}>
-                  <div style={{ fontSize: 32, marginBottom: 10 }}>📭</div>
-                  <div style={{ fontSize: 14, marginBottom: 12 }}>Không tìm thấy lô hàng nào</div>
-                  <button onClick={() => nav("/farmer/status/submit")} style={{ padding: "8px 20px", background: C.accent, color: "#fff", border: "none", borderRadius: 6, fontWeight: 700, cursor: "pointer" }}>Gửi lô hàng đầu tiên</button>
+                <tr><td colSpan={6}>
+                  <div className="caro-empty" style={{ padding: "60px 0" }}>
+                    <div className="caro-empty-icon">📭</div>
+                    <div className="caro-empty-title">Không tìm thấy lô hàng nào</div>
+                    <button onClick={() => nav("/farmer/status/submit")} className="caro-btn caro-btn-primary" style={{ marginTop: 16 }}>Gửi lô hàng đầu tiên</button>
+                  </div>
                 </td></tr>
               )}
               {filtered.map(b => (
                 <tr key={b.id}
-                  style={{ borderBottom: `1px solid ${C.border}`, cursor: "pointer", transition: "background 0.1s" }}
+                  style={{ cursor: "pointer", transition: "background 0.2s" }}
                   onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                   onClick={() => nav(`/farmer/batch/${b.id}`)}
                 >
-                  <td style={{ padding: "12px 16px" }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: C.tealLight, fontFamily: "monospace" }}>{b.batch_id}</div>
-                    {b.storage_location && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{b.storage_location}</div>}
+                  <td style={{ padding: "16px" }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#408A71", fontFamily: "monospace" }}>{b.batch_id}</div>
+                    {b.storage_location && <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>{b.storage_location}</div>}
                   </td>
-                  <td style={{ padding: "12px 16px" }}>
-                    <span style={{ fontSize: 12, padding: "2px 8px", borderRadius: 4, background: "rgba(72,117,115,0.1)", color: C.tealLight }}>{b.coffee_type || "ROBUSTA"}</span>
+                  <td style={{ padding: "16px" }}>
+                    <span style={{ fontSize: 12, padding: "4px 10px", borderRadius: 6, background: "rgba(64, 138, 113,0.1)", color: "#408A71", fontWeight: 600 }}>{b.coffee_type || "ROBUSTA"}</span>
                   </td>
-                  <td style={{ padding: "12px 16px", fontSize: 13, color: "#e2e8f0", whiteSpace: "nowrap" }}>
+                  <td style={{ padding: "16px", fontSize: 14, color: "#f8fafc", whiteSpace: "nowrap", fontWeight: 500 }}>
                     {formatKg(b.quantity)}
                   </td>
-                  <td style={{ padding: "12px 16px", fontSize: 12, color: C.muted, whiteSpace: "nowrap" }}>
+                  <td style={{ padding: "16px", fontSize: 13, color: "#94a3b8", whiteSpace: "nowrap" }}>
                     {new Date(b.created_at).toLocaleDateString("vi-VN")}
                   </td>
-                  <td style={{ padding: "12px 16px" }}>
-                    <Badge status={b.status} />
+                  <td style={{ padding: "16px" }}>
+                    <Badge batch={b} />
                   </td>
-                  <td style={{ padding: "12px 16px", textAlign: "right" }}>
-                    <span style={{ fontSize: 12, color: C.tealLight }}>Chi tiết →</span>
+                  <td style={{ padding: "16px", textAlign: "right" }}>
+                    <span style={{ fontSize: 13, color: "#408A71", fontWeight: 600 }}>Chi tiết →</span>
                   </td>
                 </tr>
               ))}
@@ -176,11 +215,11 @@ export default function FarmerAssets() {
 
         {/* Rejected note */}
         {activeStatus === "REJECTED" && filtered.some(b => b.rejection_reason) && (
-          <div style={{ background: "rgba(246,70,93,0.06)", border: "1px solid rgba(246,70,93,0.2)", borderRadius: 8, padding: "14px 16px" }}>
+          <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 12, padding: "16px 20px", marginTop: 24 }}>
             {filtered.filter(b => b.rejection_reason).map(b => (
-              <div key={b.id} style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: C.red }}>{b.batch_id}</div>
-                <div style={{ fontSize: 12, color: "#e2e8f0", marginTop: 2 }}>Lý do từ chối: {b.rejection_reason}</div>
+              <div key={b.id} style={{ marginBottom: 12, "&:last-child": { marginBottom: 0 } }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#ef4444" }}>{b.batch_id}</div>
+                <div style={{ fontSize: 13, color: "#f8fafc", marginTop: 4 }}>Lý do từ chối: {b.rejection_reason}</div>
               </div>
             ))}
           </div>
@@ -188,15 +227,15 @@ export default function FarmerAssets() {
 
         {/* Minted details */}
         {activeStatus === "MINTED" && filtered.filter(b => b.minted_amount).length > 0 && (
-          <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ display: "grid", gap: 12, marginTop: 24 }}>
             {filtered.filter(b => b.minted_amount).map(b => (
-              <div key={b.id} style={{ background: "rgba(14,203,129,0.05)", border: "1px solid rgba(14,203,129,0.12)", borderRadius: 8, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                <div style={{ fontSize: 12, color: C.muted, fontFamily: "monospace" }}>{b.batch_id}</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.green }}>{formatToken(b.minted_amount, "CaRo")} đã được mint</div>
-                <div style={{ fontSize: 11, color: C.muted }}>{b.minted_at ? new Date(b.minted_at).toLocaleString("vi-VN") : "—"}</div>
+              <div key={b.id} style={{ background: "rgba(176, 228, 204,0.05)", border: "1px solid rgba(176, 228, 204,0.15)", borderRadius: 12, padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+                <div style={{ fontSize: 13, color: "#94a3b8", fontFamily: "monospace", fontWeight: 600 }}>{b.batch_id}</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "#B0E4CC" }}>{formatToken(b.minted_amount, "CaRo")} đã được mint</div>
+                <div style={{ fontSize: 13, color: "#94a3b8" }}>{b.minted_at ? new Date(b.minted_at).toLocaleString("vi-VN") : "—"}</div>
                 {b.tx_hash && (
                   <a href={`https://sepolia.etherscan.io/tx/${b.tx_hash}`} target="_blank" rel="noreferrer"
-                    style={{ fontSize: 11, color: C.tealLight, overflow: "hidden", textOverflow: "ellipsis", maxWidth: 200, whiteSpace: "nowrap" }}>
+                    style={{ fontSize: 13, color: "#408A71", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 240, whiteSpace: "nowrap", fontFamily: "monospace", fontWeight: 600, textDecoration: "none" }}>
                     {b.tx_hash.slice(0, 16)}…
                   </a>
                 )}
@@ -207,14 +246,16 @@ export default function FarmerAssets() {
 
         {/* Pagination */}
         {pages > 1 && (
-          <div style={{ display: "flex", gap: 6, justifyContent: "center", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", alignItems: "center", marginTop: 24 }}>
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
-              style={{ padding: "6px 14px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: page <= 1 ? C.muted : "#e2e8f0", borderRadius: 5, cursor: page <= 1 ? "default" : "pointer", fontSize: 12 }}>
+              className={`caro-btn caro-btn-sm ${page <= 1 ? "caro-btn-ghost" : "caro-btn-secondary"}`}
+              style={{ opacity: page <= 1 ? 0.5 : 1 }}>
               ← Trước
             </button>
-            <span style={{ fontSize: 12, color: C.muted, padding: "0 8px" }}>Trang {page} / {pages}</span>
+            <span style={{ fontSize: 14, color: "#94a3b8", padding: "0 8px", fontWeight: 600 }}>Trang {page} / {pages}</span>
             <button onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={page >= pages}
-              style={{ padding: "6px 14px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: page >= pages ? C.muted : "#e2e8f0", borderRadius: 5, cursor: page >= pages ? "default" : "pointer", fontSize: 12 }}>
+              className={`caro-btn caro-btn-sm ${page >= pages ? "caro-btn-ghost" : "caro-btn-secondary"}`}
+              style={{ opacity: page >= pages ? 0.5 : 1 }}>
               Sau →
             </button>
           </div>

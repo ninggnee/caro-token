@@ -105,7 +105,7 @@ export default function RegisterWallet() {
           {account ? (
             <div style={{ textAlign: "center", padding: "20px 0" }}>
               <div style={{ fontSize: 50, marginBottom: 16 }}>🎉</div>
-              <h3 style={{ color: "#2f5f5d", marginBottom: 8, fontSize: 18 }}>Kết nối thành công!</h3>
+              <h3 style={{ color: "#285A48", marginBottom: 8, fontSize: 18 }}>Kết nối thành công!</h3>
               <p style={{ color: "#666", fontSize: 14, marginBottom: 20 }}>
                 Địa chỉ ví đã được liên kết với tài khoản của bạn.
               </p>
@@ -117,7 +117,7 @@ export default function RegisterWallet() {
                 padding: "16px",
                 fontFamily: "monospace",
                 fontSize: 14,
-                color: "#243b3a",
+                color: "#091413",
                 wordBreak: "break-all",
                 marginBottom: 30
               }}>
@@ -136,7 +136,7 @@ export default function RegisterWallet() {
           ) : (
             <div>
               <div style={{
-                background: "#fafcfc",
+                background: "#122622",
                 border: "1.5px dashed #cfd8d8",
                 borderRadius: 16,
                 padding: "32px 24px",
@@ -144,7 +144,7 @@ export default function RegisterWallet() {
                 marginBottom: 30
               }}>
                 <div style={{ fontSize: 40, marginBottom: 12 }}>🦊</div>
-                <h4 style={{ color: "#487573", marginBottom: 8, fontWeight: 700 }}>MetaMask Wallet</h4>
+                <h4 style={{ color: "#408A71", marginBottom: 8, fontWeight: 700 }}>MetaMask Wallet</h4>
                 <p style={{ color: "#888", fontSize: 13, lineHeight: 1.5 }}>
                   Liên kết ví Web3 của bạn để bắt đầu giao dịch, ký hợp đồng và sở hữu token cà phê.
                 </p>

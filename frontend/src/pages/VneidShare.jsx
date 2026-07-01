@@ -24,9 +24,7 @@ export default function VneidShare() {
 
   const handleCreate = async () => {
     if (!agree) return alert('Bạn phải đồng ý điều khoản');
-    // send to backend to create account; fallback navigate to KYC
     try {
-      // await axios.post('/auth/create-from-vneid', { received, share: { shareAddress, shareEmail, sharePhone, sharePortrait }, role });
       navigate('/kyc-cccd');
     } catch (e) {
       console.error(e);
@@ -35,55 +33,208 @@ export default function VneidShare() {
   };
 
   return (
-    <div style={{ padding: 24 }}>
-      <h1>Chia sẻ dữ liệu VNeID</h1>
-      <div style={{ marginTop: 12, background: 'rgba(255,255,255,0.02)', padding: 12, borderRadius: 8 }}>
-        <div>✓ Xác thực thành công</div>
-        <div style={{ marginTop: 8 }}>
-          <div><b>Họ tên:</b> {received.fullname}</div>
-          <div><b>Mã định danh:</b> {received.id}</div>
-          <div><b>Ngày sinh:</b> {received.dob}</div>
-          <div><b>Trạng thái VNeID:</b> Mức độ {received.level}</div>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        background: "radial-gradient(circle at top left,#408A71 0%,transparent 35%), radial-gradient(circle at bottom right,#18332d 0%,transparent 40%), linear-gradient(135deg,#285A48,#091413)",
+        color: "#f8fafc",
+        fontFamily: "'Inter', sans-serif",
+      }}
+    >
+      <div
+        className="caro-card"
+        style={{
+          width: "100%",
+          maxWidth: 640,
+          background: "#122622",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          boxShadow: "0 20px 60px rgba(0,0,0,.35)",
+          padding: 40,
+          display: "flex",
+          flexDirection: "column",
+          gap: 24,
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <div className="hero-badge" style={{ margin: "0 auto 12px" }}>
+            VNeID Authorization
+          </div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#B0E4CC" }}>
+            Chia sẻ dữ liệu VNeID
+          </h1>
+          <p style={{ color: "#94a3b8", fontSize: 14, marginTop: 6 }}>
+            ✓ Xác thực VNeID thành công. Vui lòng cấp quyền chia sẻ thông tin để khởi tạo tài khoản.
+          </p>
         </div>
-      </div>
 
-      <div style={{ marginTop: 12 }}>
-        <h3>Dữ liệu bắt buộc</h3>
+        {/* User Info Preview */}
+        <div
+          style={{
+            background: "rgba(176, 228, 204, 0.05)",
+            border: "1px solid rgba(176, 228, 204, 0.15)",
+            borderRadius: 12,
+            padding: 18,
+          }}
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 14 }}>
+            <div>
+              <span style={{ color: "#94a3b8" }}>Họ tên:</span>{" "}
+              <strong>{received.fullname}</strong>
+            </div>
+            <div>
+              <span style={{ color: "#94a3b8" }}>Mã định danh:</span>{" "}
+              <strong>{received.id}</strong>
+            </div>
+            <div>
+              <span style={{ color: "#94a3b8" }}>Ngày sinh:</span>{" "}
+              <strong>{received.dob}</strong>
+            </div>
+            <div>
+              <span style={{ color: "#94a3b8" }}>Trạng thái VNeID:</span>{" "}
+              <strong style={{ color: "#B0E4CC" }}>Mức độ {received.level}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+          {/* Mandatory Data */}
+          <div>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: "#B0E4CC", marginBottom: 12 }}>
+              Dữ liệu bắt buộc
+            </h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 14 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, color: "#cbd5e1" }}>
+                <input type="checkbox" checked readOnly style={{ accentColor: "#408A71" }} /> Họ và tên
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, color: "#cbd5e1" }}>
+                <input type="checkbox" checked readOnly style={{ accentColor: "#408A71" }} /> Mã định danh
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, color: "#cbd5e1" }}>
+                <input type="checkbox" checked readOnly style={{ accentColor: "#408A71" }} /> Ngày sinh
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, color: "#cbd5e1" }}>
+                <input type="checkbox" checked readOnly style={{ accentColor: "#408A71" }} /> Trạng thái VNeID
+              </label>
+            </div>
+          </div>
+
+          {/* Optional Data */}
+          <div>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: "#B0E4CC", marginBottom: 12 }}>
+              Dữ liệu tùy chọn
+            </h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 14 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: "#cbd5e1" }}>
+                <input
+                  type="checkbox"
+                  checked={shareAddress}
+                  onChange={(e) => setShareAddress(e.target.checked)}
+                  style={{ accentColor: "#B0E4CC" }}
+                />{" "}
+                Địa chỉ ({received.address})
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: "#cbd5e1" }}>
+                <input
+                  type="checkbox"
+                  checked={shareEmail}
+                  onChange={(e) => setShareEmail(e.target.checked)}
+                  style={{ accentColor: "#B0E4CC" }}
+                />{" "}
+                Email ({received.email})
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: "#cbd5e1" }}>
+                <input
+                  type="checkbox"
+                  checked={sharePhone}
+                  onChange={(e) => setSharePhone(e.target.checked)}
+                  style={{ accentColor: "#B0E4CC" }}
+                />{" "}
+                Số điện thoại ({received.phone})
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: "#cbd5e1" }}>
+                <input
+                  type="checkbox"
+                  checked={sharePortrait}
+                  onChange={(e) => setSharePortrait(e.target.checked)}
+                  style={{ accentColor: "#B0E4CC" }}
+                />{" "}
+                Ảnh chân dung
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Role Selection */}
         <div>
-          <label><input type="checkbox" checked readOnly /> Họ và tên</label>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: "#B0E4CC", marginBottom: 12 }}>
+            Chọn vai trò tài khoản
+          </h3>
+          <div style={{ display: "flex", gap: 20 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: "#cbd5e1", fontSize: 14 }}>
+              <input
+                type="radio"
+                name="role"
+                checked={role === 'farmer'}
+                onChange={() => setRole('farmer')}
+                style={{ accentColor: "#B0E4CC" }}
+              />{" "}
+              Farmer (Nông dân / HTX)
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: "#cbd5e1", fontSize: 14 }}>
+              <input
+                type="radio"
+                name="role"
+                checked={role === 'trader'}
+                onChange={() => setRole('trader')}
+                style={{ accentColor: "#B0E4CC" }}
+              />{" "}
+              Trader (Nhà kinh doanh / Giao dịch)
+            </label>
+          </div>
         </div>
-        <div>
-          <label><input type="checkbox" checked readOnly /> Mã định danh</label>
+
+        {/* Terms Consent */}
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 16 }}>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", fontSize: 13, color: "#cbd5e1", lineHeight: 1.5 }}>
+            <input
+              type="checkbox"
+              checked={agree}
+              onChange={(e) => setAgree(e.target.checked)}
+              style={{ accentColor: "#B0E4CC", marginTop: 2 }}
+            />
+            <span>
+              Tôi đồng ý cho phép hệ thống sử dụng dữ liệu VNeID đã chọn để xác thực danh tính và tạo tài khoản trên CaRo Exchange.
+            </span>
+          </label>
         </div>
-        <div>
-          <label><input type="checkbox" checked readOnly /> Ngày sinh</label>
+
+        {/* Actions */}
+        <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+          <button
+            onClick={handleCreate}
+            className="caro-btn caro-btn-primary"
+            style={{ flex: 1, padding: 14, borderRadius: 10 }}
+          >
+            Tạo tài khoản
+          </button>
+          <button
+            onClick={() => navigate('/login')}
+            className="caro-btn caro-btn-ghost"
+            style={{
+              padding: "14px 28px",
+              borderRadius: 10,
+              color: "#B0E4CC",
+              borderColor: "rgba(176, 228, 204, 0.25)",
+              background: "transparent",
+            }}
+          >
+            Hủy bỏ
+          </button>
         </div>
-        <div>
-          <label><input type="checkbox" checked readOnly /> Trạng thái VNeID</label>
-        </div>
-      </div>
-
-      <div style={{ marginTop: 12 }}>
-        <h3>Dữ liệu tùy chọn</h3>
-        <div><label><input type="checkbox" checked={shareAddress} onChange={(e) => setShareAddress(e.target.checked)} /> Địa chỉ ({received.address})</label></div>
-        <div><label><input type="checkbox" checked={shareEmail} onChange={(e) => setShareEmail(e.target.checked)} /> Email ({received.email})</label></div>
-        <div><label><input type="checkbox" checked={sharePhone} onChange={(e) => setSharePhone(e.target.checked)} /> Số điện thoại ({received.phone})</label></div>
-        <div><label><input type="checkbox" checked={sharePortrait} onChange={(e) => setSharePortrait(e.target.checked)} /> Ảnh chân dung</label></div>
-      </div>
-
-      <div style={{ marginTop: 12 }}>
-        <h3>Chọn vai trò tài khoản</h3>
-        <label><input type="radio" name="role" checked={role==='farmer'} onChange={() => setRole('farmer')} /> Farmer</label>
-        <label style={{ marginLeft: 8 }}><input type="radio" name="role" checked={role==='trader'} onChange={() => setRole('trader')} /> Trader</label>
-      </div>
-
-      <div style={{ marginTop: 12 }}>
-        <label><input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} /> Tôi đồng ý cho phép hệ thống sử dụng dữ liệu VNeID để xác thực danh tính và tạo tài khoản.</label>
-      </div>
-
-      <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-        <button onClick={handleCreate} className="btn">Tạo tài khoản</button>
-        <button onClick={() => navigate('/login')}>Hủy</button>
       </div>
     </div>
   );

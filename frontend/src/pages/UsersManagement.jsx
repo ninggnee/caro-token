@@ -6,6 +6,8 @@ export default function UsersManagement() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("all");
+  const [abnormalActivities, setAbnormalActivities] = useState([]);
+  const [loadingAbnormal, setLoadingAbnormal] = useState(false);
 
   // Edit Modal State
   const [editingUser, setEditingUser] = useState(null);
@@ -34,8 +36,21 @@ export default function UsersManagement() {
     }
   };
 
+  const fetchAbnormal = async () => {
+    setLoadingAbnormal(true);
+    try {
+      const res = await axios.get("/admin/users/abnormal");
+      setAbnormalActivities(res.data.activities || []);
+    } catch (err) {
+      console.error("fetchAbnormal error", err);
+    } finally {
+      setLoadingAbnormal(false);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
+    fetchAbnormal();
   }, [filter]);
 
   const handleEdit = (user) => {
@@ -85,24 +100,30 @@ export default function UsersManagement() {
   };
 
   const roleBadge = (role) => {
-    const bg = role === "admin" ? "rgba(246,70,93,0.12)" : role === "farmer" ? "rgba(14,203,129,0.12)" : "rgba(56,189,248,0.12)";
-    const color = role === "admin" ? "#f6465d" : role === "farmer" ? "#0ecb81" : "#38bdf8";
-    const text = role === "admin" ? "Admin" : role === "farmer" ? "Farmer" : "Trader";
+    let className = "caro-badge ";
+    let text = role;
+    if (role === "admin") { className += "caro-badge-danger"; text = "Admin"; }
+    else if (role === "farmer") { className += "caro-badge-success"; text = "Farmer"; }
+    else if (role === "trader") { className += "caro-badge-info"; text = "Trader"; }
+    else { className += "caro-badge-muted"; }
 
     return (
-      <span style={{ background: bg, color, padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+      <span className={className}>
+        <span className="caro-badge-dot"></span>
         {text}
       </span>
     );
   };
 
   const kycBadge = (status) => {
-    const bg = status === "approved" ? "rgba(14,203,129,0.12)" : status === "rejected" ? "rgba(246,70,93,0.12)" : "rgba(240,185,11,0.12)";
-    const color = status === "approved" ? "#0ecb81" : status === "rejected" ? "#f6465d" : "#f0b90b";
-    const text = status === "approved" ? "Đã duyệt" : status === "rejected" ? "Bị từ chối" : "Chờ duyệt";
+    let className = "caro-badge ";
+    let text = status;
+    if (status === "approved") { className += "caro-badge-success"; text = "Đã duyệt"; }
+    else if (status === "rejected") { className += "caro-badge-danger"; text = "Từ chối"; }
+    else { className += "caro-badge-warning"; text = "Chờ duyệt"; }
 
     return (
-      <span style={{ background: bg, color, padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+      <span className={className}>
         {text}
       </span>
     );
@@ -110,185 +131,276 @@ export default function UsersManagement() {
 
   return (
     <DashboardLayout title="Quản lý người dùng">
-      <div style={{ display: "grid", gap: 20 }}>
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className="caro-page">
+        {/* ── Header ── */}
+        <div className="caro-page-header">
           <div>
-            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>Quản lý người dùng</h1>
-            <div style={{ color: "#9ca3af", marginTop: 6, fontSize: 13 }}>
+            <h1 className="caro-page-title">Quản lý người dùng</h1>
+            <div className="caro-page-subtitle">
               Quản lý và cập nhật thông tin toàn bộ thành viên trong hệ thống
             </div>
           </div>
-
-          <div style={{ background: "#172524", padding: "10px 16px", borderRadius: 12, border: "1px solid rgba(72,117,115,0.15)", fontSize: 13, color: "#9aa5b4" }}>
-            👥 Tổng số người dùng: {users.length}
+          <div className="caro-badge caro-badge-muted" style={{ fontSize: 13, padding: "8px 16px" }}>
+            👥 Tổng số: {users.length}
           </div>
         </div>
 
-        {/* Filter */}
-        <div style={{ background: "#172524", padding: 16, borderRadius: 16, border: "1px solid rgba(72,117,115,0.15)", display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ color: "#9ca3af", fontWeight: 600, fontSize: 13 }}>
+        {/* ── Filter ── */}
+        <div className="caro-card caro-card-sm" style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 20px" }}>
+          <span className="caro-label" style={{ margin: 0, fontSize: 13 }}>
             Lọc theo vai trò:
           </span>
-
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            style={{ background: "#0d1413", color: "#fff", border: "1px solid rgba(72,117,115,0.2)", borderRadius: 8, padding: "8px 12px", outline: "none", fontSize: 13 }}
-          >
-            <option value="all">Tất cả</option>
-            <option value="farmer">Farmer (Nông dân)</option>
-            <option value="trader">Trader (Nhà giao dịch)</option>
-            <option value="admin">Admin (Quản trị viên)</option>
-          </select>
+          <div style={{ position: "relative", width: 200 }}>
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="caro-input caro-select"
+              style={{ padding: "8px 14px", height: "auto" }}
+            >
+              <option value="all">Tất cả</option>
+              <option value="farmer">Farmer (Nông dân)</option>
+              <option value="trader">Trader (Nhà giao dịch)</option>
+              <option value="admin">Admin (Quản trị viên)</option>
+            </select>
+          </div>
         </div>
 
-        {/* Table */}
-        <div style={{ background: "#172524", padding: 20, borderRadius: 16, border: "1px solid rgba(72,117,115,0.15)", overflowX: "auto" }}>
-          {loading ? (
-            <div style={{ color: "#9aa5b4", fontSize: 14 }}>Đang tải người dùng...</div>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid rgba(72,117,115,0.15)" }}>
-                  <th style={thStyle}>STT</th>
-                  <th style={thStyle}>Họ và tên</th>
-                  <th style={thStyle}>Email</th>
-                  <th style={thStyle}>Số điện thoại</th>
-                  <th style={thStyle}>Vai trò</th>
-                  <th style={thStyle}>Trạng thái KYC</th>
-                  <th style={thStyle}>Hoạt động</th>
-                  <th style={thStyle}>Ví MetaMask</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>Thao tác</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {users.map((u, index) => (
-                  <tr key={u.id} style={{ borderBottom: "1px solid rgba(72,117,115,0.1)" }}>
-                    <td style={tdStyle}>{index + 1}</td>
-                    <td style={{ ...tdStyle, fontWeight: 600 }}>{u.full_name || "—"}</td>
-                    <td style={tdStyle}>{u.email}</td>
-                    <td style={tdStyle}>{u.phone || "—"}</td>
-                    <td style={tdStyle}>{roleBadge(u.role)}</td>
-                    <td style={tdStyle}>{kycBadge(u.kyc_status)}</td>
-                    <td style={tdStyle}>
-                      {u.is_active === 0 ? (
-                        <span style={{ color: "#f6465d", fontSize: 12, fontWeight: 600 }}>🔒 Khóa</span>
-                      ) : (
-                        <span style={{ color: "#0ecb81", fontSize: 12, fontWeight: 600 }}>🟢 Hoạt động</span>
-                      )}
-                    </td>
-                    <td style={{ ...tdStyle, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "monospace", fontSize: 12 }}>
-                      {u.wallet_address || "—"}
-                    </td>
-
-                    <td style={{ ...tdStyle, textAlign: "right" }}>
-                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                        <button onClick={() => handleEdit(u)} style={editBtnStyle}>
-                          ✏️ Sửa
-                        </button>
-                        {u.role !== "admin" && (
-                          <button onClick={() => handleDelete(u.id)} style={deleteBtnStyle}>
-                            🗑 Xóa
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-
-                {users.length === 0 && (
+        {/* ── Users Table ── */}
+        <div className="caro-card" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="caro-table-wrap">
+            {loading ? (
+              <div className="caro-empty">
+                <span style={{ display: "inline-block", animation: "caro-spin 1s linear infinite", fontSize: 24 }}>🔄</span>
+                <div className="caro-empty-title" style={{ marginTop: 10 }}>Đang tải người dùng...</div>
+              </div>
+            ) : (
+              <table className="caro-table">
+                <thead>
                   <tr>
-                    <td colSpan={9} style={{ textAlign: "center", padding: 30, color: "#9ca3af", fontSize: 14 }}>
-                      Không tìm thấy người dùng nào
-                    </td>
+                    <th>STT</th>
+                    <th>Họ và tên</th>
+                    <th>Email</th>
+                    <th>Số điện thoại</th>
+                    <th>Vai trò</th>
+                    <th>Trạng thái KYC</th>
+                    <th>Hoạt động</th>
+                    <th>Ví MetaMask</th>
+                    <th style={{ textAlign: "right" }}>Thao tác</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          )}
+                </thead>
+                <tbody>
+                  {users.map((u, index) => (
+                    <tr key={u.id}>
+                      <td style={{ color: "#64748b" }}>{index + 1}</td>
+                      <td style={{ fontWeight: 700, color: "#f8fafc" }}>{u.full_name || "—"}</td>
+                      <td>{u.email}</td>
+                      <td>{u.phone || "—"}</td>
+                      <td>{roleBadge(u.role)}</td>
+                      <td>{kycBadge(u.kyc_status)}</td>
+                      <td>
+                        {u.is_active === 0 ? (
+                          <span style={{ color: "#ef4444", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                            🔒 Khóa
+                          </span>
+                        ) : (
+                          <span style={{ color: "#B0E4CC", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                            🟢 Mở
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "#94a3b8" }}>
+                        {u.wallet_address && u.wallet_address.toLowerCase() !== "0x0ecbecfdb336a1b56d8f9cfd634844d0efd70cf4" ? u.wallet_address : "—"}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                          <button onClick={() => handleEdit(u)} className="caro-btn caro-btn-ghost caro-btn-sm" style={{ color: "#408A71" }}>
+                            Sửa
+                          </button>
+                          {u.role !== "admin" && (
+                            <button onClick={() => handleDelete(u.id)} className="caro-btn caro-btn-ghost caro-btn-sm" style={{ color: "#ef4444" }}>
+                              Xóa
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {users.length === 0 && (
+                    <tr>
+                      <td colSpan={9}>
+                        <div className="caro-empty" style={{ padding: "40px 20px" }}>
+                          <div className="caro-empty-icon">👥</div>
+                          <div className="caro-empty-title">Không tìm thấy người dùng nào</div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
+
+        {/* ── Abnormal Activities Section ── */}
+        <div style={{ marginTop: 8 }}>
+          <h2 style={{ margin: "0 0 6px 0", fontSize: 18, fontWeight: 800, color: "#ef4444", display: "flex", alignItems: "center", gap: 8 }}>
+            ⚠️ Cảnh báo hành vi bất thường
+          </h2>
+          <div className="caro-page-subtitle" style={{ marginBottom: 16 }}>
+            Các tài khoản phát hiện tần suất rút token quá nhanh (đúc & chuyển nhiều lần trong thời gian ngắn)
+          </div>
+
+          <div className="caro-card" style={{ padding: 0, overflow: "hidden", borderColor: "rgba(239,68,68,0.3)" }}>
+            <div className="caro-table-wrap">
+              {loadingAbnormal ? (
+                <div style={{ color: "#9aa5b4", fontSize: 14, padding: 24, textAlign: "center" }}>Đang tải danh sách cảnh báo...</div>
+              ) : (
+                <table className="caro-table">
+                  <thead>
+                    <tr>
+                      <th>STT</th>
+                      <th>Thành viên</th>
+                      <th>Email</th>
+                      <th>Vai trò</th>
+                      <th>Hành vi phát hiện</th>
+                      <th>Thời gian phát hiện</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {abnormalActivities.map((act, index) => (
+                      <tr key={act.id}>
+                        <td style={{ color: "#64748b" }}>{index + 1}</td>
+                        <td style={{ fontWeight: 700, color: "#f8fafc" }}>{act.full_name || "—"}</td>
+                        <td>{act.email}</td>
+                        <td>{roleBadge(act.role)}</td>
+                        <td style={{ color: "#ef4444", fontWeight: 600 }}>{act.description}</td>
+                        <td style={{ color: "#94a3b8" }}>
+                          {new Date(act.created_at).toLocaleString("vi-VN")}
+                        </td>
+                      </tr>
+                    ))}
+                    {abnormalActivities.length === 0 && (
+                      <tr>
+                        <td colSpan={6}>
+                          <div className="caro-empty" style={{ padding: "30px 20px" }}>
+                            <div className="caro-empty-icon" style={{ fontSize: 24, color: "#B0E4CC", opacity: 1 }}>✅</div>
+                            <div className="caro-empty-title" style={{ marginTop: 8 }}>Chưa phát hiện hành vi bất thường nào</div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      {/* EDIT MODAL POPUP */}
+      {/* ── EDIT MODAL POPUP ── */}
       {editingUser && (
-        <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0, 0, 0, 0.75)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 9999, padding: 20 }}>
-          <div style={{ background: "#172524", borderRadius: 16, border: "1px solid rgba(72,117,115,0.2)", width: 500, maxWeight: "90vw", overflow: "hidden", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.5)" }}>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(72,117,115,0.15)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#7fe0c9" }}>Chỉnh sửa thông tin thành viên</h3>
-              <button onClick={() => setEditingUser(null)} style={{ background: "transparent", border: "none", color: "#9ca3af", fontSize: 18, cursor: "pointer" }}>✕</button>
+        <div
+          style={{
+            position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+            background: "rgba(15, 23, 42, 0.8)", backdropFilter: "blur(4px)",
+            display: "flex", justifyContent: "center", alignItems: "center",
+            zIndex: 9999, padding: 20
+          }}
+        >
+          <div
+            className="caro-card"
+            style={{ width: 500, maxWidth: "100%", padding: 0, display: "flex", flexDirection: "column", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.6)" }}
+          >
+            <div className="caro-section-header">
+              <h3 className="caro-section-title" style={{ fontSize: 16 }}>Chỉnh sửa thông tin thành viên</h3>
+              <button
+                onClick={() => setEditingUser(null)}
+                style={{ background: "transparent", border: "none", color: "#64748b", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: "50%" }}
+                onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+              >
+                ✕
+              </button>
             </div>
-            
-            <form onSubmit={handleUpdate} style={{ padding: 20, display: "grid", gap: 14 }}>
-              <div style={formGroupStyle}>
-                <label style={labelStyle}>Họ và tên</label>
-                <input 
-                  type="text" 
-                  value={editForm.full_name} 
-                  onChange={e => setEditForm({ ...editForm, full_name: e.target.value })} 
-                  style={inputStyle} 
+
+            <form onSubmit={handleUpdate} style={{ padding: 24, display: "grid", gap: 16 }}>
+              <div className="caro-field">
+                <label className="caro-label">Họ và tên</label>
+                <input
+                  type="text"
+                  value={editForm.full_name}
+                  onChange={e => setEditForm({ ...editForm, full_name: e.target.value })}
+                  className="caro-input"
                 />
               </div>
 
-              <div style={formGroupStyle}>
-                <label style={labelStyle}>Email</label>
-                <input 
-                  type="email" 
-                  value={editForm.email} 
-                  onChange={e => setEditForm({ ...editForm, email: e.target.value })} 
-                  style={inputStyle} 
+              <div className="caro-field">
+                <label className="caro-label">Email</label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                  className="caro-input"
                 />
               </div>
 
-              <div style={formGroupStyle}>
-                <label style={labelStyle}>Số điện thoại</label>
-                <input 
-                  type="text" 
-                  value={editForm.phone} 
-                  onChange={e => setEditForm({ ...editForm, phone: e.target.value })} 
-                  style={inputStyle} 
+              <div className="caro-field">
+                <label className="caro-label">Số điện thoại</label>
+                <input
+                  type="text"
+                  value={editForm.phone}
+                  onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
+                  className="caro-input"
                 />
               </div>
 
-              <div style={formGroupStyle}>
-                <label style={labelStyle}>Địa chỉ</label>
-                <input 
-                  type="text" 
-                  value={editForm.address} 
-                  onChange={e => setEditForm({ ...editForm, address: e.target.value })} 
-                  style={inputStyle} 
+              <div className="caro-field">
+                <label className="caro-label">Địa chỉ</label>
+                <input
+                  type="text"
+                  value={editForm.address}
+                  onChange={e => setEditForm({ ...editForm, address: e.target.value })}
+                  className="caro-input"
                 />
               </div>
 
-              <div style={formGroupStyle}>
-                <label style={labelStyle}>Vai trò</label>
-                <select 
-                  value={editForm.role} 
-                  onChange={e => setEditForm({ ...editForm, role: e.target.value })} 
-                  style={selectStyle}
-                >
-                  <option value="farmer">Farmer</option>
-                  <option value="trader">Trader</option>
-                  <option value="admin">Admin</option>
-                </select>
+              <div className="caro-field">
+                <label className="caro-label">Vai trò</label>
+                <div style={{ position: "relative" }}>
+                  <select
+                    value={editForm.role}
+                    onChange={e => setEditForm({ ...editForm, role: e.target.value })}
+                    className="caro-input caro-select"
+                  >
+                    <option value="farmer">Farmer</option>
+                    <option value="trader">Trader</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
               </div>
 
-              <div style={formGroupStyle}>
-                <label style={labelStyle}>Trạng thái tài khoản</label>
-                <select 
-                  value={editForm.is_active} 
-                  onChange={e => setEditForm({ ...editForm, is_active: Number(e.target.value) })} 
-                  style={selectStyle}
-                >
-                  <option value={1}>🟢 Hoạt động</option>
-                  <option value={0}>🔒 Khóa tài khoản</option>
-                </select>
+              <div className="caro-field">
+                <label className="caro-label">Trạng thái tài khoản</label>
+                <div style={{ position: "relative" }}>
+                  <select
+                    value={editForm.is_active}
+                    onChange={e => setEditForm({ ...editForm, is_active: Number(e.target.value) })}
+                    className="caro-input caro-select"
+                  >
+                    <option value={1}>🟢 Hoạt động</option>
+                    <option value={0}>🔒 Khóa tài khoản</option>
+                  </select>
+                </div>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
-                <button type="button" onClick={() => setEditingUser(null)} style={cancelBtnStyle}>Hủy</button>
-                <button type="submit" style={saveBtnStyle}>Lưu thay đổi</button>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 12 }}>
+                <button type="button" onClick={() => setEditingUser(null)} className="caro-btn caro-btn-ghost">
+                  Hủy
+                </button>
+                <button type="submit" className="caro-btn caro-btn-primary">
+                  Lưu thay đổi
+                </button>
               </div>
             </form>
           </div>
@@ -297,97 +409,3 @@ export default function UsersManagement() {
     </DashboardLayout>
   );
 }
-
-const thStyle = {
-  textAlign: "left",
-  padding: "14px 12px",
-  color: "#9ca3af",
-  fontWeight: 600,
-  fontSize: 13
-};
-
-const tdStyle = {
-  padding: "14px 12px",
-  fontSize: 13,
-  color: "#e2e8f0"
-};
-
-const editBtnStyle = {
-  background: "transparent",
-  border: "1px solid rgba(72,117,115,0.3)",
-  color: "#7fe0c9",
-  padding: "6px 12px",
-  borderRadius: 8,
-  cursor: "pointer",
-  fontSize: 12,
-  fontWeight: 600,
-  transition: "0.2s"
-};
-
-const deleteBtnStyle = {
-  background: "transparent",
-  border: "1px solid rgba(246,70,93,0.3)",
-  color: "#f6465d",
-  padding: "6px 12px",
-  borderRadius: 8,
-  cursor: "pointer",
-  fontSize: 12,
-  fontWeight: 600,
-  transition: "0.2s"
-};
-
-const formGroupStyle = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 6
-};
-
-const labelStyle = {
-  fontSize: 12,
-  color: "#6b7a99",
-  fontWeight: 600,
-  textTransform: "uppercase"
-};
-
-const inputStyle = {
-  background: "#0d1413",
-  border: "1px solid rgba(72,117,115,0.2)",
-  borderRadius: 8,
-  padding: "10px 12px",
-  color: "#fff",
-  fontSize: 13,
-  outline: "none"
-};
-
-const selectStyle = {
-  background: "#0d1413",
-  border: "1px solid rgba(72,117,115,0.2)",
-  borderRadius: 8,
-  padding: "10px 12px",
-  color: "#fff",
-  fontSize: 13,
-  outline: "none",
-  width: "100%"
-};
-
-const cancelBtnStyle = {
-  background: "rgba(255,255,255,0.02)",
-  border: "1px solid rgba(72,117,115,0.15)",
-  color: "#9aa5b4",
-  padding: "8px 16px",
-  borderRadius: 8,
-  cursor: "pointer",
-  fontWeight: 600,
-  fontSize: 13
-};
-
-const saveBtnStyle = {
-  background: "#487573",
-  border: "none",
-  color: "#fff",
-  padding: "8px 16px",
-  borderRadius: 8,
-  cursor: "pointer",
-  fontWeight: 600,
-  fontSize: 13
-};

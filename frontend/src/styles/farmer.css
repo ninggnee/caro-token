@@ -1,5 +1,5 @@
 .dashboard-card {
-  background: #141a1f;
+  background: #122622;
   padding: 20px;
   border-radius: 12px;
   border: 1px solid rgba(255,255,255,0.05);
@@ -11,6 +11,6 @@
 }
 
 .dashboard-card div:first-child {
-  color: #9fcfc6;
+  color: #B0E4CC;
   font-size: 13px;
 }

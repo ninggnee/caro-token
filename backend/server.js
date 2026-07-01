@@ -91,4 +91,11 @@ app.listen(PORT, async () => {
       console.warn('⚠️  MockMarketEngine failed to start:', err.message);
     }
   }
+
+  // Start the Logistics Simulation Daemon
+  import('./services/SimulationDaemon.js').then(daemon => {
+    daemon.startDaemon();
+  }).catch(err => {
+    console.error('⚠️ SimulationDaemon failed to start:', err);
+  });
 });

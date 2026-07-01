@@ -6,11 +6,11 @@ export default function TraderHome() {
       <h2>📈 Trading Overview</h2>
 
       <div style={{ display: "flex", gap: 20 }}>
-        <div style={{ background: "#141a1f", padding: 20, flex: 1 }}>
+        <div style={{ background: "#122622", padding: 20, flex: 1 }}>
           💰 Portfolio
         </div>
 
-        <div style={{ background: "#141a1f", padding: 20, flex: 1 }}>
+        <div style={{ background: "#122622", padding: 20, flex: 1 }}>
           📊 Market Watch
         </div>
       </div>

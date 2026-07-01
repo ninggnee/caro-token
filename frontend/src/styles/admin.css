@@ -1,13 +1,13 @@
-:root{--bg:#0b0e11;--panel:#141a1f;--accent:#1f6f64;--muted:#98a8a0}
+:root{--bg:#091413;--panel:#122622;--accent:#1f6f64;--muted:#94a3b8}
 body{font-family:Inter,system-ui,Arial,sans-serif}
 .dashboard-container{display:flex;min-height:80vh}
 .sidebar{width:220px;background:var(--panel);color:#fff;padding:20px;box-sizing:border-box}
 .sidebar .sidebar-brand{font-weight:700;margin-bottom:12px}
-.sidebar nav a{display:block;color:#cfd8d5;padding:8px 0;text-decoration:none}
+.sidebar nav a{display:block;color:#cbd5e1;padding:8px 0;text-decoration:none}
 .sidebar nav a:hover{background:rgba(255,255,255,0.03)}
-.main-content{flex:1;padding:24px;background:linear-gradient(180deg,#071011, #0b0e11);color:#fff}
+.main-content{flex:1;padding:24px;background:linear-gradient(180deg,#091413, #091413);color:#fff}
 .topbar-user{opacity:0.9}
-.wallet-address{background:#0f2b28;padding:6px 10px;border-radius:6px;color:#9fffe6}
+.wallet-address{background:#122622;padding:6px 10px;border-radius:6px;color:#B0E4CC}
 .btn{background:var(--accent);color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer}
 .btn:hover{opacity:0.9}
 @media (max-width:800px){.sidebar{display:none}.dashboard-container{flex-direction:column}}
@@ -20,7 +20,7 @@ body{font-family:Inter,system-ui,Arial,sans-serif}
 }
 
 .sidebar-nav a {
-  color: #bfc9d4;
+  color: #cbd5e1;
   text-decoration: none;
   padding: 12px 14px;
   border-radius: 10px;
@@ -33,8 +33,8 @@ body{font-family:Inter,system-ui,Arial,sans-serif}
 }
 
 .sidebar-nav a.active {
-  background: #1f2937;
+  background: #18332d;
   color: #fff;
-  border-left: 4px solid #22c55e;
+  border-left: 4px solid #B0E4CC;
   font-weight: 700;
 }

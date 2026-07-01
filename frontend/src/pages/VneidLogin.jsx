@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import "../styles/login.css";
 
 export default function VneidLogin() {
@@ -25,113 +25,59 @@ export default function VneidLogin() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        background:
-          "radial-gradient(circle at top left,#6fa9a6 0%,transparent 35%), radial-gradient(circle at bottom right,#2d4d4b 0%,transparent 40%), linear-gradient(135deg,#3f6664,#203433)",
-      }}
-    >
+    <div className="auth-page">
       {/* Left */}
-      <div
-        style={{
-          flex: 1,
-          color: "#fff",
-          padding: "80px",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-        }}
-      >
-        <div className="hero-badge">
-        National Digital Identity • VNeID
+      <div className="auth-left">
+        <Link to="/" className="auth-brand" style={{ textDecoration: "none" }}>
+          <div className="auth-brand-icon">🫘</div>
+          <div>
+            <div className="auth-brand-name">CaRo Exchange</div>
+            <div className="auth-brand-sub">Coffee RWA Platform</div>
+          </div>
+        </Link>
+
+        <div className="auth-badge">
+          🪪 National Digital Identity · VNeID
         </div>
 
-        <h1
-          style={{
-            fontSize: 56,
-            fontWeight: 800,
-            marginBottom: 20,
-          }}
-        >
-          Đăng nhập bằng VNeID
+        <h1>
+          Xác thực định danh<br />
+          <span>qua VNeID</span>
         </h1>
 
-        <p
-          style={{
-            fontSize: 20,
-            lineHeight: 1.7,
-            maxWidth: 600,
-            color: "rgba(255,255,255,.9)",
-          }}
-        >
-          Xác thực danh tính điện tử thông qua ứng dụng VNeID để truy cập hệ
-          sinh thái giao dịch tài sản số hóa cà phê Robusta Việt Nam.
+        <p>
+          Giải pháp liên kết tài khoản định danh điện tử quốc gia (VNeID) giúp xác thực người dùng, bảo mật thông tin và tuân thủ các quy định KYC trên CaRo Exchange.
         </p>
 
-        <div
-          style={{
-            marginTop: 40,
-            display: "grid",
-            gridTemplateColumns: "repeat(2,1fr)",
-            gap: 16,
-            maxWidth: 650,
-          }}
-        >
-          {[
-            {
-              icon: "🪪",
-              title: "Định danh điện tử",
-              desc: "Xác thực danh tính người dùng.",
-            },
-            {
-              icon: "🔒",
-              title: "Bảo mật cao",
-              desc: "Liên kết với tài khoản VNeID.",
-            },
-            {
-              icon: "⚡",
-              title: "Đăng nhập nhanh",
-              desc: "Không cần ghi nhớ mật khẩu.",
-            },
-            {
-              icon: "🏛️",
-              title: "Tuân thủ pháp lý",
-              desc: "Đáp ứng yêu cầu KYC điện tử.",
-            },
-          ].map((item) => (
-            <div
-              key={item.title}
-              style={{
-                background: "rgba(255,255,255,.08)",
-                border: "1px solid rgba(255,255,255,.12)",
-                borderRadius: 16,
-                padding: 18,
-                backdropFilter: "blur(12px)",
-              }}
-            >
-              <div style={{ fontSize: 24 }}>{item.icon}</div>
-              <div
-                style={{
-                  marginTop: 10,
-                  fontWeight: 700,
-                  fontSize: 16,
-                }}
-              >
-                {item.title}
-              </div>
-              <div
-                style={{
-                  marginTop: 6,
-                  fontSize: 13,
-                  color: "rgba(255,255,255,.8)",
-                }}
-              >
-                {item.desc}
-              </div>
+        <div className="auth-features">
+          <div className="auth-feature-card">
+            <div className="auth-feature-icon">🪪</div>
+            <div className="auth-feature-title">Định danh số</div>
+            <div className="auth-feature-desc">
+              Xác thực danh tính công dân mức độ 2.
             </div>
-          ))}
+          </div>
+          <div className="auth-feature-card">
+            <div className="auth-feature-icon">🔒</div>
+            <div className="auth-feature-title">Bảo mật tối đa</div>
+            <div className="auth-feature-desc">
+              Dữ liệu mã hóa và bảo vệ an toàn tuyệt đối.
+            </div>
+          </div>
+          <div className="auth-feature-card">
+            <div className="auth-feature-icon">⚡</div>
+            <div className="auth-feature-title">Xác thực nhanh</div>
+            <div className="auth-feature-desc">
+              Quét mã QR và đăng nhập chỉ trong vài giây.
+            </div>
+          </div>
+          <div className="auth-feature-card">
+            <div className="auth-feature-icon">🏛️</div>
+            <div className="auth-feature-title">Chuẩn KYC</div>
+            <div className="auth-feature-desc">
+              Đáp ứng các yêu cầu pháp lý về KYC giao dịch.
+            </div>
+          </div>
         </div>
       </div>
 
@@ -139,17 +85,18 @@ export default function VneidLogin() {
       <div
         style={{
           width: 520,
-          background: "#fff",
+          background: "#122622",
+          borderLeft: "1px solid rgba(255,255,255,0.06)",
           padding: 50,
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
-          boxShadow: "0 20px 60px rgba(0,0,0,.15)",
+          boxShadow: "0 20px 60px rgba(0,0,0,.3)",
         }}
       >
         <h2
           style={{
-            color: "#2f5f5d",
+            color: "#B0E4CC",
             fontSize: 32,
             marginBottom: 12,
           }}
@@ -159,7 +106,7 @@ export default function VneidLogin() {
 
         <p
           style={{
-            color: "#64748b",
+            color: "#94a3b8",
             marginBottom: 30,
             lineHeight: 1.6,
           }}
@@ -168,83 +115,77 @@ export default function VneidLogin() {
         </p>
 
         <div
-        style={{
+          style={{
             width: 280,
             height: 280,
             margin: "0 auto",
             borderRadius: 20,
             background: "#fff",
             padding: 12,
-            boxShadow: "0 8px 30px rgba(0,0,0,.08)"
-        }}
+            boxShadow: "0 8px 30px rgba(0,0,0,.3)"
+          }}
         >
-        <img
+          <img
             src="/images/vneid-qr.png"
             alt="VNeID QR"
             style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain"
+              width: "100%",
+              height: "100%",
+              objectFit: "contain"
             }}
-        />
+          />
         </div>
 
         <div
-        style={{
+          style={{
             marginTop: 24,
             padding: 16,
             borderRadius: 12,
-            background: "#f8fafc",
-            border: "1px solid #e2e8f0",
+            background: "rgba(176, 228, 204, 0.05)",
+            border: "1px solid rgba(176, 228, 204, 0.15)",
             textAlign: "center",
             lineHeight: 1.7
-        }}
+          }}
         >
-        <div style={{ fontWeight: 700, color: "#487573" }}>
+          <div style={{ fontWeight: 700, color: "#B0E4CC" }}>
             Chờ xác thực từ ứng dụng VNeID
-        </div>
+          </div>
 
-        <div
+          <div
             style={{
-            marginTop: 8,
-            color: "#64748b",
-            fontSize: 14
+              marginTop: 8,
+              color: "#94a3b8",
+              fontSize: 14
             }}
-        >
+          >
             Sau khi người dùng hoàn thành xác thực trên ứng dụng
             VNeID, hệ thống sẽ tiếp tục sang bước chia sẻ dữ liệu
             định danh điện tử.
-        </div>
+          </div>
         </div>
 
         <button
-        onClick={() => navigate("/vneid-share")}
-        style={{
+          onClick={() => navigate("/vneid-share")}
+          className="caro-btn caro-btn-primary caro-btn-full"
+          style={{
             marginTop: 24,
-            width: "100%",
             padding: 14,
-            border: "none",
             borderRadius: 10,
-            background: "#487573",
-            color: "#fff",
-            fontWeight: 700,
-            cursor: "pointer"
-        }}
+          }}
         >
-        Tôi đã xác thực trên VNeID
+          Tôi đã xác thực trên VNeID
         </button>
 
         <button
           onClick={() => navigate("/login")}
+          className="caro-btn caro-btn-ghost caro-btn-full"
           style={{
             marginTop: 10,
             padding: 14,
             borderRadius: 10,
-            border: "1px solid #dbe4e4",
-            background: "#fff",
-            color: "#487573",
-            fontWeight: 600,
-            cursor: "pointer",
+            color: "#B0E4CC",
+            borderColor: "rgba(176, 228, 204, 0.25)",
+            background: "transparent",
           }}
         >
           Quay lại đăng nhập

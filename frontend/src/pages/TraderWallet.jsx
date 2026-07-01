@@ -8,10 +8,11 @@ import { CA_RO_CONTRACTS, ABI } from "../config/config";
 import axios from "../utils/axiosClient";
 import { formatNumber, formatVND } from '../utils/formatters';
 import { TRADER_KEYS } from '../hooks/useTraderData';
+import { formatToken } from '../utils/formatters';
 
 const C = {
-  accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
-  card: "#172524", border: "rgba(72,117,115,0.15)", tealLight: "#7fe0c9",
+  accent: "#408A71", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
+  card: "#172524", border: "rgba(72,117,115,0.15)", tealLight: "#B0E4CC",
 };
 const TOKEN_COLORS = { CR1: "#f0b90b", CR2: "#00d4aa", CR3: "#9b87f5" };
 const TOKEN_LABELS = { CR1: "CaRo1 (CR1)", CR2: "CaRo2 (CR2)", CR3: "CaRo3 (CR3)" };
@@ -46,6 +47,16 @@ export default function TraderWallet() {
 
   const [tokenBals, setTokenBals] = useState({ CR1: "0", CR2: "0", CR3: "0" });
   const [activeTab, setActiveTab] = useState("overview");
+  const [wdType,    setWdType]    = useState("vnd"); // "vnd" | "token"
+  const [depType,   setDepType]   = useState("vnd"); // "vnd" | "token"
+
+  const { data: exchangeBalsData } = useQuery({
+    queryKey: ["exchange-token-balances"],
+    queryFn: () => axios.get("/token/balances").then(r => r.data),
+    staleTime: 10_000,
+  });
+  const exchangeBals = exchangeBalsData?.balances || {};
+
   const [depAmount, setDepAmount] = useState("");
   const [wdAmount,  setWdAmount]  = useState("");
   const [depMsg,    setDepMsg]    = useState(null);
@@ -155,6 +166,33 @@ export default function TraderWallet() {
         {/* Tab: Overview */}
         {activeTab === "overview" && (
           <div style={{ display: "grid", gap: 14 }}>
+            {/* Exchange Balance */}
+            <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+              <div style={{ padding: "12px 18px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>🪙 Số dư nội bộ trên sàn CaRo (Sử dụng để giao dịch)</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
+                {["CR1", "CR2", "CR3"].map((key, idx) => {
+                  const qty = Number(exchangeBals[key]?.balance || 0);
+                  const avail = Number(exchangeBals[key]?.available_balance || 0);
+                  return (
+                    <div key={key} style={{ padding: "18px", borderRight: idx < 2 ? `1px solid ${C.border}` : "none" }}>
+                      <div style={{ fontSize: 11, color: TOKEN_COLORS[key], fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>
+                        {TOKEN_LABELS[key]}
+                      </div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: qty > 0 ? "#fff" : C.muted }}>
+                        {formatNumber(qty, 4)}
+                      </div>
+                      <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
+                        Khả dụng: <span style={{ color: C.green, fontWeight: 600 }}>{formatNumber(avail, 4)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* MetaMask Onchain Balance */}
             <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
               <div style={{ padding: "12px 18px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontSize: 13, fontWeight: 700 }}>🪙 Số dư Token on-chain (MetaMask)</span>
@@ -214,68 +252,148 @@ export default function TraderWallet() {
 
         {/* Tab: Deposit */}
         {activeTab === "deposit" && (
-          <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "24px" }}>
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>💵 Nạp tiền VND</div>
-              <div style={{ fontSize: 12, color: C.muted }}>Nạp tiền vào tài khoản để đặt lệnh mua token CaRo</div>
-            </div>
-            <div style={{ display: "grid", gap: 16, maxWidth: 420 }}>
-              <AmountInput label="Số tiền nạp (VND)" value={depAmount} onChange={setDepAmount} placeholder="ví dụ: 1.000.000" />
-              <div>
-                <div style={{ fontSize: 11, color: C.muted, marginBottom: 8, fontWeight: 600 }}>Nạp nhanh:</div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {[500000, 1000000, 2000000, 5000000].map(amt => (
-                    <button key={amt} onClick={() => setDepAmount(String(amt))}
-                      style={{ padding: "6px 14px", fontSize: 12, background: depAmount === String(amt) ? "rgba(72,117,115,0.2)" : "rgba(255,255,255,0.05)", border: `1px solid ${depAmount === String(amt) ? C.accent : C.border}`, borderRadius: 6, cursor: "pointer", color: "#e2e8f0", fontWeight: 600 }}>
-                      {formatVND(amt)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {depMsg && (
-                <div style={{ padding: "10px 14px", background: depMsg.ok ? "rgba(14,203,129,0.1)" : "rgba(246,70,93,0.1)", border: `1px solid ${depMsg.ok ? "rgba(14,203,129,0.3)" : "rgba(246,70,93,0.3)"}`, borderRadius: 8, fontSize: 13, color: depMsg.ok ? C.green : C.red }}>
-                  {depMsg.text}
-                </div>
-              )}
-              <button
-                onClick={() => { setDepMsg(null); depositMutation.mutate(depAmount); }}
-                disabled={!depAmount || Number(depAmount) <= 0 || depositMutation.isLoading}
-                style={{ padding: "12px 0", background: depAmount && Number(depAmount) > 0 ? C.accent : "rgba(72,117,115,0.3)", color: "#fff", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: depAmount && Number(depAmount) > 0 ? "pointer" : "not-allowed" }}>
-                {depositMutation.isLoading ? "Đang xử lý..." : `Nạp ${depAmount ? formatVND(Number(depAmount)) : "tiền"}`}
+          <div style={{ display: "grid", gap: 16 }}>
+            {/* Sub-tabs inside deposit */}
+            <div style={{ display: "flex", gap: 8, background: "rgba(0,0,0,0.2)", padding: 4, borderRadius: 8, width: "fit-content" }}>
+              <button 
+                onClick={() => setDepType("vnd")} 
+                style={{
+                  padding: "6px 16px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  background: depType === "vnd" ? C.accent : "transparent",
+                  color: depType === "vnd" ? "#fff" : C.muted
+                }}
+              >
+                💵 Nạp VND
+              </button>
+              <button 
+                onClick={() => setDepType("token")} 
+                style={{
+                  padding: "6px 16px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  background: depType === "token" ? C.accent : "transparent",
+                  color: depType === "token" ? "#fff" : C.muted
+                }}
+              >
+                🪙 Nạp Token
               </button>
             </div>
+
+            {depType === "vnd" ? (
+              <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "24px" }}>
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>💵 Nạp tiền VND</div>
+                  <div style={{ fontSize: 12, color: C.muted }}>Nạp tiền vào tài khoản để đặt lệnh mua token CaRo</div>
+                </div>
+                <div style={{ display: "grid", gap: 16, maxWidth: 420 }}>
+                  <AmountInput label="Số tiền nạp (VND)" value={depAmount} onChange={setDepAmount} placeholder="ví dụ: 1.000.000" />
+                  <div>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 8, fontWeight: 600 }}>Nạp nhanh:</div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {[500000, 1000000, 2000000, 5000000].map(amt => (
+                        <button key={amt} onClick={() => setDepAmount(String(amt))}
+                          style={{ padding: "6px 14px", fontSize: 12, background: depAmount === String(amt) ? "rgba(72,117,115,0.2)" : "rgba(255,255,255,0.05)", border: `1px solid ${depAmount === String(amt) ? C.accent : C.border}`, borderRadius: 6, cursor: "pointer", color: "#e2e8f0", fontWeight: 600 }}>
+                          {formatVND(amt)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {depMsg && (
+                    <div style={{ padding: "10px 14px", background: depMsg.ok ? "rgba(14,203,129,0.1)" : "rgba(246,70,93,0.1)", border: `1px solid ${depMsg.ok ? "rgba(14,203,129,0.3)" : "rgba(246,70,93,0.3)"}`, borderRadius: 8, fontSize: 13, color: depMsg.ok ? C.green : C.red }}>
+                      {depMsg.text}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => { setDepMsg(null); depositMutation.mutate(depAmount); }}
+                    disabled={!depAmount || Number(depAmount) <= 0 || depositMutation.isLoading}
+                    style={{ padding: "12px 0", background: depAmount && Number(depAmount) > 0 ? C.accent : "rgba(72,117,115,0.3)", color: "#fff", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: depAmount && Number(depAmount) > 0 ? "pointer" : "not-allowed" }}>
+                    {depositMutation.isLoading ? "Đang xử lý..." : `Nạp ${depAmount ? formatVND(Number(depAmount)) : "tiền"}`}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <TraderTokenDepositForm account={account} provider={provider} connect={connect} qc={qc} />
+            )}
           </div>
         )}
 
         {/* Tab: Withdraw */}
         {activeTab === "withdraw" && (
-          <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "24px" }}>
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>📤 Rút tiền VND</div>
-              <div style={{ fontSize: 12, color: C.muted }}>Số dư khả dụng: <strong style={{ color: C.tealLight }}>{formatVND(vndBalance)}</strong></div>
-            </div>
-            <div style={{ display: "grid", gap: 16, maxWidth: 420 }}>
-              <AmountInput label="Số tiền rút (VND)" value={wdAmount} onChange={setWdAmount} placeholder="ví dụ: 500.000" max={vndBalance} />
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {[100000, 500000, 1000000].filter(a => a <= vndBalance).map(amt => (
-                  <button key={amt} onClick={() => setWdAmount(String(amt))}
-                    style={{ padding: "6px 14px", fontSize: 12, background: wdAmount === String(amt) ? "rgba(246,70,93,0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${wdAmount === String(amt) ? C.red : C.border}`, borderRadius: 6, cursor: "pointer", color: "#e2e8f0", fontWeight: 600 }}>
-                    {formatVND(amt)}
-                  </button>
-                ))}
-              </div>
-              {wdMsg && (
-                <div style={{ padding: "10px 14px", background: wdMsg.ok ? "rgba(14,203,129,0.1)" : "rgba(246,70,93,0.1)", border: `1px solid ${wdMsg.ok ? "rgba(14,203,129,0.3)" : "rgba(246,70,93,0.3)"}`, borderRadius: 8, fontSize: 13, color: wdMsg.ok ? C.green : C.red }}>
-                  {wdMsg.text}
-                </div>
-              )}
-              <button
-                onClick={() => { setWdMsg(null); withdrawMutation.mutate(wdAmount); }}
-                disabled={!wdAmount || Number(wdAmount) <= 0 || Number(wdAmount) > vndBalance || withdrawMutation.isLoading}
-                style={{ padding: "12px 0", background: wdAmount && Number(wdAmount) > 0 && Number(wdAmount) <= vndBalance ? C.red : "rgba(246,70,93,0.25)", color: "#fff", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: wdAmount && Number(wdAmount) > 0 && Number(wdAmount) <= vndBalance ? "pointer" : "not-allowed" }}>
-                {withdrawMutation.isLoading ? "Đang xử lý..." : `Rút ${wdAmount ? formatVND(Number(wdAmount)) : "tiền"}`}
+          <div style={{ display: "grid", gap: 16 }}>
+            {/* Sub-tabs inside withdraw */}
+            <div style={{ display: "flex", gap: 8, background: "rgba(0,0,0,0.2)", padding: 4, borderRadius: 8, width: "fit-content" }}>
+              <button 
+                onClick={() => setWdType("vnd")} 
+                style={{
+                  padding: "6px 16px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  background: wdType === "vnd" ? C.accent : "transparent",
+                  color: wdType === "vnd" ? "#fff" : C.muted
+                }}
+              >
+                💵 Rút VND
+              </button>
+              <button 
+                onClick={() => setWdType("token")} 
+                style={{
+                  padding: "6px 16px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  background: wdType === "token" ? C.accent : "transparent",
+                  color: wdType === "token" ? "#fff" : C.muted
+                }}
+              >
+                🪙 Rút Token
               </button>
             </div>
+
+            {wdType === "vnd" ? (
+              <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "24px" }}>
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>📤 Rút tiền VND</div>
+                  <div style={{ fontSize: 12, color: C.muted }}>Số dư khả dụng: <strong style={{ color: C.tealLight }}>{formatVND(vndBalance)}</strong></div>
+                </div>
+                <div style={{ display: "grid", gap: 16, maxWidth: 420 }}>
+                  <AmountInput label="Số tiền rút (VND)" value={wdAmount} onChange={setWdAmount} placeholder="ví dụ: 500.000" max={vndBalance} />
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {[100000, 500000, 1000000].filter(a => a <= vndBalance).map(amt => (
+                      <button key={amt} onClick={() => setWdAmount(String(amt))}
+                        style={{ padding: "6px 14px", fontSize: 12, background: wdAmount === String(amt) ? "rgba(246,70,93,0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${wdAmount === String(amt) ? C.red : C.border}`, borderRadius: 6, cursor: "pointer", color: "#e2e8f0", fontWeight: 600 }}>
+                        {formatVND(amt)}
+                      </button>
+                    ))}
+                  </div>
+                  {wdMsg && (
+                    <div style={{ padding: "10px 14px", background: wdMsg.ok ? "rgba(14,203,129,0.1)" : "rgba(246,70,93,0.1)", border: `1px solid ${wdMsg.ok ? "rgba(14,203,129,0.3)" : "rgba(246,70,93,0.3)"}`, borderRadius: 8, fontSize: 13, color: wdMsg.ok ? C.green : C.red }}>
+                      {wdMsg.text}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => { setWdMsg(null); withdrawMutation.mutate(wdAmount); }}
+                    disabled={!wdAmount || Number(wdAmount) <= 0 || Number(wdAmount) > vndBalance || withdrawMutation.isLoading}
+                    style={{ padding: "12px 0", background: wdAmount && Number(wdAmount) > 0 && Number(wdAmount) <= vndBalance ? C.red : "rgba(246,70,93,0.25)", color: "#fff", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: wdAmount && Number(wdAmount) > 0 && Number(wdAmount) <= vndBalance ? "pointer" : "not-allowed" }}>
+                    {withdrawMutation.isLoading ? "Đang xử lý..." : `Rút ${wdAmount ? formatVND(Number(wdAmount)) : "tiền"}`}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <TraderTokenWithdrawForm exchangeBals={exchangeBals} account={account} connect={connect} qc={qc} />
+            )}
           </div>
         )}
 
@@ -301,16 +419,17 @@ export default function TraderWallet() {
                 </thead>
                 <tbody>
                   {txList.map((tx, i) => {
-                    const isIn = tx.type === "deposit" || Number(tx.amount) > 0;
+                    const isToken = !!tx.token_type;
+                    const isIn = tx.type === "deposit" || (Number(tx.amount) > 0 && !isToken);
                     return (
                       <tr key={tx.id || i} style={{ borderBottom: `1px solid ${C.border}` }}>
                         <td style={{ padding: "10px 16px" }}>
                           <span style={{ fontSize: 12, fontWeight: 600, color: isIn ? C.green : C.red }}>
-                            {txTypeLabel(tx.type)}
+                            {isToken ? `${tx.type === "deposit" ? "Nạp" : "Rút"} ${tx.token_type}` : txTypeLabel(tx.type)}
                           </span>
                         </td>
                         <td style={{ padding: "10px 16px", fontSize: 13, fontFamily: "monospace", fontWeight: 700, color: isIn ? C.green : C.red }}>
-                          {isIn ? "+" : "−"}{formatVND(Math.abs(Number(tx.amount || tx.value || 0)))}
+                          {isIn ? "+" : "−"}{isToken ? `${Math.abs(Number(tx.amount))} ${tx.token_type}` : formatVND(Math.abs(Number(tx.amount || tx.value || 0)))}
                         </td>
                         <td style={{ padding: "10px 16px", fontSize: 12, color: C.muted }}>
                           {tx.note || tx.description || "—"}
@@ -329,5 +448,268 @@ export default function TraderWallet() {
 
       </div>
     </TraderLayout>
+  );
+}
+
+function TraderTokenDepositForm({ account, provider, connect, qc }) {
+  const [token, setToken] = useState("CR1");
+  const [amount, setAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const [metaMaskBal, setMetaMaskBal] = useState("0");
+
+  // Load MetaMask balance of the selected token
+  useEffect(() => {
+    if (!account || !provider) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const c = new ethers.Contract(CA_RO_CONTRACTS[token], ABI, provider);
+        const [b, d] = await Promise.all([c.balanceOf(account), c.decimals()]);
+        if (!cancelled) {
+          setMetaMaskBal(ethers.utils.formatUnits(b, d));
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [account, provider, token]);
+
+  const avail = Number(metaMaskBal || 0);
+  const amt = Number(amount) || 0;
+  const canSubmit = amt > 0 && amt <= avail && account && !submitting;
+
+  const handleDepositToken = async () => {
+    setMsg(null);
+    if (!canSubmit) return;
+    setSubmitting(true);
+    try {
+      const signer = provider.getSigner();
+      const contract = new ethers.Contract(CA_RO_CONTRACTS[token], ABI, signer);
+      const decimals = await contract.decimals().catch(() => 18);
+      const amountWei = ethers.utils.parseUnits(String(amount), decimals);
+
+      const treasuryAddress = "0x0EcBEcFDb336A1B56D8f9cFD634844d0Efd70Cf4";
+      console.log(`[DepositToken] Transferring ${amount} ${token} to Treasury`);
+      
+      const tx = await contract.transfer(treasuryAddress, amountWei);
+      setMsg({ ok: true, text: `Giao dịch đã được gửi lên blockchain. Đang chờ xác nhận... (Tx: ${tx.hash.slice(0,10)}...)` });
+      
+      const receipt = await tx.wait();
+      if (receipt.status === 0) {
+        throw new Error("Giao dịch blockchain bị đảo ngược (reverted).");
+      }
+
+      // Record on backend
+      await axios.post("/wallet/deposit-token", {
+        token_type: token,
+        amount: amt,
+        tx_hash: tx.hash
+      });
+
+      setMsg({ ok: true, text: `Nạp token thành công! Mã giao dịch: ${tx.hash}` });
+      setAmount("");
+      qc.invalidateQueries({ queryKey: ["exchange-token-balances"] });
+      qc.invalidateQueries({ queryKey: ["trader-wallet-tx"] });
+    } catch (e) {
+      console.error(e);
+      setMsg({ ok: false, text: e?.response?.data?.message || e.message || "Nạp token thất bại." });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "24px" }}>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>🪙 Nạp Token từ ví MetaMask</div>
+        <div style={{ fontSize: 12, color: C.muted }}>
+          Chuyển token từ ví MetaMask cá nhân của bạn vào ví sàn giao dịch nội bộ CaRo.
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gap: 16, maxWidth: 450 }}>
+        {/* Token Selector */}
+        <div>
+          <label style={{ display: "block", fontSize: 12, color: C.muted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase" }}>Chọn loại Token</label>
+          <div style={{ display: "flex", gap: 10 }}>
+            {["CR1", "CR2", "CR3"].map(t => (
+              <button
+                key={t}
+                onClick={() => setToken(t)}
+                style={{
+                  flex: 1,
+                  padding: "10px",
+                  background: token === t ? C.accent : "rgba(255,255,255,0.03)",
+                  border: `1px solid ${token === t ? C.tealLight : C.border}`,
+                  borderRadius: 8,
+                  color: "#fff",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontSize: 13
+                }}
+              >
+                {TOKEN_LABELS[t]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Balance Status */}
+        <div style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 12, color: C.muted }}>Số dư trong ví MetaMask:</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: C.green }}>{formatNumber(avail, 4)} {token}</span>
+        </div>
+
+        {/* Destination Address */}
+        <div>
+          <label style={{ display: "block", fontSize: 12, color: C.muted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase" }}>Nạp về tài khoản sàn</label>
+          <input
+            value={account ? `Ví MetaMask liên kết: ${account.slice(0,10)}...${account.slice(-4)}` : ""}
+            readOnly
+            disabled
+            placeholder="Chưa kết nối ví MetaMask"
+            style={{ width: "100%", padding: "12px 14px", background: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}`, borderRadius: 8, color: "#8892b0", fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "monospace", cursor: "not-allowed" }}
+          />
+          {!account && <div style={{ fontSize: 11, color: C.red, marginTop: 4 }}>⚠️ Vui lòng kết nối ví MetaMask để thực hiện nạp token</div>}
+        </div>
+
+        {/* Amount */}
+        <AmountInput label="Số lượng nạp (kg)" value={amount} onChange={setAmount} placeholder="0.0" max={avail} />
+
+        {msg && (
+          <div style={{ padding: "10px 14px", background: msg.ok ? "rgba(14,203,129,0.1)" : "rgba(246,70,93,0.1)", border: `1px solid ${msg.ok ? "rgba(14,203,129,0.3)" : "rgba(246,70,93,0.3)"}`, borderRadius: 8, fontSize: 13, color: msg.ok ? C.green : C.red, wordBreak: "break-all" }}>
+            {msg.text}
+          </div>
+        )}
+
+        {!account ? (
+          <button onClick={connect}
+            style={{ padding: "12px 0", background: "#f0b90b", color: "#000", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+            🦊 Kết nối ví MetaMask
+          </button>
+        ) : (
+          <button
+            onClick={handleDepositToken}
+            disabled={!canSubmit}
+            style={{ padding: "12px 0", background: canSubmit ? C.accent : "rgba(72,117,115,0.3)", color: "#fff", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: canSubmit ? "pointer" : "not-allowed" }}>
+            {submitting ? "Đang xử lý..." : `Nạp ${amount ? `${amount} ${token}` : "Token"}`}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TraderTokenWithdrawForm({ exchangeBals, account, connect, qc }) {
+  const [token, setToken] = useState("CR1");
+  const [amount, setAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  const avail = Number(exchangeBals[token]?.available_balance || 0);
+  const amt = Number(amount) || 0;
+
+  const canSubmit = amt > 0 && amt <= avail && account && !submitting;
+
+  const handleWithdrawToken = async () => {
+    setMsg(null);
+    if (!canSubmit) return;
+    setSubmitting(true);
+    try {
+      const res = await axios.post("/wallet/withdraw", {
+        token_type: token,
+        amount: amt,
+        destination_address: account
+      });
+      setMsg({ ok: true, text: `Rút thành công! Mã giao dịch (Tx Hash): ${res.data.txHash || "Thành công"}` });
+      setAmount("");
+      qc.invalidateQueries({ queryKey: ["exchange-token-balances"] });
+      qc.invalidateQueries({ queryKey: ["trader-wallet-tx"] });
+    } catch (e) {
+      setMsg({ ok: false, text: e?.response?.data?.message || "Rút token thất bại." });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "24px" }}>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>🪙 Rút Token về ví MetaMask</div>
+        <div style={{ fontSize: 12, color: C.muted }}>
+          Rút token khả dụng từ sàn giao dịch nội bộ về ví MetaMask cá nhân của bạn.
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gap: 16, maxWidth: 450 }}>
+        {/* Token Selector */}
+        <div>
+          <label style={{ display: "block", fontSize: 12, color: C.muted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase" }}>Chọn loại Token</label>
+          <div style={{ display: "flex", gap: 10 }}>
+            {["CR1", "CR2", "CR3"].map(t => (
+              <button
+                key={t}
+                onClick={() => setToken(t)}
+                style={{
+                  flex: 1,
+                  padding: "10px",
+                  background: token === t ? C.accent : "rgba(255,255,255,0.03)",
+                  border: `1px solid ${token === t ? C.tealLight : C.border}`,
+                  borderRadius: 8,
+                  color: "#fff",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontSize: 13
+                }}
+              >
+                {TOKEN_LABELS[t]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Balance Status */}
+        <div style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 12, color: C.muted }}>Số dư nội bộ khả dụng:</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: C.tealLight }}>{formatNumber(avail, 4)} {token}</span>
+        </div>
+
+        {/* Destination Address */}
+        <div>
+          <label style={{ display: "block", fontSize: 12, color: C.muted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase" }}>Địa chỉ ví nhận MetaMask</label>
+          <input
+            value={account || ""}
+            readOnly
+            disabled
+            placeholder="Chưa kết nối ví MetaMask"
+            style={{ width: "100%", padding: "12px 14px", background: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}`, borderRadius: 8, color: account ? "#8892b0" : C.red, fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "monospace", cursor: "not-allowed" }}
+          />
+          {!account && <div style={{ fontSize: 11, color: C.red, marginTop: 4 }}>⚠️ Vui lòng kết nối ví MetaMask để thực hiện rút token</div>}
+        </div>
+
+        {/* Amount */}
+        <AmountInput label="Số lượng rút (kg)" value={amount} onChange={setAmount} placeholder="0.0" max={avail} />
+
+        {msg && (
+          <div style={{ padding: "10px 14px", background: msg.ok ? "rgba(14,203,129,0.1)" : "rgba(246,70,93,0.1)", border: `1px solid ${msg.ok ? "rgba(14,203,129,0.3)" : "rgba(246,70,93,0.3)"}`, borderRadius: 8, fontSize: 13, color: msg.ok ? C.green : C.red, wordBreak: "break-all" }}>
+            {msg.text}
+          </div>
+        )}
+
+        {!account ? (
+          <button onClick={connect}
+            style={{ padding: "12px 0", background: "#f0b90b", color: "#000", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+            🦊 Kết nối ví MetaMask
+          </button>
+        ) : (
+          <button
+            onClick={handleWithdrawToken}
+            disabled={!canSubmit}
+            style={{ padding: "12px 0", background: canSubmit ? C.accent : "rgba(72,117,115,0.3)", color: "#fff", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: canSubmit ? "pointer" : "not-allowed" }}>
+            {submitting ? "Đang xử lý..." : `Rút ${amount ? `${amount} ${token}` : "Token"}`}
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

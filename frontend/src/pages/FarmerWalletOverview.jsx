@@ -6,11 +6,6 @@ import { useWallet } from "../context/WalletContext";
 import axios from "../utils/axiosClient";
 import { formatNumber, formatVND, formatKg, formatToken } from '../utils/formatters';
 
-const C = {
-  green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#487573",
-  muted: "#6b7a99", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#7fe0c9",
-};
-
 // Prices shown while market engine is warming up or unavailable
 const FALLBACK_PRICE = { CR1: 100_000, CR2: 85_000, CR3: 70_000 };
 
@@ -36,17 +31,17 @@ function useMarketPrices() {
   });
 }
 
-function BalCard({ label, value, sub, accent, action, onAction, loading }) {
+function BalCard({ label, value, sub, accent, action, onAction, loading, icon, bgAccent }) {
   return (
-    <div style={{ background: C.card, borderRadius: 10, padding: "20px", border: `1px solid ${C.border}` }}>
-      <div style={{ fontSize: 12, color: C.muted, fontWeight: 500, marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 26, fontWeight: 700, color: accent || "#e2e8f0", marginBottom: 4 }}>
+    <div className="caro-stat-card">
+      <div className="caro-stat-icon" style={{ background: bgAccent, color: accent }}>{icon}</div>
+      <div className="caro-stat-label">{label}</div>
+      <div className="caro-stat-value" style={{ color: accent || "#f8fafc" }}>
         {loading ? "…" : value}
       </div>
-      {sub && <div style={{ fontSize: 12, color: C.muted }}>{sub}</div>}
+      {sub && <div className="caro-stat-sub">{sub}</div>}
       {action && (
-        <button onClick={onAction}
-          style={{ marginTop: 12, padding: "6px 14px", background: "rgba(72,117,115,0.12)", border: `1px solid ${C.border}`, color: C.tealLight, borderRadius: 5, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+        <button onClick={onAction} className="caro-btn caro-btn-sm caro-btn-secondary" style={{ marginTop: 12 }}>
           {action}
         </button>
       )}
@@ -89,7 +84,8 @@ export default function FarmerWalletOverview() {
   const vndLocked   = Number(vndWallet.locked   ?? 0);
   const vndAvailable = Number(vndWallet.available ?? 0);
 
-  const walletAddr = account || user?.wallet_address;
+  const displayAddr = user?.wallet_address?.toLowerCase() === "0x0ecbecfdb336a1b56d8f9cfd634844d0efd70cf4" ? null : user?.wallet_address;
+  const walletAddr = account || displayAddr;
   const isLoading  = dashQ.isLoading;
 
   const TOKEN_ROWS = [
@@ -100,44 +96,36 @@ export default function FarmerWalletOverview() {
 
   return (
     <FarmerLayout title="Ví tài khoản">
-      <div style={{ display: "grid", gap: 20, width: "100%" }}>
+      <div className="caro-page">
 
         {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>👛 Ví Của Tôi</h2>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => nav("/farmer/wallet/deposit")}
-              style={{ padding: "8px 16px", background: C.accent, color: "#fff", border: "none", borderRadius: 6, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
-              Nạp tiền
+        <div className="caro-page-header">
+          <div>
+            <h2 className="caro-page-title">👛 Ví Của Tôi</h2>
+            <p className="caro-page-subtitle">Quản lý số dư, token và ví MetaMask</p>
+          </div>
+          <div style={{ display: "flex", gap: 12 }}>
+            <button onClick={() => nav("/farmer/wallet/deposit")} className="caro-btn caro-btn-primary">
+              Nạp
             </button>
-            <button onClick={() => nav("/farmer/wallet/withdraw")}
-              style={{ padding: "8px 16px", background: "rgba(255,255,255,0.08)", color: "#e2e8f0", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, cursor: "pointer", fontSize: 13 }}>
-              Rút tiền
+            <button onClick={() => nav("/farmer/wallet/withdraw")} className="caro-btn caro-btn-ghost">
+              Rút
             </button>
           </div>
         </div>
 
-        {/* ── 3 summary cards ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+        {/* ── Summary cards ── */}
+        <div className="caro-grid-2">
 
           {/* Token_CaRo */}
           <BalCard
             label="Token_CaRo (Tổng số dư)"
             value={formatToken(totalCaRo, "CaRo")}
             sub={`CaRo1: ${formatNumber(caro1)} · CaRo2: ${formatNumber(caro2)} · CaRo3: ${formatNumber(caro3)}`}
-            accent={C.tealLight}
+            accent="#408A71"
+            bgAccent="rgba(64, 138, 113,0.1)"
+            icon="🪙"
             loading={isLoading}
-          />
-
-          {/* Khối lượng */}
-          <BalCard
-            label="Khối lượng (kg cà phê)"
-            value={formatKg(totalCaRo)}
-            sub="1 CaRo = 1 kg Robusta"
-            accent={C.green}
-            loading={isLoading}
-            action="Giao dịch ngay"
-            onAction={() => nav("/farmer/marketplace")}
           />
 
           {/* Giá trị ước tính */}
@@ -145,135 +133,147 @@ export default function FarmerWalletOverview() {
             label="Giá trị ước tính"
             value={estimatedValue > 0 ? (estimatedValue / 1_000_000).toFixed(2) + " triệu VND" : "0 VND"}
             sub={`${priceSource} · CR1: ${formatNumber(priceMap.CR1)} · CR2: ${formatNumber(priceMap.CR2)} · CR3: ${formatNumber(priceMap.CR3)}`}
-            accent="#e2e8f0"
+            accent="#f8fafc"
+            bgAccent="rgba(255,255,255,0.05)"
+            icon="💰"
             loading={isLoading || priceQ.isLoading}
           />
         </div>
 
         {/* ── Blockchain wallet address ── */}
-        <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "18px 20px" }}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: "#e2e8f0" }}>Ví sàn giao dịch nội bộ</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, padding: "10px 14px", background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, borderRadius: 7, fontFamily: "monospace", fontSize: 13, color: "#e2e8f0", wordBreak: "break-all" }}>
-              {walletAddr || "Chưa kết nối ví bên ngoài"}
+        <div className="caro-card">
+          <div className="caro-section-header">
+            <h3 className="caro-section-title">Ví MetaMask cá nhân</h3>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, padding: "14px 16px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)", borderRadius: 8, fontFamily: "monospace", fontSize: 14, color: walletAddr ? "#f8fafc" : "#64748b", wordBreak: "break-all" }}>
+              {walletAddr || "Chưa kết nối ví MetaMask cá nhân"}
             </div>
             {walletAddr && (
-              <button onClick={() => navigator.clipboard.writeText(walletAddr)}
-                style={{ padding: "8px 14px", background: "rgba(72,117,115,0.12)", border: `1px solid ${C.border}`, color: C.tealLight, borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
+              <button onClick={() => navigator.clipboard.writeText(walletAddr)} className="caro-btn caro-btn-secondary" style={{ flexShrink: 0 }}>
                 Sao chép
               </button>
             )}
           </div>
-          <div style={{ marginTop: 10, fontSize: 11, color: C.muted }}>
-            ☕ Ví giao dịch nội bộ sàn CaRo — không bắt buộc sử dụng MetaMask khi giao dịch. Token được chuyển thẳng vào đây khi lô hàng được mint.
+          <div style={{ marginTop: 12, fontSize: 13, color: "#94a3b8" }}>
+            🦊 Kết nối MetaMask để thực hiện rút hoặc chuyển đổi token. Địa chỉ ví này sẽ nhận token khi rút trực tiếp.
           </div>
         </div>
 
         {/* ── Token breakdown table ── */}
-        <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-          <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>Danh mục Token CaRo</div>
-            <span style={{ fontSize: 11, color: C.muted, background: "rgba(72,117,115,0.08)", padding: "3px 8px", borderRadius: 4 }}>
+        <div className="caro-card" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="caro-section-header">
+            <h3 className="caro-section-title">Danh mục Token CaRo</h3>
+            <span className="caro-badge caro-badge-muted" style={{ fontWeight: 500 }}>
               {priceSource} · Tự động cập nhật
             </span>
           </div>
 
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: "rgba(255,255,255,0.02)" }}>
-                {["Token", "Token_CaRo (Số dư)", "Khối lượng", "Đơn giá / kg", "Giá trị ước tính"].map(h => (
-                  <th key={h} style={{ padding: "10px 16px", fontSize: 11, color: C.muted, fontWeight: 600, textAlign: "left", textTransform: "uppercase", letterSpacing: "0.5px" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading && (
+          <div className="caro-table-wrap">
+            <table className="caro-table">
+              <thead>
                 <tr>
-                  <td colSpan={5} style={{ padding: 30, textAlign: "center", color: C.muted, fontSize: 13 }}>Đang tải số dư…</td>
+                  {["Token", "Token_CaRo (Số dư)", "Khối lượng", "Đơn giá / kg", "Giá trị ước tính"].map(h => (
+                    <th key={h}>{h}</th>
+                  ))}
                 </tr>
-              )}
-
-              {!isLoading && TOKEN_ROWS.map(({ key, label, qty }) => {
-                const price = priceMap[key];
-                const val   = qty * price;
-                return (
-                  <tr key={key} style={{ borderBottom: `1px solid ${C.border}` }}>
-                    <td style={{ padding: "14px 16px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 6, background: "linear-gradient(135deg,#203433,#487573)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff" }}>{key}</div>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{label}</div>
-                          <div style={{ fontSize: 10, color: C.muted }}>Token Cà phê Robusta</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td style={{ padding: "14px 16px", fontSize: 14, fontWeight: 600, color: qty > 0 ? C.green : C.muted }}>
-                      {qty > 0 ? formatNumber(qty) : "—"}
-                    </td>
-                    <td style={{ padding: "14px 16px", fontSize: 13, color: "#e2e8f0" }}>
-                      {qty > 0 ? formatKg(qty) : "—"}
-                    </td>
-                    <td style={{ padding: "14px 16px", fontSize: 13, color: C.muted }}>
-                      {priceQ.isLoading ? "…" : formatVND(price)}
-                    </td>
-                    <td style={{ padding: "14px 16px", fontSize: 13, fontWeight: 600, color: val > 0 ? "#e2e8f0" : C.muted }}>
-                      {val > 0 ? formatVND(val) : "—"}
+              </thead>
+              <tbody>
+                {isLoading && (
+                  <tr>
+                    <td colSpan={5} style={{ padding: 32, textAlign: "center", color: "#64748b", fontSize: 14 }}>
+                      <div style={{ animation: "caro-spin 1s linear infinite", display: "inline-block", marginRight: 8 }}>⏳</div>
+                      Đang tải số dư…
                     </td>
                   </tr>
-                );
-              })}
+                )}
 
-              {/* Total row */}
-              {!isLoading && (
-                <tr style={{ background: "rgba(72,117,115,0.05)", borderTop: `1px solid ${C.border}` }}>
-                  <td style={{ padding: "12px 16px", fontSize: 12, fontWeight: 700, color: C.muted }}>TỔNG CỘNG</td>
-                  <td style={{ padding: "12px 16px" }}>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: C.tealLight }}>
-                      {formatNumber(totalCaRo)}
-                    </span>
-                    <span style={{ fontSize: 11, color: C.muted, marginLeft: 4 }}>CaRo</span>
-                  </td>
-                  <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>
-                    {totalCaRo > 0 ? formatKg(totalCaRo) : "—"}
-                  </td>
-                  <td />
-                  <td style={{ padding: "12px 16px", fontSize: 14, fontWeight: 700, color: C.tealLight }}>
-                    {estimatedValue > 0 ? formatVND(estimatedValue) : "—"}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                {!isLoading && TOKEN_ROWS.map(({ key, label, qty }) => {
+                  const price = priceMap[key];
+                  const val   = qty * price;
+                  return (
+                    <tr key={key}>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <div style={{ width: 36, height: 36, borderRadius: 8, background: "linear-gradient(135deg, rgba(176, 228, 204,0.1), rgba(64, 138, 113,0.1))", border: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#f8fafc" }}>{key}</div>
+                          <div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: "#f8fafc" }}>{label}</div>
+                            <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>Token Cà phê Robusta</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ fontSize: 15, fontWeight: 700, fontFamily: "monospace", color: qty > 0 ? "#B0E4CC" : "#64748b" }}>
+                        {qty > 0 ? formatNumber(qty) : "—"}
+                      </td>
+                      <td style={{ fontSize: 14, fontFamily: "monospace", color: "#f8fafc" }}>
+                        {qty > 0 ? formatKg(qty) : "—"}
+                      </td>
+                      <td style={{ fontSize: 14, fontFamily: "monospace", color: "#94a3b8" }}>
+                        {priceQ.isLoading ? "…" : formatVND(price)}
+                      </td>
+                      <td style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: val > 0 ? "#408A71" : "#64748b" }}>
+                        {val > 0 ? formatVND(val) : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {/* Total row */}
+                {!isLoading && (
+                  <tr style={{ background: "rgba(176, 228, 204,0.02)", borderTop: "2px solid var(--border)" }}>
+                    <td style={{ fontSize: 13, fontWeight: 800, color: "#94a3b8" }}>TỔNG CỘNG</td>
+                    <td>
+                      <span style={{ fontSize: 16, fontWeight: 800, fontFamily: "monospace", color: "#B0E4CC" }}>
+                        {formatNumber(totalCaRo)}
+                      </span>
+                      <span style={{ fontSize: 12, color: "#64748b", marginLeft: 6, fontWeight: 600 }}>CaRo</span>
+                    </td>
+                    <td style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#f8fafc" }}>
+                      {totalCaRo > 0 ? formatKg(totalCaRo) : "—"}
+                    </td>
+                    <td />
+                    <td style={{ fontSize: 15, fontWeight: 800, fontFamily: "monospace", color: "#408A71" }}>
+                      {estimatedValue > 0 ? formatVND(estimatedValue) : "—"}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* ── VND wallet summary (only when there is a balance) ── */}
         {vndBalance > 0 && (
-          <div style={{ padding: "14px 18px", background: "rgba(72,117,115,0.05)", border: `1px solid ${C.border}`, borderRadius: 9 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0", marginBottom: 8 }}>Số dư VND</div>
-            <div style={{ display: "flex", gap: 24, fontSize: 13, flexWrap: "wrap" }}>
-              <span>Tổng: <b style={{ color: "#e2e8f0" }}>{formatVND(vndBalance)}</b></span>
+          <div className="caro-card" style={{ background: "rgba(176, 228, 204,0.03)", borderColor: "rgba(176, 228, 204,0.15)" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#B0E4CC", marginBottom: 12 }}>Số dư VND</div>
+            <div style={{ display: "flex", gap: 32, fontSize: 14, flexWrap: "wrap", fontFamily: "monospace" }}>
+              <span>Tổng: <b style={{ color: "#f8fafc", fontSize: 15 }}>{formatVND(vndBalance)}</b></span>
               {vndLocked > 0 && (
-                <span>Đang khoá: <b style={{ color: C.gold }}>{formatVND(vndLocked)}</b></span>
+                <span>Đang khoá: <b style={{ color: "#f0b90b", fontSize: 15 }}>{formatVND(vndLocked)}</b></span>
               )}
-              <span>Khả dụng: <b style={{ color: C.green }}>{formatVND(vndAvailable)}</b></span>
+              <span>Khả dụng: <b style={{ color: "#B0E4CC", fontSize: 15 }}>{formatVND(vndAvailable)}</b></span>
             </div>
           </div>
         )}
 
         {/* ── Quick actions ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+        <div className="caro-grid-3">
           {[
-            { label: "Nạp tiền",          sub: "Nạp thêm số dư vào tài khoản ví",         path: "/farmer/wallet/deposit",  accent: C.green },
-            { label: "Rút tiền",          sub: "Chuyển số dư ra tài khoản ngân hàng",      path: "/farmer/wallet/withdraw", accent: C.red },
-            { label: "Lịch sử giao dịch", sub: "Xem tất cả lịch sử nạp rút và giao dịch", path: "/farmer/wallet/history",  accent: C.tealLight },
+            { label: "Nạp tiền",          sub: "Nạp thêm số dư vào tài khoản ví",         path: "/farmer/wallet/deposit",  accent: "#B0E4CC" },
+            { label: "Rút tiền",          sub: "Chuyển số dư ra tài khoản ngân hàng",      path: "/farmer/wallet/withdraw", accent: "#ef4444" },
+            { label: "Lịch sử giao dịch", sub: "Xem tất cả lịch sử nạp rút và giao dịch", path: "/farmer/wallet/history",  accent: "#408A71" },
           ].map(a => (
             <button key={a.path} onClick={() => nav(a.path)}
-              style={{ padding: "16px", background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, borderRadius: 9, cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}
-              onMouseEnter={e => { e.currentTarget.style.background = "rgba(72,117,115,0.06)"; e.currentTarget.style.borderColor = "#487573"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = C.border; }}
+              style={{
+                padding: "20px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)", borderRadius: 12,
+                cursor: "pointer", textAlign: "left", transition: "all 0.2s",
+                boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.borderColor = a.accent; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; e.currentTarget.style.borderColor = "var(--border)"; }}
             >
-              <div style={{ fontSize: 14, fontWeight: 600, color: a.accent, marginBottom: 4 }}>{a.label}</div>
-              <div style={{ fontSize: 12, color: C.muted }}>{a.sub}</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: a.accent, marginBottom: 6 }}>{a.label}</div>
+              <div style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.5 }}>{a.sub}</div>
             </button>
           ))}
         </div>

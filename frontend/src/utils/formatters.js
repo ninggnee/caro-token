@@ -46,7 +46,13 @@ export function formatKg(n, decimals = 0) {
  * formatToken(2500)          → "2.500"
  */
 export function formatToken(n, tokenLabel = '') {
-  return formatNumber(n, 0) + (tokenLabel ? ' ' + tokenLabel : '');
+  const num = Number(n ?? 0);
+  if (isNaN(num)) return '0' + (tokenLabel ? ' ' + tokenLabel : '');
+  const formatted = num.toLocaleString('vi-VN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 4,
+  });
+  return formatted + (tokenLabel ? ' ' + tokenLabel : '');
 }
 
 /**

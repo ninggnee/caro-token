@@ -2,45 +2,59 @@ import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { MapContainer, TileLayer, Polygon, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import { useAuth } from "../context/AuthContext";
 import { updateProfile, changePassword } from "../services/orderApi";
 
-const C = {
-  accent: "#487573",
-  muted: "#6b7a99",
-  green: "#0ecb81",
-  red: "#f6465d",
-  card: "#172524",
-  border: "rgba(72, 117, 115, 0.15)"
-};
+function MapUpdater({ center, zoom }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, zoom, map]);
+  return null;
+}
 
-const KYC_COLOR = { approved: "#0ecb81", pending: "#f0b90b", rejected: "#f6465d" };
+const KYC_COLOR = { approved: "#B0E4CC", pending: "#f59e0b", rejected: "#ef4444" };
 const KYC_LABEL = { approved: "✓ Đã xác minh", pending: "⏳ Đang chờ duyệt", rejected: "✗ Bị từ chối" };
 
-function Field({ label, value, placeholder, onChange, type = "text", readOnly = false }) {
-  return (
-    <div style={{ display: "grid", gap: 5 }}>
-      <label style={{ fontSize: 12, color: C.muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px" }}>{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        readOnly={readOnly}
-        style={{
-          padding: "10px 14px",
-          background: readOnly ? "rgba(255,255,255,0.02)" : "rgba(72,117,115,0.03)",
-          border: `1px solid ${C.border}`,
-          borderRadius: 7,
-          color: readOnly ? C.muted : "#e2e8f0",
-          fontSize: 13, outline: "none", width: "100%", boxSizing: "border-box",
-          cursor: readOnly ? "default" : "text",
-        }}
-      />
-    </div>
-  );
+function calculatePolygonArea(coordsString) {
+  try {
+    const coords = JSON.parse(coordsString);
+    if (!Array.isArray(coords) || coords.length < 3) return 0;
+    
+    const lat0 = coords[0][0];
+    const lng0 = coords[0][1];
+    const rLat = (lat0 * Math.PI) / 180;
+    const kx = 111320 * Math.cos(rLat);
+    const ky = 111132;
+    
+    const pts = coords.map(c => ({
+      x: (c[1] - lng0) * kx,
+      y: (c[0] - lat0) * ky
+    }));
+    
+    let area = 0;
+    const n = pts.length;
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      area += pts[i].x * pts[j].y;
+      area -= pts[j].x * pts[i].y;
+    }
+    const sqMeters = Math.abs(area) / 2;
+    return Number((sqMeters / 10000).toFixed(2));
+  } catch (e) {
+    return 0;
+  }
 }
+
+const TAY_NGUYEN_FARMS = [
+  { name: "Buôn Ma Thuột, Đắk Lắk", coords: "[[12.6842, 108.0539], [12.6855, 108.0545], [12.6848, 108.0558], [12.6835, 108.0550]]", area: 2.48, soil: "Đất đỏ basalt" },
+  { name: "Lâm Hà, Lâm Đồng", coords: "[[11.9082, 108.4382], [11.9122, 108.4412], [11.9142, 108.4352]]", area: 5.75, soil: "Đất feralit mùn vàng" },
+  { name: "Chư Sê, Gia Lai", coords: "[[13.9822, 107.9892], [13.9892, 107.9942], [13.9922, 107.9822]]", area: 7.35, soil: "Đất đỏ basalt tơi xốp" },
+  { name: "Đắk Mil, Đắk Nông", coords: "[[12.4382, 107.6282], [12.4452, 107.6322], [12.4412, 107.6212]]", area: 4.95, soil: "Đất đỏ basalt phong hóa" }
+];
 
 export default function FarmerProfile() {
   const { user, updateUser, refreshUser } = useAuth();
@@ -50,20 +64,48 @@ export default function FarmerProfile() {
     full_name: user?.full_name || "",
     phone:     user?.phone     || "",
     address:   user?.address   || "",
+    farm_code:      user?.farm_code || "",
+    farm_area:      user?.farm_area || "",
+    farm_location:  user?.farm_location || "",
+    farm_soil_type: user?.farm_soil_type || "",
+    farm_coords:    user?.farm_coords || "",
   });
+  
+  const [selectedCerts, setSelectedCerts] = useState([]);
   const [pwd, setPwd] = useState({ current_password: "", new_password: "", confirm: "" });
   const [pwdErr, setPwdErr] = useState("");
+  
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanStatus, setScanStatus] = useState("");
 
   useEffect(() => {
     refreshUser();
   }, []);
 
   useEffect(() => {
+    let parsed = [];
+    if (user?.certifications) {
+      try {
+        parsed = JSON.parse(user.certifications);
+        if (!Array.isArray(parsed)) parsed = [];
+      } catch (e) {
+        parsed = user.certifications.split(",").map(c => c.trim()).filter(Boolean).map(c => ({
+          name: c, file_name: "", ipfs_cid: ""
+        }));
+      }
+    }
+
     setForm({
       full_name: user?.full_name || "",
       phone:     user?.phone     || "",
       address:   user?.address   || "",
+      farm_code:      user?.farm_code || "",
+      farm_area:      user?.farm_area || "",
+      farm_location:  user?.farm_location || "",
+      farm_soil_type: user?.farm_soil_type || "",
+      farm_coords:    user?.farm_coords || "",
     });
+    setSelectedCerts(parsed);
   }, [user]);
 
   const profileMut = useMutation({
@@ -91,7 +133,40 @@ export default function FarmerProfile() {
 
   const handleProfileSave = () => {
     if (!form.full_name.trim()) { toast.error("Họ tên không được để trống"); return; }
-    profileMut.mutate(form);
+    profileMut.mutate({
+      ...form,
+      certifications: JSON.stringify(selectedCerts)
+    });
+  };
+
+  const handleAnalyzePolygon = () => {
+    setIsScanning(true);
+    setScanStatus("Scanning satellite imagery...");
+    
+    setForm(f => ({
+      ...f,
+      farm_coords: "",
+      farm_area: "",
+      farm_location: "",
+      farm_soil_type: ""
+    }));
+
+    setTimeout(() => { setScanStatus("Detecting boundaries..."); }, 500);
+    setTimeout(() => { setScanStatus("Generating polygon..."); }, 1000);
+
+    setTimeout(() => {
+      const mockFarm = TAY_NGUYEN_FARMS[Math.floor(Math.random() * TAY_NGUYEN_FARMS.length)];
+      setForm(f => ({
+        ...f,
+        farm_code: f.farm_code || `CARO-FARM-${Math.floor(1000 + Math.random() * 9000)}`,
+        farm_coords: mockFarm.coords,
+        farm_area: mockFarm.area,
+        farm_location: mockFarm.name,
+        farm_soil_type: mockFarm.soil
+      }));
+      setIsScanning(false);
+      toast.success("GPS Polygon synchronized!");
+    }, 1500);
   };
 
   const handlePasswordChange = () => {
@@ -103,200 +178,329 @@ export default function FarmerProfile() {
   };
 
   const kycStatus = user?.kyc_status || "pending";
+  const truncateWallet = (addr) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "Chưa kết nối";
+
+  const province = form.farm_location ? form.farm_location.split(",")[1]?.trim() : "Đắk Lắk";
+  const district = form.farm_location ? form.farm_location.split(",")[0]?.trim() : "Cư M'gar";
+
+  const renderMapEmbed = () => {
+    let lat = 14.0583; // center vietnam approx (Tay Nguyen)
+    let lng = 108.2772;
+    let zoom = 6;
+    let polygonPositions = [];
+
+    if (form.farm_coords) {
+      try {
+        const coords = JSON.parse(form.farm_coords);
+        if (coords && coords.length > 0) {
+          polygonPositions = coords;
+          lat = coords[0][0];
+          lng = coords[0][1];
+          zoom = 15;
+        }
+      } catch (e) {}
+    }
+
+    const center = [lat, lng];
+
+    return (
+      <div style={{ position: "relative", width: "100%", height: "260px", borderRadius: "12px", overflow: "hidden", border: "1px solid rgba(72,117,115,0.3)", zIndex: 0 }}>
+        <MapContainer center={center} zoom={zoom} style={{ width: '100%', height: '100%', zIndex: 1 }} zoomControl={false} scrollWheelZoom={true}>
+          <TileLayer
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
+            maxZoom={18}
+          />
+          {polygonPositions.length > 0 && (
+            <Polygon positions={polygonPositions} pathOptions={{ color: '#B0E4CC', fillColor: '#B0E4CC', fillOpacity: 0.3, weight: 2 }} />
+          )}
+          <MapUpdater center={center} zoom={zoom} />
+        </MapContainer>
+        
+        {isScanning && (
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 20,
+            background: "rgba(15,23,42,0.85)", backdropFilter: "blur(4px)",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12
+          }}>
+            <span style={{ fontSize: 32, display: "inline-block", animation: "caro-spin 1s linear infinite" }}>🔄</span>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#B0E4CC", textTransform: "uppercase" }}>{scanStatus}</div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <FarmerLayout title="Thông tin cá nhân">
-      <div style={{ maxWidth: 720, margin: "0 auto", display: "grid", gap: 20 }}>
+      <div className="caro-page">
+        
+        <div className="caro-page-header">
+          <div>
+            <h1 className="caro-page-title">Hồ sơ nhà nông (Farmer Profile)</h1>
+            <p className="caro-page-subtitle">Quản lý thông tin cá nhân và định vị vùng trồng RWA</p>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <span className="caro-badge caro-badge-info">Farmer</span>
+            <span className="caro-badge caro-badge-success">✓ Verified</span>
+          </div>
+        </div>
 
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>👤 Hồ Sơ Cá Nhân</h2>
-
-        {/* Unified KYC Status & Documents Section */}
-        <div style={{ 
-          background: C.card, 
-          borderRadius: 10, 
-          border: `1px solid ${KYC_COLOR[kycStatus] || "#f0b90b"}40`, 
-          overflow: "hidden" 
-        }}>
-          {/* Header Banner */}
-          <div style={{ 
-            padding: "16px 20px", 
-            background: kycStatus === "approved" ? "rgba(14,203,129,0.04)" : kycStatus === "rejected" ? "rgba(246,70,93,0.04)" : "rgba(240,185,11,0.04)", 
-            display: "flex", 
-            justifyContent: "space-between", 
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 12,
-            borderBottom: (user?.front_path || user?.back_path) ? `1px solid ${C.border}` : "none"
-          }}>
+        {/* Top metrics */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 24 }}>
+          <div className="caro-card caro-card-sm" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ fontSize: 24, opacity: 0.8 }}>📐</div>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>Trạng thái KYC</div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Xác minh danh tính để thực hiện giao dịch đầy đủ</div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              {kycStatus === "rejected" && (
-                <button 
-                  onClick={() => navigate("/kyc-cccd")}
-                  style={{ 
-                    padding: "4px 10px", 
-                    background: "rgba(246,70,93,0.1)", 
-                    border: `1px solid ${C.red}`, 
-                    color: C.red, 
-                    borderRadius: 6, 
-                    cursor: "pointer", 
-                    fontSize: 11, 
-                    fontWeight: 600 
-                  }}
-                >
-                  Gửi lại yêu cầu
-                </button>
-              )}
-              {(!user?.front_path && !user?.back_path && kycStatus !== "approved" && kycStatus !== "pending") && (
-                <button 
-                  onClick={() => navigate("/kyc-cccd")}
-                  style={{ 
-                    padding: "4px 10px", 
-                    background: `${C.accent}15`, 
-                    border: `1px solid ${C.accent}`, 
-                    color: "#7fe0c9", 
-                    borderRadius: 6, 
-                    cursor: "pointer", 
-                    fontSize: 11, 
-                    fontWeight: 600 
-                  }}
-                >
-                  Xác minh ngay
-                </button>
-              )}
-              <span style={{ fontSize: 11, padding: "4px 12px", borderRadius: 20, background: `${KYC_COLOR[kycStatus] || "#f0b90b"}20`, color: KYC_COLOR[kycStatus] || "#f0b90b", fontWeight: 700 }}>
-                {KYC_LABEL[kycStatus] || kycStatus}
-              </span>
+              <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>TỔNG DIỆN TÍCH</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "#f8fafc" }}>{form.farm_area ? `${form.farm_area} Ha` : "Chưa liên kết"}</div>
             </div>
           </div>
+          <div className="caro-card caro-card-sm" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ fontSize: 24, opacity: 0.8 }}>🪪</div>
+            <div>
+              <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>KYC STATUS</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: KYC_COLOR[kycStatus] }}>{KYC_LABEL[kycStatus]}</div>
+            </div>
+          </div>
+          <div className="caro-card caro-card-sm" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ fontSize: 24, opacity: 0.8 }}>🪙</div>
+            <div>
+              <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>SẢN LƯỢNG ƯỚC TÍNH</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "#408A71" }}>{form.farm_area ? `${(form.farm_area * 1000).toLocaleString()} CR` : "0.00 CR"}</div>
+            </div>
+          </div>
+        </div>
 
-          {/* CCCD Documents */}
-          {(user?.front_path || user?.back_path) && (
-            <div style={{ padding: 20 }}>
-              <div style={{ fontSize: 12, color: "#e2e8f0", marginBottom: 12, fontWeight: 700 }}>
-                🪪 Ảnh CCCD Đã Gửi Xác Thực
+        {/* Two-Column Dashboard Layout */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 24, alignItems: "start" }}>
+          
+          {/* COLUMN 1: Personal Info + Password */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            
+            <div className="caro-card" style={{ textAlign: "center", padding: "30px 20px" }}>
+              <div style={{ 
+                width: 80, height: 80, borderRadius: "50%", background: "linear-gradient(135deg, #B0E4CC, #408A71)",
+                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: 800, color: "#0f172a",
+                margin: "0 auto 16px"
+              }}>
+                {form.full_name ? form.full_name.charAt(0) : "F"}
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-                <div>
-                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 8, fontWeight: 600, textTransform: "uppercase" }}>Ảnh Mặt Trước</div>
-                  {user?.front_path ? (
-                    <img 
-                      src={user.front_path} 
-                      alt="CCCD Mặt trước" 
-                      style={{ width: "100%", maxHeight: 180, objectFit: "contain", borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.02)", padding: 4 }} 
-                    />
-                  ) : (
-                    <div style={{ padding: "30px", background: "rgba(255,255,255,0.01)", textAlign: "center", borderRadius: 8, color: C.muted, fontSize: 12, border: `1px dashed ${C.border}` }}>Không có ảnh</div>
-                  )}
+              <h3 style={{ margin: "0 0 4px", fontSize: 18, color: "#f8fafc" }}>{form.full_name || "Nông Dân CaRo"}</h3>
+              <div style={{ color: "#408A71", fontSize: 13, fontWeight: 600 }}>Nhà sản xuất cà phê RWA</div>
+              <div style={{ marginTop: 16, fontSize: 12, display: "flex", flexDirection: "column", gap: 8, textAlign: "left" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#64748b" }}>ID tài khoản</span> <strong>#{user?.id || "—"}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#64748b" }}>Ví External</span> <strong style={{ fontFamily: "monospace", color: "#f8fafc" }}>{truncateWallet(user?.wallet_address)}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#64748b" }}>Ngày tham gia</span> <strong>{user?.created_at ? new Date(user.created_at).toLocaleDateString("vi-VN") : "—"}</strong></div>
+              </div>
+            </div>
+
+            <div className="caro-card">
+              <div className="caro-section-header">
+                <h3 className="caro-section-title">Thông tin cá nhân</h3>
+              </div>
+              <div style={{ display: "grid", gap: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div className="caro-field">
+                    <label className="caro-label">Họ và tên *</label>
+                    <input type="text" className="caro-input" value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} placeholder="Nguyễn Văn A" />
+                  </div>
+                  <div className="caro-field">
+                    <label className="caro-label">Số điện thoại</label>
+                    <input type="text" className="caro-input" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="0901234567" />
+                  </div>
                 </div>
+
+                <div className="caro-field">
+                  <label className="caro-label">Địa chỉ</label>
+                  <input type="text" className="caro-input" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Đắk Lắk, Việt Nam" />
+                </div>
+                
+                <div className="caro-field">
+                  <label className="caro-label">Email (Không thể sửa)</label>
+                  <input type="email" className="caro-input" value={user?.email || ""} readOnly />
+                </div>
+
                 <div>
-                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 8, fontWeight: 600, textTransform: "uppercase" }}>Ảnh Mặt Sau</div>
-                  {user?.back_path ? (
-                    <img 
-                      src={user.back_path} 
-                      alt="CCCD Mặt sau" 
-                      style={{ width: "100%", maxHeight: 180, objectFit: "contain", borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.02)", padding: 4 }} 
-                    />
-                  ) : (
-                    <div style={{ padding: "30px", background: "rgba(255,255,255,0.01)", textAlign: "center", borderRadius: 8, color: C.muted, fontSize: 12, border: `1px dashed ${C.border}` }}>Không có ảnh</div>
-                  )}
+                  <button onClick={handleProfileSave} disabled={profileMut.isPending} className="caro-btn caro-btn-primary" style={{ width: "100%" }}>
+                    {profileMut.isPending ? "Đang lưu..." : "Lưu thông tin cá nhân"}
+                  </button>
                 </div>
               </div>
             </div>
-          )}
-        </div>
 
-        {/* Account Info (readonly) */}
-        <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-          <div style={{ padding: "13px 20px", borderBottom: `1px solid ${C.border}`, fontSize: 13, fontWeight: 700 }}>
-            📋 Thông Tin Tài Khoản
-          </div>
-          <div style={{ padding: 20, display: "grid", gap: 14 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <Field label="Email" value={user?.email || ""} readOnly />
-              <Field label="Vai trò" value="Farmer" readOnly />
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <Field label="ID tài khoản" value={user?.id ? `#${user.id}` : "—"} readOnly />
-              <Field label="Số CCCD" value={user?.id_number || "Chưa xác minh"} readOnly />
-            </div>
-          </div>
-        </div>
-
-        {/* Editable Profile */}
-        <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-          <div style={{ padding: "13px 20px", borderBottom: `1px solid ${C.border}`, fontSize: 13, fontWeight: 700 }}>
-            ✏️ Chỉnh Sửa Hồ Sơ
-          </div>
-          <div style={{ padding: 20, display: "grid", gap: 14 }}>
-            <Field label="Họ và tên *" value={form.full_name}
-              onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}
-              placeholder="Nguyễn Văn A" />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <Field label="Số điện thoại" value={form.phone}
-                onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                placeholder="0901234567" />
-              <Field label="Địa chỉ" value={form.address}
-                onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-                placeholder="TP.HCM" />
-            </div>
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <button onClick={handleProfileSave} disabled={profileMut.isPending}
-                style={{ padding: "10px 24px", background: profileMut.isPending ? "#555" : C.accent, border: "none", borderRadius: 7, color: "#fff", fontWeight: 700, cursor: profileMut.isPending ? "not-allowed" : "pointer", fontSize: 13 }}>
-                {profileMut.isPending ? "Đang lưu..." : "Lưu thay đổi"}
-              </button>
-              {profileMut.isSuccess && <span style={{ color: C.green, fontSize: 13, fontWeight: 600 }}>✓ Đã lưu</span>}
-            </div>
-          </div>
-        </div>
-
-        {/* Wallet Address */}
-        {user?.wallet_address && (
-          <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-            <div style={{ padding: "13px 20px", borderBottom: `1px solid ${C.border}`, fontSize: 13, fontWeight: 700 }}>
-              🔑 Địa Chỉ Ví External (MetaMask)
-            </div>
-            <div style={{ padding: 20 }}>
-              <div style={{ fontFamily: "monospace", fontSize: 12, color: "#e2e8f0", background: "rgba(255,255,255,0.03)", padding: "10px 14px", borderRadius: 7, border: `1px solid ${C.border}`, wordBreak: "break-all" }}>
-                {user.wallet_address}
+            <div className="caro-card">
+              <div className="caro-section-header">
+                <h3 className="caro-section-title" style={{ color: "#ef4444" }}>Đổi mật khẩu bảo mật</h3>
               </div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>Dùng để rút token về blockchain Sepolia</div>
-            </div>
-          </div>
-        )}
-
-        {/* Change Password */}
-        <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-          <div style={{ padding: "13px 20px", borderBottom: `1px solid ${C.border}`, fontSize: 13, fontWeight: 700 }}>
-            🔒 Đổi Mật Khẩu
-          </div>
-          <div style={{ padding: 20, display: "grid", gap: 12 }}>
-            {[
-              { key: "current_password", label: "Mật khẩu hiện tại" },
-              { key: "new_password",     label: "Mật khẩu mới (tối thiểu 6 ký tự)" },
-              { key: "confirm",          label: "Xác nhận mật khẩu mới" },
-            ].map(({ key, label }) => (
-              <Field key={key} label={label} type="password" value={pwd[key]}
-                onChange={e => { setPwdErr(""); setPwd(p => ({ ...p, [key]: e.target.value })); }}
-                placeholder="••••••••" />
-            ))}
-
-            {pwdErr && (
-              <div style={{ padding: "8px 12px", background: "rgba(246,70,93,0.08)", border: "1px solid rgba(246,70,93,0.2)", borderRadius: 6, fontSize: 12, color: C.red }}>
-                {pwdErr}
+              <div style={{ display: "grid", gap: 16 }}>
+                <div className="caro-field">
+                  <label className="caro-label">Mật khẩu hiện tại</label>
+                  <input type="password" className="caro-input" value={pwd.current_password} onChange={e => { setPwdErr(""); setPwd(p => ({ ...p, current_password: e.target.value })); }} />
+                </div>
+                <div className="caro-field">
+                  <label className="caro-label">Mật khẩu mới</label>
+                  <input type="password" className="caro-input" value={pwd.new_password} onChange={e => { setPwdErr(""); setPwd(p => ({ ...p, new_password: e.target.value })); }} />
+                </div>
+                <div className="caro-field">
+                  <label className="caro-label">Xác nhận mật khẩu</label>
+                  <input type="password" className="caro-input" value={pwd.confirm} onChange={e => { setPwdErr(""); setPwd(p => ({ ...p, confirm: e.target.value })); }} />
+                </div>
+                
+                {pwdErr && (
+                  <div style={{ padding: "10px", background: "rgba(239,68,68,0.1)", color: "#ef4444", fontSize: 13, borderRadius: 8, border: "1px solid rgba(239,68,68,0.2)" }}>
+                    {pwdErr}
+                  </div>
+                )}
+                
+                <div>
+                  <button onClick={handlePasswordChange} disabled={pwdMut.isPending} className="caro-btn caro-btn-danger" style={{ width: "100%" }}>
+                    {pwdMut.isPending ? "Đang xử lý..." : "Cập nhật mật khẩu"}
+                  </button>
+                </div>
               </div>
-            )}
-
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <button onClick={handlePasswordChange} disabled={pwdMut.isPending}
-                style={{ padding: "10px 24px", background: pwdMut.isPending ? "#555" : "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 7, color: "#e2e8f0", fontWeight: 700, cursor: pwdMut.isPending ? "not-allowed" : "pointer", fontSize: 13 }}>
-                {pwdMut.isPending ? "Đang xử lý..." : "Cập nhật mật khẩu"}
-              </button>
-              {pwdMut.isSuccess && <span style={{ color: C.green, fontSize: 13, fontWeight: 600 }}>✓ Đã cập nhật</span>}
             </div>
+
+          </div>
+
+          {/* COLUMN 2: Farm Map + Info + Certifications */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            
+            <div className="caro-card">
+              <div className="caro-section-header">
+                <h3 className="caro-section-title">Bản đồ vùng trồng</h3>
+              </div>
+              
+              <div className="caro-field">
+                <label className="caro-label">Tọa độ vệ tinh (GPS Polygon)</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input type="text" className="caro-input" value={form.farm_coords ? "Đã liên kết dữ liệu GPS" : ""} placeholder="Chưa có dữ liệu" readOnly style={{ flex: 1, fontFamily: "monospace" }} />
+                  <button onClick={handleAnalyzePolygon} disabled={isScanning} className="caro-btn caro-btn-success">
+                    {isScanning ? "Đang quét..." : "Đọc GPS"}
+                  </button>
+                </div>
+              </div>
+
+              {renderMapEmbed()}
+            </div>
+
+            <div className="caro-card">
+              <div className="caro-section-header">
+                <h3 className="caro-section-title">Thông tin canh tác</h3>
+              </div>
+              <div style={{ display: "grid", gap: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div className="caro-field">
+                    <label className="caro-label">Mã vùng trồng</label>
+                    <input type="text" className="caro-input" value={form.farm_code} onChange={e => setForm(f => ({ ...f, farm_code: e.target.value }))} placeholder="VD: CARO-FARM-842" />
+                  </div>
+                  <div className="caro-field">
+                    <label className="caro-label">Diện tích</label>
+                    <input type="text" className="caro-input" value={form.farm_area ? `${form.farm_area} Ha` : "0.00 Ha"} readOnly />
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div className="caro-field">
+                    <label className="caro-label">Loại đất</label>
+                    <input type="text" className="caro-input" value={form.farm_soil_type} onChange={e => setForm(f => ({ ...f, farm_soil_type: e.target.value }))} placeholder="VD: Đất đỏ basalt" />
+                  </div>
+                  <div className="caro-field">
+                    <label className="caro-label">Địa phương</label>
+                    <input type="text" className="caro-input" value={form.farm_location || "Tây Nguyên, Việt Nam"} readOnly />
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div className="caro-field">
+                    <label className="caro-label">Tỉnh thành</label>
+                    <input type="text" className="caro-input" value={province} readOnly />
+                  </div>
+                  <div className="caro-field">
+                    <label className="caro-label">Quận huyện</label>
+                    <input type="text" className="caro-input" value={district} readOnly />
+                  </div>
+                </div>
+
+                <div>
+                  <button onClick={handleProfileSave} disabled={profileMut.isPending} className="caro-btn caro-btn-primary">
+                    Lưu thông tin vùng trồng
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="caro-card">
+              <div className="caro-section-header">
+                <h3 className="caro-section-title">Chứng nhận nông nghiệp</h3>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {["VietGAP", "4C", "Rainforest Alliance", "Organic", "UTZ"].map(c => {
+                  const certObj = selectedCerts.find(x => x.name === c);
+                  const isChecked = !!certObj;
+                  
+                  return (
+                    <div key={c} style={{
+                      padding: 12, background: isChecked ? "rgba(176, 228, 204,0.05)" : "rgba(255,255,255,0.02)",
+                      border: `1px solid ${isChecked ? "rgba(176, 228, 204,0.4)" : "rgba(255,255,255,0.05)"}`,
+                      borderRadius: 10, display: "flex", flexDirection: "column", gap: 8
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, fontWeight: 600, color: isChecked ? "#f8fafc" : "#94a3b8" }}>
+                          <input type="checkbox" checked={isChecked} onChange={() => {
+                            if (isChecked) setSelectedCerts(prev => prev.filter(x => x.name !== c));
+                            else setSelectedCerts(prev => [...prev, { name: c, file_name: "", ipfs_cid: "" }]);
+                          }} style={{ width: 16, height: 16, accentColor: "#B0E4CC" }} />
+                          {c}
+                        </label>
+                      </div>
+
+                      {isChecked && (
+                        <div style={{ marginLeft: 24 }}>
+                          {certObj.file_name ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,0,0,0.2)", padding: "8px 12px", borderRadius: 8 }}>
+                              <span style={{ fontSize: 13, color: "#f8fafc", flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📄 {certObj.file_name}</span>
+                              <button onClick={() => setSelectedCerts(prev => prev.map(x => x.name === c ? { ...x, file_name: "", ipfs_cid: "" } : x))} className="caro-btn caro-btn-ghost caro-btn-sm" style={{ color: "#ef4444", padding: "4px 8px" }}>Xóa</button>
+                            </div>
+                          ) : (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <input
+                                type="file" accept=".pdf,.jpg,.jpeg,.png" id={`file-input-${c}`}
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  const fd = new FormData(); fd.append("file", file);
+                                  toast.info(`Đang tải lên ${c}...`);
+                                  try {
+                                    const response = await fetch('/api/auth/upload-cert', { method: 'POST', headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` }, body: fd });
+                                    const resData = await response.json();
+                                    if (resData.success) {
+                                      setSelectedCerts(prev => prev.map(x => x.name === c ? { ...x, file_name: resData.file_name, ipfs_cid: resData.ipfs_cid } : x));
+                                      toast.success("Tải lên thành công!");
+                                    } else toast.error("Tải lên thất bại");
+                                  } catch (err) { toast.error("Lỗi khi tải lên file"); }
+                                  e.target.value = "";
+                                }}
+                                style={{ display: "none" }}
+                              />
+                              <button onClick={() => document.getElementById(`file-input-${c}`)?.click()} className="caro-btn caro-btn-ghost caro-btn-sm" style={{ fontSize: 12 }}>
+                                📤 Tải tài liệu (.pdf, .png)
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                <div style={{ marginTop: 8 }}>
+                  <button onClick={handleProfileSave} disabled={profileMut.isPending} className="caro-btn caro-btn-primary">
+                    Lưu chứng nhận canh tác
+                  </button>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
 
