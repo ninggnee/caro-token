@@ -26,8 +26,6 @@ import warehouseDocumentRoutes from './routes/warehouseDocumentRoutes.js';
 import mockMarketRoutes        from './routes/mockMarketRoutes.js';
 import MockMarketEngine        from './services/MockMarketEngine.js';
 import farmerRoutes            from './routes/farmerDashboardRoutes.js';
-import adminSyncRoutes         from './routes/adminSyncRoutes.js';
-import financeRoutes           from './routes/financeRoutes.js';
 
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
@@ -65,39 +63,12 @@ app.use('/api/custodian',            custodianRoutes);         // RWA custodian 
 app.use('/api/batches',             assetBatchRoutes);         // Asset batch mint workflow
 app.use('/api/warehouse-documents', warehouseDocumentRoutes);  // Warehouse document IPFS storage
 app.use('/api/farmer',             farmerRoutes);              // Farmer dashboard & token holdings
-app.use('/api/admin/sync',        adminSyncRoutes);            // On-chain balance sync
-app.use('/api/finance',           financeRoutes);              // Trader finance (collateral loan + token discounting)
 
 app.get('/', (_, res) => res.json({ message: 'CaRo Backend Running' }));
 
 // Debug: test DB connection and show table status on startup
 import db from './config/db.js';
 
-// Auto-apply v4 migration (creates collateral_loans + token_discounting tables).
-async function applyV4Migration() {
-  try {
-    const [[cl]] = await db.execute(
-      `SELECT 1 FROM INFORMATION_SCHEMA.TABLES
-       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'collateral_loans' LIMIT 1`
-    );
-    if (cl) {
-      console.log('✅ v4 migration already applied — skipping');
-      return;
-    }
-    console.log('⏳ Applying v4 migration (finance tables)...');
-    const sqlPath = path.join(__dirname, 'migrations', 'v4_finance_tables.sql');
-    const sql = fs.readFileSync(sqlPath, 'utf8');
-    const stmts = sql.split(/;\s*(?:\r?\n|$)/).map(s => s.split('\n').filter(l => !l.trim().startsWith('--')).join('\n').trim()).filter(s => s.length > 0);
-    for (const stmt of stmts) {
-      try { await db.execute(stmt); } catch (e) {
-        console.warn(`  ⚠️  v4 stmt warning: ${e.message.slice(0, 120)}`);
-      }
-    }
-    console.log('✅ v4 migration applied');
-  } catch (err) {
-    console.warn('⚠️  v4 migration check failed (non-fatal):', err.message);
-  }
-}
 
 // Auto-apply v6 migration (ensures wallet/deposit/withdraw tables exist with full columns).
 async function applyV6Migration() {
@@ -168,7 +139,6 @@ app.listen(PORT, async () => {
     console.error('   Check DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME in .env');
   }
 
-  await applyV4Migration();
   await applyV6Migration();
   await applyV5Migration();
 
