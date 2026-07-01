@@ -5,6 +5,7 @@ import {
   deleteUser,
   getUserDetail,
   updateUser,
+  getAbnormalActivities,
 } from "../controllers/adminUsersController.js";
 
 import {
@@ -22,6 +23,16 @@ router.get(
   verifyToken,
   requireRole("admin"),
   listUsers
+);
+
+/**
+ * GET /admin/users/abnormal
+ */
+router.get(
+  "/abnormal",
+  verifyToken,
+  requireRole("admin"),
+  getAbnormalActivities
 );
 
 /**

@@ -5,51 +5,27 @@ import { useAuth } from "../context/AuthContext";
 import { useWallet } from "../context/WalletContext";
 import axios from "../utils/axiosClient";
 
-const C = {
-  accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
-  card: "#172524", border: "rgba(72,117,115,0.15)", tealLight: "#7fe0c9",
-};
-
-function inputStyle(disabled) {
-  return {
-    width: "100%", padding: "10px 12px", background: disabled ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.05)",
-    border: `1px solid ${C.border}`, borderRadius: 8, color: disabled ? C.muted : "#e2e8f0",
-    fontSize: 13, boxSizing: "border-box", outline: "none",
-  };
-}
-function Label({ children }) {
-  return <label style={{ display: "block", fontSize: 12, color: C.muted, fontWeight: 600, marginBottom: 6 }}>{children}</label>;
-}
-function Field({ label, value, onChange, disabled, type = "text", placeholder }) {
-  return (
-    <div>
-      <Label>{label}</Label>
-      <input type={type} value={value} onChange={e => onChange?.(e.target.value)} disabled={disabled}
-        placeholder={placeholder} style={inputStyle(disabled)} />
-    </div>
-  );
-}
 function Msg({ msg }) {
   if (!msg) return null;
   return (
-    <div style={{ padding: "10px 14px", background: msg.ok ? "rgba(14,203,129,0.1)" : "rgba(246,70,93,0.1)", border: `1px solid ${msg.ok ? "rgba(14,203,129,0.3)" : "rgba(246,70,93,0.3)"}`, borderRadius: 8, fontSize: 13, color: msg.ok ? C.green : C.red }}>
+    <div className={`caro-badge ${msg.ok ? "caro-badge-success" : "caro-badge-danger"}`} style={{ display: "flex", padding: "10px 14px", fontSize: 13, borderRadius: 8, marginTop: 8 }}>
       {msg.text}
     </div>
   );
 }
+
 function SaveBtn({ onClick, loading, label = "Lưu thay đổi" }) {
   return (
-    <button onClick={onClick} disabled={loading}
-      style={{ padding: "10px 24px", background: loading ? "rgba(72,117,115,0.4)" : C.accent, color: "#fff", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: loading ? "not-allowed" : "pointer" }}>
+    <button onClick={onClick} disabled={loading} className="caro-btn caro-btn-primary" style={{ marginTop: 12 }}>
       {loading ? "Đang lưu..." : label}
     </button>
   );
 }
 
 const KYC_STATUS_MAP = {
-  approved: { label: "Đã xác thực KYC",  color: C.green,   icon: "✅" },
-  pending:  { label: "Đang chờ xét duyệt", color: "#f0b90b", icon: "⏳" },
-  rejected: { label: "Bị từ chối",         color: C.red,     icon: "❌" },
+  approved: { label: "Đã xác thực KYC",  color: "caro-badge-success", icon: "✅" },
+  pending:  { label: "Đang chờ xét duyệt", color: "caro-badge-warning", icon: "⏳" },
+  rejected: { label: "Bị từ chối",         color: "caro-badge-danger",  icon: "❌" },
 };
 
 export default function TraderProfile() {
@@ -114,152 +90,179 @@ export default function TraderProfile() {
     pwdMutation.mutate({ current_password: pwd.current, new_password: pwd.newPwd });
   };
 
-  const kyc = meUser?.kyc_status ? (KYC_STATUS_MAP[meUser.kyc_status] || { label: meUser.kyc_status, color: C.muted, icon: "❓" }) : null;
-
-  const tabStyle = (t) => ({
-    padding: "8px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer", border: "none", borderRadius: 7,
-    background: tab === t ? C.accent : "rgba(255,255,255,0.04)", color: tab === t ? "#fff" : C.muted,
-  });
-
+  const kyc = meUser?.kyc_status ? (KYC_STATUS_MAP[meUser.kyc_status] || { label: meUser.kyc_status, color: "caro-badge-muted", icon: "❓" }) : null;
   const initials = (meUser?.full_name || meUser?.email || "T")[0].toUpperCase();
 
   return (
     <TraderLayout title="Hồ sơ cá nhân">
-      <div style={{ display: "grid", gap: 18, maxWidth: 780 }}>
+      <div className="caro-page">
 
         {/* Profile header */}
-        <div style={{ background: `linear-gradient(135deg, #172524 0%, #1e302f 100%)`, borderRadius: 14, border: `1px solid ${C.border}`, padding: "22px 24px", display: "flex", alignItems: "center", gap: 18 }}>
-          <div style={{ width: 60, height: 60, borderRadius: "50%", background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 800, color: "#fff", flexShrink: 0 }}>
-            {initials}
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 18, fontWeight: 800 }}>{meUser?.full_name || "Chưa cập nhật"}</div>
-            <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>{meUser?.email}</div>
-            <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: "rgba(72,117,115,0.2)", color: C.tealLight, fontWeight: 700, textTransform: "uppercase" }}>
-                Trader
-              </span>
-              {kyc && (
-                <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: `rgba(0,0,0,0.15)`, color: kyc.color, fontWeight: 700, border: `1px solid ${kyc.color}44` }}>
-                  {kyc.icon} {kyc.label}
-                </span>
-              )}
+        <div className="caro-card" style={{ background: "linear-gradient(135deg, rgba(176, 228, 204,0.05), rgba(64, 138, 113,0.05))" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+            <div className="caro-avatar caro-avatar-xl caro-avatar-ring">
+              {initials}
+            </div>
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#f8fafc" }}>{meUser?.full_name || "Chưa cập nhật"}</div>
+              <div style={{ fontSize: 13, color: "#94a3b8", marginTop: 4 }}>{meUser?.email}</div>
+              <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                <span className="caro-badge caro-badge-info">Trader</span>
+                {kyc && (
+                  <span className={`caro-badge ${kyc.color}`}>
+                    <span style={{ fontSize: 12 }}>{kyc.icon}</span> {kyc.label}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: 8 }}>
-          <button style={tabStyle("info")}     onClick={() => setTab("info")}>👤 Thông tin cá nhân</button>
-          <button style={tabStyle("security")} onClick={() => setTab("security")}>🔒 Đổi mật khẩu</button>
-          <button style={tabStyle("wallet")}   onClick={() => setTab("wallet")}>🔗 Ví blockchain</button>
+          {[
+            { id: "info", icon: "👤", label: "Thông tin cá nhân" },
+            { id: "security", icon: "🔒", label: "Đổi mật khẩu" },
+            { id: "wallet", icon: "🔗", label: "Ví blockchain" },
+          ].map(t => (
+            <button key={t.id} className={`caro-btn ${tab === t.id ? "caro-btn-primary" : "caro-btn-ghost"}`} onClick={() => setTab(t.id)}>
+              <span style={{ fontSize: 14 }}>{t.icon}</span> {t.label}
+            </button>
+          ))}
         </div>
 
         {/* Tab: Info */}
         {tab === "info" && (
-          <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "22px 24px" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 18 }}>Thông tin cá nhân</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <Field label="Họ và tên" value={profile.full_name} onChange={v => setProfile(p => ({ ...p, full_name: v }))} placeholder="Nguyễn Văn A" />
-              <Field label="Email (không thể thay đổi)" value={meUser?.email || ""} disabled />
-              <Field label="Số điện thoại" value={profile.phone} onChange={v => setProfile(p => ({ ...p, phone: v }))} placeholder="0912345678" />
-              <Field label="Địa chỉ" value={profile.address} onChange={v => setProfile(p => ({ ...p, address: v }))} placeholder="Hà Nội, Việt Nam" />
+          <div className="caro-card">
+            <div className="caro-section-header">
+              <h3 className="caro-section-title">Thông tin cá nhân</h3>
             </div>
-            <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
-              <Msg msg={infoMsg} />
-              <div><SaveBtn onClick={handleSaveProfile} loading={profileMutation.isLoading} /></div>
+            <div className="caro-grid-2">
+              <div className="caro-field">
+                <label className="caro-label">Họ và tên</label>
+                <input type="text" className="caro-input" value={profile.full_name} onChange={e => setProfile(p => ({ ...p, full_name: e.target.value }))} placeholder="Nguyễn Văn A" />
+              </div>
+              <div className="caro-field">
+                <label className="caro-label">Email (không thể thay đổi)</label>
+                <input type="text" className="caro-input" value={meUser?.email || ""} disabled />
+              </div>
+              <div className="caro-field">
+                <label className="caro-label">Số điện thoại</label>
+                <input type="text" className="caro-input" value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} placeholder="0912345678" />
+              </div>
+              <div className="caro-field">
+                <label className="caro-label">Địa chỉ</label>
+                <input type="text" className="caro-input" value={profile.address} onChange={e => setProfile(p => ({ ...p, address: e.target.value }))} placeholder="Hà Nội, Việt Nam" />
+              </div>
             </div>
+            <Msg msg={infoMsg} />
+            <SaveBtn onClick={handleSaveProfile} loading={profileMutation.isLoading} />
           </div>
         )}
 
         {/* Tab: Security */}
         {tab === "security" && (
-          <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "22px 24px" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 18 }}>Đổi mật khẩu</div>
-            <div style={{ display: "grid", gap: 14, maxWidth: 400 }}>
-              <Field label="Mật khẩu hiện tại" type="password" value={pwd.current} onChange={v => setPwd(p => ({ ...p, current: v }))} placeholder="••••••••" />
-              <Field label="Mật khẩu mới" type="password" value={pwd.newPwd} onChange={v => setPwd(p => ({ ...p, newPwd: v }))} placeholder="Ít nhất 6 ký tự" />
-              <Field label="Xác nhận mật khẩu mới" type="password" value={pwd.confirm} onChange={v => setPwd(p => ({ ...p, confirm: v }))} placeholder="Nhập lại mật khẩu mới" />
-              <Msg msg={pwdMsg} />
-              <div><SaveBtn onClick={handleChangePwd} loading={pwdMutation.isLoading} label="Đổi mật khẩu" /></div>
+          <div className="caro-card">
+            <div className="caro-section-header">
+              <h3 className="caro-section-title">Đổi mật khẩu</h3>
             </div>
-            <div style={{ marginTop: 20, padding: "12px 14px", background: "rgba(72,117,115,0.07)", borderRadius: 8, fontSize: 12, color: C.muted }}>
-              ℹ Mật khẩu mới phải có ít nhất 6 ký tự. Sau khi đổi, bạn sẽ cần đăng nhập lại trên các thiết bị khác.
+            <div style={{ maxWidth: 500 }}>
+              <div className="caro-field">
+                <label className="caro-label">Mật khẩu hiện tại</label>
+                <input type="password" className="caro-input" value={pwd.current} onChange={e => setPwd(p => ({ ...p, current: e.target.value }))} placeholder="••••••••" />
+              </div>
+              <div className="caro-field">
+                <label className="caro-label">Mật khẩu mới</label>
+                <input type="password" className="caro-input" value={pwd.newPwd} onChange={e => setPwd(p => ({ ...p, newPwd: e.target.value }))} placeholder="Ít nhất 6 ký tự" />
+              </div>
+              <div className="caro-field">
+                <label className="caro-label">Xác nhận mật khẩu mới</label>
+                <input type="password" className="caro-input" value={pwd.confirm} onChange={e => setPwd(p => ({ ...p, confirm: e.target.value }))} placeholder="Nhập lại mật khẩu mới" />
+              </div>
+              <Msg msg={pwdMsg} />
+              <SaveBtn onClick={handleChangePwd} loading={pwdMutation.isLoading} label="Đổi mật khẩu" />
+            </div>
+            <div style={{ marginTop: 20, padding: "12px 16px", background: "rgba(64, 138, 113,0.1)", borderRadius: 8, fontSize: 13, color: "#408A71", display: "flex", gap: 10 }}>
+              <span>ℹ️</span> Mật khẩu mới phải có ít nhất 6 ký tự. Sau khi đổi, bạn sẽ cần đăng nhập lại trên các thiết bị khác.
             </div>
           </div>
         )}
 
         {/* Tab: Wallet */}
         {tab === "wallet" && (
-          <div style={{ display: "grid", gap: 14 }}>
-            <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "22px 24px" }}>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>🦊 MetaMask — Ví blockchain</div>
+          <div className="caro-grid-2">
+            
+            <div className="caro-card">
+              <div className="caro-section-header">
+                <h3 className="caro-section-title">🦊 MetaMask — Ví blockchain</h3>
+              </div>
               {!account ? (
-                <div style={{ display: "grid", gap: 14 }}>
-                  <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
+                <div>
+                  <p style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.6, marginBottom: 16 }}>
                     Kết nối ví MetaMask để xem số dư token CR1, CR2, CR3 trực tiếp trên blockchain và thực hiện giao dịch on-chain.
-                  </div>
-                  <div>
-                    <button onClick={connect}
-                      style={{ padding: "11px 24px", background: "#f0b90b", color: "#000", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-                      🦊 Kết nối MetaMask
-                    </button>
-                  </div>
+                  </p>
+                  <button onClick={connect} className="caro-btn caro-btn-success">
+                    🦊 Kết nối MetaMask
+                  </button>
                 </div>
               ) : (
-                <div style={{ display: "grid", gap: 14 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: "rgba(14,203,129,0.08)", border: `1px solid rgba(14,203,129,0.2)`, borderRadius: 9 }}>
-                    <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: C.green, flexShrink: 0 }} />
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "rgba(176, 228, 204,0.1)", border: "1px solid rgba(176, 228, 204,0.3)", borderRadius: 8, marginBottom: 16 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#B0E4CC", flexShrink: 0, boxShadow: "0 0 8px #B0E4CC" }} />
                     <div>
-                      <div style={{ fontSize: 11, color: C.muted, marginBottom: 2 }}>Địa chỉ ví đang kết nối</div>
-                      <div style={{ fontSize: 13, fontFamily: "monospace", color: "#e2e8f0", fontWeight: 600, wordBreak: "break-all" }}>{account}</div>
+                      <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Địa chỉ ví đang kết nối</div>
+                      <div style={{ fontSize: 14, fontFamily: "monospace", color: "#f8fafc", fontWeight: 700, wordBreak: "break-all" }}>{account}</div>
                     </div>
                   </div>
-                  <div>
-                    <button onClick={disconnect}
-                      style={{ padding: "8px 18px", background: "rgba(246,70,93,0.12)", color: C.red, border: `1px solid rgba(246,70,93,0.3)`, borderRadius: 7, fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
-                      Ngắt kết nối ví
-                    </button>
-                  </div>
+                  <button onClick={disconnect} className="caro-btn caro-btn-danger">
+                    Ngắt kết nối ví
+                  </button>
                 </div>
               )}
             </div>
 
-            {/* KYC info */}
-            <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "18px 24px" }}>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>🪪 Trạng thái KYC</div>
-              {kyc ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: `${kyc.color}14`, border: `1px solid ${kyc.color}33`, borderRadius: 9 }}>
-                  <span style={{ fontSize: 20 }}>{kyc.icon}</span>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: kyc.color }}>{kyc.label}</div>
-                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-                      {meUser?.kyc_status === "approved" ? "Tài khoản đã được xác minh danh tính" : meUser?.kyc_status === "pending" ? "Hồ sơ đang chờ xét duyệt từ hệ thống" : "Hồ sơ KYC bị từ chối — vui lòng liên hệ hỗ trợ"}
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              {/* KYC info */}
+              <div className="caro-card">
+                <div className="caro-section-header">
+                  <h3 className="caro-section-title">🪪 Trạng thái KYC</h3>
+                </div>
+                {kyc ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    <div style={{ fontSize: 32 }}>{kyc.icon}</div>
+                    <div>
+                      <div className={`caro-badge ${kyc.color}`} style={{ marginBottom: 6 }}>{kyc.label}</div>
+                      <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.4 }}>
+                        {meUser?.kyc_status === "approved" ? "Tài khoản đã được xác minh danh tính" : meUser?.kyc_status === "pending" ? "Hồ sơ đang chờ xét duyệt từ hệ thống" : "Hồ sơ KYC bị từ chối — vui lòng liên hệ hỗ trợ"}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ) : (
-                <div style={{ fontSize: 13, color: C.muted }}>Chưa có thông tin KYC.</div>
-              )}
-            </div>
+                ) : (
+                  <div style={{ fontSize: 13, color: "#94a3b8" }}>Chưa có thông tin KYC.</div>
+                )}
+              </div>
 
-            {/* Account info */}
-            <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "18px 24px" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>ℹ Thông tin tài khoản</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                {[
-                  { label: "User ID",         value: meUser?.id || "—" },
-                  { label: "Vai trò",          value: "Trader" },
-                  { label: "Email",            value: meUser?.email || "—" },
-                  { label: "Ngày đăng ký",     value: meUser?.created_at ? new Date(meUser.created_at).toLocaleDateString("vi-VN") : "—" },
-                ].map(({ label, value }) => (
-                  <div key={label} style={{ padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 7 }}>
-                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 4, fontWeight: 600 }}>{label}</div>
-                    <div style={{ fontSize: 13, color: "#e2e8f0", fontFamily: label.includes("ID") ? "monospace" : "inherit" }}>{value}</div>
-                  </div>
-                ))}
+              {/* Account info */}
+              <div className="caro-card">
+                <div className="caro-section-header">
+                  <h3 className="caro-section-title">ℹ️ Thông tin tài khoản</h3>
+                </div>
+                <div className="caro-grid-2">
+                  {[
+                    { label: "User ID",         value: meUser?.id || "—" },
+                    { label: "Vai trò",          value: "Trader" },
+                    { label: "Email",            value: meUser?.email || "—" },
+                    { label: "Ngày đăng ký",     value: meUser?.created_at ? new Date(meUser.created_at).toLocaleDateString("vi-VN") : "—" },
+                  ].map(({ label, value }) => (
+                    <div key={label} style={{ padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 7 }}>
+                      <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, fontWeight: 600 }}>{label}</div>
+                      <div style={{ fontSize: 13, color: "#e2e8f0", fontFamily: label.includes("ID") ? "monospace" : "inherit" }}>{value}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
+
           </div>
         )}
 

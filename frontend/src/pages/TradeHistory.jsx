@@ -4,19 +4,13 @@ import TraderLayout from "../components/layout/TraderLayout";
 import axios from "../utils/axiosClient";
 import { formatNumber, formatVND } from '../utils/formatters';
 
-const C = {
-  accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
-  card: "#172524", border: "rgba(72,117,115,0.15)", tealLight: "#7fe0c9",
-};
-
 const PAIRS = ["Tất cả", "CR1/VND", "CR2/VND", "CR3/VND"];
 const SIDES = ["Tất cả", "buy", "sell"];
-
 
 function Badge({ side }) {
   const isBuy = side === "buy";
   return (
-    <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 5, background: isBuy ? "rgba(14,203,129,0.15)" : "rgba(246,70,93,0.15)", color: isBuy ? C.green : C.red }}>
+    <span className={`caro-badge ${isBuy ? "caro-badge-success" : "caro-badge-danger"}`}>
       {isBuy ? "MUA" : "BÁN"}
     </span>
   );
@@ -52,60 +46,63 @@ export default function TradeHistory() {
   const total = data?.total ?? rows.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  const filterBtnStyle = (active) => ({
-    padding: "5px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer",
-    border: `1px solid ${active ? C.accent : C.border}`, borderRadius: 6,
-    background: active ? "rgba(72,117,115,0.18)" : "rgba(255,255,255,0.04)",
-    color: active ? C.tealLight : C.muted, transition: "all 0.12s",
-  });
-
-  const inputStyle = {
-    padding: "7px 10px", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`,
-    borderRadius: 7, color: "#e2e8f0", fontSize: 12, outline: "none",
-  };
-
   const totalBuy  = rows.filter(r => r.side === "buy").reduce((s, r)  => s + Number(r.price || 0) * Number(r.amount || r.quantity || 0), 0);
   const totalSell = rows.filter(r => r.side === "sell").reduce((s, r) => s + Number(r.price || 0) * Number(r.amount || r.quantity || 0), 0);
 
   return (
     <TraderLayout title="Lịch sử giao dịch">
-      <div style={{ display: "grid", gap: 18, maxWidth: 1000 }}>
+      <div className="caro-page">
+
+        {/* Page header */}
+        <div className="caro-page-header">
+          <div>
+            <h1 className="caro-page-title">📋 Lịch sử giao dịch</h1>
+            <p className="caro-page-subtitle">Thống kê toàn bộ các lệnh mua bán đã khớp</p>
+          </div>
+        </div>
 
         {/* Summary cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
-          {[
-            { label: "Tổng giao dịch",     value: String(total),         color: "#e2e8f0", icon: "📋" },
-            { label: "Tổng mua",           value: formatVND(totalBuy),  color: C.green,   icon: "📈" },
-            { label: "Tổng bán",           value: formatVND(totalSell), color: C.red,     icon: "📉" },
-          ].map(c => (
-            <div key={c.label} style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-              <span style={{ fontSize: 24 }}>{c.icon}</span>
-              <div>
-                <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{c.label}</div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: c.color }}>{c.value}</div>
-              </div>
-            </div>
-          ))}
+        <div className="caro-grid-3">
+          <div className="caro-stat-card">
+            <div className="caro-stat-icon" style={{ background: "rgba(255,255,255,0.05)", color: "#f8fafc" }}>📋</div>
+            <div className="caro-stat-label">Tổng giao dịch</div>
+            <div className="caro-stat-value" style={{ color: "#f8fafc" }}>{total}</div>
+            <div className="caro-stat-sub">lệnh đã khớp</div>
+          </div>
+          <div className="caro-stat-card">
+            <div className="caro-stat-icon" style={{ background: "rgba(176, 228, 204,0.1)", color: "#B0E4CC" }}>📈</div>
+            <div className="caro-stat-label">Tổng mua</div>
+            <div className="caro-stat-value" style={{ color: "#B0E4CC" }}>{formatVND(totalBuy)}</div>
+            <div className="caro-stat-sub">giá trị token đã mua</div>
+          </div>
+          <div className="caro-stat-card">
+            <div className="caro-stat-icon" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>📉</div>
+            <div className="caro-stat-label">Tổng bán</div>
+            <div className="caro-stat-value" style={{ color: "#ef4444" }}>{formatVND(totalSell)}</div>
+            <div className="caro-stat-sub">giá trị token đã bán</div>
+          </div>
         </div>
 
         {/* Filters */}
-        <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "14px 18px" }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center" }}>
+        <div className="caro-card" style={{ padding: "16px 24px" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "center" }}>
 
             <div>
-              <div style={{ fontSize: 11, color: C.muted, marginBottom: 6, fontWeight: 600 }}>Cặp giao dịch</div>
-              <div style={{ display: "flex", gap: 6 }}>
+              <div className="caro-label">Cặp giao dịch</div>
+              <div style={{ display: "flex", gap: 8 }}>
                 {PAIRS.map(p => (
-                  <button key={p} onClick={() => { setPair(p); setPage(1); }} style={filterBtnStyle(pair === p)}>{p}</button>
+                  <button key={p} onClick={() => { setPair(p); setPage(1); }} className={`caro-btn caro-btn-sm ${pair === p ? "caro-btn-secondary" : "caro-btn-ghost"}`}>
+                    {p}
+                  </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <div style={{ fontSize: 11, color: C.muted, marginBottom: 6, fontWeight: 600 }}>Loại lệnh</div>
-              <div style={{ display: "flex", gap: 6 }}>
+              <div className="caro-label">Loại lệnh</div>
+              <div style={{ display: "flex", gap: 8 }}>
                 {SIDES.map(s => (
-                  <button key={s} onClick={() => { setSide(s); setPage(1); }} style={filterBtnStyle(side === s)}>
+                  <button key={s} onClick={() => { setSide(s); setPage(1); }} className={`caro-btn caro-btn-sm ${side === s ? "caro-btn-secondary" : "caro-btn-ghost"}`}>
                     {s === "buy" ? "Mua" : s === "sell" ? "Bán" : s}
                   </button>
                 ))}
@@ -113,39 +110,40 @@ export default function TradeHistory() {
             </div>
 
             <div>
-              <div style={{ fontSize: 11, color: C.muted, marginBottom: 6, fontWeight: 600 }}>Từ ngày</div>
-              <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} style={inputStyle} />
+              <div className="caro-label">Từ ngày</div>
+              <input type="date" className="caro-input" style={{ width: 150 }} value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
             </div>
 
             <div>
-              <div style={{ fontSize: 11, color: C.muted, marginBottom: 6, fontWeight: 600 }}>Đến ngày</div>
-              <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} style={inputStyle} />
+              <div className="caro-label">Đến ngày</div>
+              <input type="date" className="caro-input" style={{ width: 150 }} value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
             </div>
 
             {(pair !== "Tất cả" || side !== "Tất cả" || dateFrom || dateTo) && (
-              <button onClick={() => { setPair("Tất cả"); setSide("Tất cả"); setDateFrom(""); setDateTo(""); setPage(1); }}
-                style={{ marginTop: 18, padding: "6px 12px", fontSize: 11, background: "none", border: `1px solid ${C.border}`, borderRadius: 6, cursor: "pointer", color: C.muted, fontWeight: 600 }}>
-                ✕ Xóa bộ lọc
-              </button>
+              <div style={{ alignSelf: 'flex-end', paddingBottom: 2 }}>
+                <button onClick={() => { setPair("Tất cả"); setSide("Tất cả"); setDateFrom(""); setDateTo(""); setPage(1); }} className="caro-btn caro-btn-sm caro-btn-ghost" style={{ color: "#ef4444" }}>
+                  ✕ Xóa bộ lọc
+                </button>
+              </div>
             )}
           </div>
         </div>
 
         {/* Table */}
-        <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-          <div style={{ padding: "12px 18px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 13, fontWeight: 700 }}>
+        <div className="caro-card" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="caro-section-header">
+            <h3 className="caro-section-title">
               {isFetching ? "Đang tải..." : `${total} giao dịch`}
-            </span>
+            </h3>
             {totalPages > 1 && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: C.muted }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#94a3b8" }}>
                 <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                  style={{ padding: "4px 10px", background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, borderRadius: 5, cursor: page > 1 ? "pointer" : "not-allowed", color: page > 1 ? "#e2e8f0" : C.muted }}>
+                  className="caro-btn caro-btn-sm caro-btn-ghost" style={{ padding: "4px 8px" }}>
                   ‹
                 </button>
-                <span>{page} / {totalPages}</span>
+                <span style={{ fontWeight: 600 }}>{page} / {totalPages}</span>
                 <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                  style={{ padding: "4px 10px", background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, borderRadius: 5, cursor: page < totalPages ? "pointer" : "not-allowed", color: page < totalPages ? "#e2e8f0" : C.muted }}>
+                  className="caro-btn caro-btn-sm caro-btn-ghost" style={{ padding: "4px 8px" }}>
                   ›
                 </button>
               </div>
@@ -153,20 +151,29 @@ export default function TradeHistory() {
           </div>
 
           {isLoading ? (
-            <div style={{ padding: "40px 20px", textAlign: "center", color: C.muted, fontSize: 13 }}>Đang tải dữ liệu...</div>
+            <div className="caro-empty">
+              <div className="caro-empty-icon" style={{ animation: "caro-spin 1s linear infinite" }}>⏳</div>
+              <div className="caro-empty-title">Đang tải dữ liệu...</div>
+            </div>
           ) : rows.length === 0 ? (
-            <div style={{ padding: "50px 20px", textAlign: "center", color: C.muted, fontSize: 13 }}>
-              <div style={{ fontSize: 36, marginBottom: 10 }}>📋</div>
-              Không có giao dịch nào phù hợp với bộ lọc
+            <div className="caro-empty">
+              <div className="caro-empty-icon">📋</div>
+              <div className="caro-empty-title">Không có giao dịch nào</div>
+              <div className="caro-empty-desc">Không tìm thấy giao dịch phù hợp với bộ lọc hiện tại.</div>
             </div>
           ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
+            <div className="caro-table-wrap">
+              <table className="caro-table">
                 <thead>
-                  <tr style={{ background: "rgba(255,255,255,0.02)" }}>
-                    {["#", "Cặp GD", "Loại", "Giá (VND)", "Số lượng", "Thành tiền (VND)", "Phí", "Thời gian"].map(h => (
-                      <th key={h} style={{ padding: "9px 14px", fontSize: 11, color: C.muted, fontWeight: 600, textAlign: "left", textTransform: "uppercase", whiteSpace: "nowrap" }}>{h}</th>
-                    ))}
+                  <tr>
+                    <th>#</th>
+                    <th>Cặp GD</th>
+                    <th>Loại</th>
+                    <th>Giá (VND)</th>
+                    <th>Số lượng</th>
+                    <th>Thành tiền (VND)</th>
+                    <th>Phí</th>
+                    <th>Thời gian</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -176,17 +183,15 @@ export default function TradeHistory() {
                     const total_ = qty * price;
                     const fee    = Number(t.fee || 0);
                     return (
-                      <tr key={t.id || i} style={{ borderBottom: `1px solid ${C.border}` }}
-                        onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
-                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                        <td style={{ padding: "10px 14px", fontSize: 11, color: C.muted }}>{(page - 1) * pageSize + i + 1}</td>
-                        <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{t.pair || "—"}</td>
-                        <td style={{ padding: "10px 14px" }}><Badge side={t.side} /></td>
-                        <td style={{ padding: "10px 14px", fontSize: 13, fontFamily: "monospace", color: "#e2e8f0", fontWeight: 600 }}>{formatNumber(price)}</td>
-                        <td style={{ padding: "10px 14px", fontSize: 13, fontFamily: "monospace", color: "#e2e8f0" }}>{qty.toFixed(4)}</td>
-                        <td style={{ padding: "10px 14px", fontSize: 13, fontFamily: "monospace", color: t.side === "buy" ? C.green : C.red, fontWeight: 700 }}>{formatVND(total_)}</td>
-                        <td style={{ padding: "10px 14px", fontSize: 12, color: C.muted }}>{fee ? formatVND(fee) : "—"}</td>
-                        <td style={{ padding: "10px 14px", fontSize: 11, color: C.muted, whiteSpace: "nowrap" }}>
+                      <tr key={t.id || i}>
+                        <td>{(page - 1) * pageSize + i + 1}</td>
+                        <td style={{ fontSize: 13, fontWeight: 700, color: "#f8fafc" }}>{t.pair || "—"}</td>
+                        <td><Badge side={t.side} /></td>
+                        <td style={{ fontFamily: "monospace", color: "#f8fafc", fontWeight: 700 }}>{formatNumber(price)}</td>
+                        <td style={{ fontFamily: "monospace" }}>{qty.toFixed(4)}</td>
+                        <td style={{ fontFamily: "monospace", color: t.side === "buy" ? "#B0E4CC" : "#ef4444", fontWeight: 700 }}>{formatVND(total_)}</td>
+                        <td>{fee ? formatVND(fee) : "—"}</td>
+                        <td style={{ color: "#94a3b8", whiteSpace: "nowrap" }}>
                           {t.created_at ? new Date(t.created_at).toLocaleString("vi-VN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
                         </td>
                       </tr>

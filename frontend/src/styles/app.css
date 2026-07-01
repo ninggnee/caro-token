@@ -1,9 +1,9 @@
 :root{
-  --bg: #0b0e11;
-  --panel: #141a1f;
+  --bg: #091413;
+  --panel: #122622;
   --card: rgba(255,255,255,0.03);
-  --muted: #98a8a0;
-  --accent: #1f6f64;
+  --muted: #94a3b8;
+  --accent: #408A71;
   --text: #e6f6f2;
 }
 
@@ -18,7 +18,7 @@ html,body,#root{height:100%;background:var(--bg);color:var(--text);margin:0;font
 .btn{background:var(--accent);color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer}
 .btn:hover{opacity:0.95}
 
-.wallet-btn{background:#0f2b28;color:#9fffe6;border:none;padding:6px 10px;border-radius:8px;cursor:pointer}
+.wallet-btn{background:#122622;color:#B0E4CC;border:none;padding:6px 10px;border-radius:8px;cursor:pointer}
 
 /* Ensure text contrasts on colored backgrounds */
 .card, .btn, .wallet-btn {color: var(--text)}

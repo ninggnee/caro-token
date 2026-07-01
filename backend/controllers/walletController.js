@@ -17,6 +17,7 @@ import db                  from '../config/db.js';
 import multer              from 'multer';
 import path                from 'path';
 import { logAction, auditMeta } from '../services/AuditService.js';
+import { transferToken }   from '../services/BlockchainService.js';
 
 // ── Multer for deposit proof image ─────────────────────────────────────────
 
@@ -100,6 +101,79 @@ export const createDeposit = async (req, res) => {
   }
 };
 
+export const createTokenDeposit = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { token_type, amount, tx_hash } = req.body;
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ message: 'amount must be > 0' });
+    }
+    if (!token_type || !tx_hash) {
+      return res.status(400).json({ message: 'token_type and tx_hash are required' });
+    }
+
+    // Check if tx_hash already exists to prevent replay attacks
+    const [exist] = await db.execute(
+      `SELECT id FROM deposit_requests WHERE tx_hash = ? LIMIT 1`,
+      [tx_hash]
+    );
+    if (exist.length > 0) {
+      return res.status(409).json({ message: 'Giao dịch này đã được đăng ký trước đó' });
+    }
+
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // Ensure user balance row exists
+      const [balRows] = await conn.execute(
+        `SELECT id FROM user_balances WHERE user_id = ? AND token_type = ?`,
+        [userId, token_type]
+      );
+      if (balRows.length === 0) {
+        await conn.execute(
+          `INSERT INTO user_balances (user_id, token_type, balance, available_balance, locked_balance)
+           VALUES (?, ?, 0, 0, 0)`,
+          [userId, token_type]
+        );
+      }
+
+      // Add to balance
+      await conn.execute(
+        `UPDATE user_balances 
+         SET balance = balance + ?, available_balance = available_balance + ?
+         WHERE user_id = ? AND token_type = ?`,
+        [amount, amount, userId, token_type]
+      );
+
+      // Record in deposit_requests
+      const [r] = await conn.execute(
+        `INSERT INTO deposit_requests (user_id, amount, token_type, tx_hash, status, created_at)
+         VALUES (?, ?, ?, ?, 'approved', NOW())`,
+        [userId, amount, token_type, tx_hash]
+      );
+
+      await conn.commit();
+
+      await logAction({
+        actorId: userId, action: 'deposit:token',
+        entityType: 'deposit', entityId: r.insertId,
+        newData: { amount: Number(amount), token_type, tx_hash }, ...auditMeta(req),
+      });
+
+      res.status(201).json({ success: true, id: r.insertId });
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 // ── Direct deposit (immediately credits vnd_balance) ────────────────────────
 
 export const directDeposit = async (req, res) => {
@@ -147,6 +221,78 @@ export const directDeposit = async (req, res) => {
   }
 };
 
+// ── Simulated deposit (immediately credits VND — no real bank transaction) ────
+
+const VALID_PAYMENT_METHODS = ['vietqr', 'bank_transfer', 'vnpay', 'momo', 'zalopay', 'atm_card'];
+
+export const simulateDeposit = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { amount, payment_method } = req.body;
+
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ message: 'amount must be > 0' });
+    }
+    if (!VALID_PAYMENT_METHODS.includes(payment_method)) {
+      return res.status(400).json({ message: `payment_method must be one of: ${VALID_PAYMENT_METHODS.join(', ')}` });
+    }
+
+    const numAmount = Number(amount);
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      await ensureWallet(userId, conn);
+
+      // Credit VND balance immediately
+      await conn.execute(
+        `UPDATE wallets SET vnd_balance = vnd_balance + ? WHERE user_id = ?`,
+        [numAmount, userId]
+      );
+
+      // Insert deposit record
+      const [r] = await conn.execute(
+        `INSERT INTO deposit_requests
+           (user_id, amount, status, payment_method, note, created_at, reviewed_at)
+         VALUES (?, ?, 'approved', ?, 'Nạp tiền mô phỏng', NOW(), NOW())`,
+        [userId, numAmount, payment_method]
+      );
+
+      // Generate unique transaction code: DEP-YYYY-NNNN
+      const year   = new Date().getFullYear();
+      const txCode = `DEP-${year}-${String(r.insertId).padStart(4, '0')}`;
+      await conn.execute(
+        `UPDATE deposit_requests SET transaction_code = ? WHERE id = ?`,
+        [txCode, r.insertId]
+      );
+
+      await conn.commit();
+
+      await logAction({
+        actorId: userId, action: 'deposit:simulate',
+        entityType: 'deposit', entityId: r.insertId,
+        newData: { amount: numAmount, payment_method, transaction_code: txCode },
+        ...auditMeta(req),
+      });
+
+      res.status(200).json({
+        success: true,
+        id:               r.insertId,
+        transaction_code: txCode,
+        amount:           numAmount,
+        payment_method,
+      });
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 // ── Combined transaction history ─────────────────────────────────────────────
 
 export const getTransactions = async (req, res) => {
@@ -155,13 +301,16 @@ export const getTransactions = async (req, res) => {
     const limit  = Math.min(Number(req.query.limit) || 20, 100);
 
     const [deposits] = await db.execute(
-      `SELECT id, 'deposit' AS type, amount, status, note, created_at
+      `SELECT id, 'deposit' AS type, amount, token_type, NULL AS destination_address, tx_hash, status, note, payment_method, transaction_code, created_at
        FROM deposit_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
       [userId, limit]
     );
 
     const [withdraws] = await db.execute(
-      `SELECT id, 'withdraw' AS type, amount, status, note, created_at
+      `SELECT id, 'withdraw' AS type, amount, token_type, destination_address, tx_hash, status, note,
+              CASE WHEN note LIKE 'SIM:%' THEN SUBSTRING(note, 5) ELSE NULL END AS payment_method,
+              CONCAT('WDR-', YEAR(created_at), '-', LPAD(id, 4, '0')) AS transaction_code,
+              created_at
        FROM withdraw_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
       [userId, limit]
     );
@@ -258,19 +407,21 @@ export const reviewDeposit = async (req, res) => {
   }
 };
 
-// ── Withdraw ────────────────────────────────────────────────────────────────
+// ── Simulated withdraw (immediately deducts VND — no real bank transaction) ──
 
-export const createWithdraw = async (req, res) => {
+export const simulateWithdraw = async (req, res) => {
   try {
     const userId = req.user?.id;
-    const { amount, bank_name, account_number, account_name } = req.body;
+    const { amount, payment_method } = req.body;
+
     if (!amount || Number(amount) <= 0) {
       return res.status(400).json({ message: 'amount must be > 0' });
     }
-    if (!bank_name || !account_number || !account_name) {
-      return res.status(400).json({ message: 'bank_name, account_number, account_name are required' });
+    if (!VALID_PAYMENT_METHODS.includes(payment_method)) {
+      return res.status(400).json({ message: `payment_method must be one of: ${VALID_PAYMENT_METHODS.join(', ')}` });
     }
 
+    const numAmount = Number(amount);
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
@@ -280,33 +431,251 @@ export const createWithdraw = async (req, res) => {
         `SELECT vnd_balance, vnd_locked FROM wallets WHERE user_id = ? FOR UPDATE`, [userId]
       );
       const available = Number(wallet.vnd_balance) - Number(wallet.vnd_locked);
-      if (available < Number(amount)) {
+      if (available < numAmount) {
         await conn.rollback();
-        return res.status(422).json({ message: `Insufficient VND. Available: ${available.toLocaleString()}` });
+        return res.status(422).json({ message: `Số dư không đủ. Khả dụng: ${available.toLocaleString('vi-VN')} VND` });
       }
 
-      // Lock withdrawal amount
+      // Immediately deduct from balance
       await conn.execute(
-        `UPDATE wallets SET pending_withdraw = pending_withdraw + ?, vnd_locked = vnd_locked + ?
-         WHERE user_id = ?`,
-        [amount, amount, userId]
+        `UPDATE wallets SET vnd_balance = vnd_balance - ? WHERE user_id = ?`,
+        [numAmount, userId]
       );
 
+      const { bank_name, account_number, account_name } = req.body;
+
+      // Record as an approved withdrawal
       const [r] = await conn.execute(
-        `INSERT INTO withdraw_requests (user_id, amount, bank_name, account_number, account_name, status, created_at)
-         VALUES (?, ?, ?, ?, ?, 'pending', NOW())`,
-        [userId, amount, bank_name, account_number, account_name]
+        `INSERT INTO withdraw_requests
+           (user_id, amount, bank_name, account_number, account_name, status, note, created_at, reviewed_at)
+         VALUES (?, ?, ?, ?, ?, 'approved', ?, NOW(), NOW())`,
+        [
+          userId,
+          numAmount,
+          bank_name || 'Mô phỏng',
+          account_number || 'SIM-AUTO',
+          account_name || 'Hệ thống',
+          `SIM:${payment_method}`
+        ]
       );
+
+      const year   = new Date().getFullYear();
+      const txCode = `WDR-${year}-${String(r.insertId).padStart(4, '0')}`;
 
       await conn.commit();
 
       await logAction({
-        actorId: userId, action: 'withdraw:create',
+        actorId: userId, action: 'withdraw:simulate',
         entityType: 'withdraw', entityId: r.insertId,
-        newData: { amount: Number(amount), bank_name }, ...auditMeta(req),
+        newData: { amount: numAmount, payment_method, transaction_code: txCode },
+        ...auditMeta(req),
       });
 
-      res.status(201).json({ success: true, id: r.insertId });
+      res.status(200).json({
+        success: true,
+        id:               r.insertId,
+        transaction_code: txCode,
+        amount:           numAmount,
+        payment_method,
+        bank_name:        bank_name || 'Mô phỏng',
+        account_number:   account_number || 'SIM-AUTO',
+        account_name:     account_name || 'Hệ thống',
+      });
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// ── Withdraw ────────────────────────────────────────────────────────────────
+
+export const createWithdraw = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { amount, bank_name, account_number, account_name, token_type, destination_address } = req.body;
+
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ message: 'amount must be > 0' });
+    }
+
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      if (token_type) {
+        // --- TOKEN WITHDRAWAL ---
+        if (!/^0x[0-9a-fA-F]{40}$/.test(destination_address)) {
+          await conn.rollback();
+          return res.status(400).json({ message: 'Địa chỉ ví MetaMask không hợp lệ' });
+        }
+        if (!['CR1', 'CR2', 'CR3'].includes(token_type)) {
+          await conn.rollback();
+          return res.status(400).json({ message: 'Loại token không hợp lệ' });
+        }
+
+        // Get user token balance
+        const [[balanceRow]] = await conn.execute(
+          `SELECT available_balance, balance, locked_balance FROM user_balances WHERE user_id = ? AND token_type = ? FOR UPDATE`,
+          [userId, token_type]
+        );
+        const available = Number(balanceRow?.available_balance || 0);
+        if (available < Number(amount)) {
+          await conn.rollback();
+          return res.status(422).json({ message: `Số dư token ${token_type} không đủ. Khả dụng: ${available}` });
+        }
+
+        // Abnormal behavior check: >= 3 withdrawals in the last 5 minutes
+        const [recentRequests] = await conn.execute(
+          `SELECT COUNT(*) AS count FROM withdraw_requests 
+           WHERE user_id = ? AND token_type IS NOT NULL AND created_at >= NOW() - INTERVAL 5 MINUTE`,
+          [userId]
+        );
+        const count = recentRequests[0]?.count || 0;
+        if (count >= 2) {
+          // Log alert
+          await conn.execute(
+            `INSERT INTO abnormal_activities (user_id, activity_type, description, created_at)
+             VALUES (?, 'high_frequency_withdrawal', ?, NOW())`,
+            [userId, `Người dùng rút token ${count + 1} lần trong vòng 5 phút (Số lượng: ${amount} ${token_type}, Ví nhận: ${destination_address})`]
+          );
+        }
+
+        // Lock the balance in DB first to prevent double-spending
+        await conn.execute(
+          `UPDATE user_balances 
+           SET available_balance = available_balance - ?, locked_balance = locked_balance + ?
+           WHERE user_id = ? AND token_type = ?`,
+          [amount, amount, userId, token_type]
+        );
+
+        // Insert pending transaction record
+        const [r] = await conn.execute(
+          `INSERT INTO withdraw_requests (user_id, amount, token_type, destination_address, status, created_at)
+           VALUES (?, ?, ?, ?, 'pending', NOW())`,
+          [userId, amount, token_type, destination_address]
+        );
+        const requestId = r.insertId;
+
+        // Commit DB lock transaction before making slow blockchain call
+        await conn.commit();
+
+        // Call Blockchain transfer from Treasury Wallet to user's wallet
+        let txHash;
+        try {
+          const withdrawFee = Number(amount) * 0.001; // 0.1% fee
+          const netAmount = Number(amount) - withdrawFee;
+
+          const result = await transferToken({
+            tokenType: token_type,
+            toAddress: destination_address,
+            amount: netAmount,
+          });
+          txHash = result.txHash;
+        } catch (chainErr) {
+          console.error('[walletController] Blockchain transfer token failed:', chainErr);
+          
+          // Revert DB lock
+          const revertConn = await db.getConnection();
+          try {
+            await revertConn.beginTransaction();
+            await revertConn.execute(
+              `UPDATE user_balances 
+               SET available_balance = available_balance + ?, locked_balance = locked_balance - ?
+               WHERE user_id = ? AND token_type = ?`,
+              [amount, amount, userId, token_type]
+            );
+            await revertConn.execute(
+              `UPDATE withdraw_requests SET status = 'rejected', note = ? WHERE id = ?`,
+              [`Blockchain error: ${chainErr.message}`, requestId]
+            );
+            await revertConn.commit();
+          } catch (revertDbErr) {
+            await revertConn.rollback();
+            console.error('CRITICAL: Failed to revert locked token balance after blockchain failure:', revertDbErr);
+          } finally {
+            revertConn.release();
+          }
+
+          return res.status(502).json({ success: false, message: `Rút token thất bại: ${chainErr.message}` });
+        }
+
+        // Complete the transaction in DB
+        const completeConn = await db.getConnection();
+        try {
+          await completeConn.beginTransaction();
+          await completeConn.execute(
+            `UPDATE user_balances 
+             SET balance = balance - ?, locked_balance = locked_balance - ?
+             WHERE user_id = ? AND token_type = ?`,
+            [amount, amount, userId, token_type]
+          );
+          await completeConn.execute(
+            `UPDATE withdraw_requests SET status = 'approved', tx_hash = ?, reviewed_at = NOW() WHERE id = ?`,
+            [txHash, requestId]
+          );
+          await completeConn.commit();
+        } catch (completeDbErr) {
+          await completeConn.rollback();
+          console.error(`CRITICAL: Blockchain transfer succeeded (txHash: ${txHash}) but DB completion failed:`, completeDbErr);
+        } finally {
+          completeConn.release();
+        }
+
+        await logAction({
+          actorId: userId, action: 'withdraw:token',
+          entityType: 'withdraw', entityId: requestId,
+          newData: { amount: Number(amount), token_type, destination_address, txHash }, ...auditMeta(req),
+        });
+
+        return res.status(201).json({ success: true, id: requestId, txHash });
+
+      } else {
+        // --- VND WITHDRAWAL (unchanged) ---
+        if (!bank_name || !account_number || !account_name) {
+          await conn.rollback();
+          return res.status(400).json({ message: 'bank_name, account_number, account_name are required' });
+        }
+
+        await ensureWallet(userId, conn);
+
+        const [[wallet]] = await conn.execute(
+          `SELECT vnd_balance, vnd_locked FROM wallets WHERE user_id = ? FOR UPDATE`, [userId]
+        );
+        const available = Number(wallet.vnd_balance) - Number(wallet.vnd_locked);
+        if (available < Number(amount)) {
+          await conn.rollback();
+          return res.status(422).json({ message: `Insufficient VND. Available: ${available.toLocaleString()}` });
+        }
+
+        // Lock withdrawal amount
+        await conn.execute(
+          `UPDATE wallets SET pending_withdraw = pending_withdraw + ?, vnd_locked = vnd_locked + ?
+           WHERE user_id = ?`,
+          [amount, amount, userId]
+        );
+
+        const [r] = await conn.execute(
+          `INSERT INTO withdraw_requests (user_id, amount, bank_name, account_number, account_name, status, created_at)
+           VALUES (?, ?, ?, ?, ?, 'pending', NOW())`,
+          [userId, amount, bank_name, account_number, account_name]
+        );
+
+        await conn.commit();
+
+        await logAction({
+          actorId: userId, action: 'withdraw:create',
+          entityType: 'withdraw', entityId: r.insertId,
+          newData: { amount: Number(amount), bank_name }, ...auditMeta(req),
+        });
+
+        return res.status(201).json({ success: true, id: r.insertId });
+      }
     } catch (err) {
       await conn.rollback();
       throw err;
@@ -361,30 +730,82 @@ export const reviewWithdraw = async (req, res) => {
     try {
       await conn.beginTransaction();
 
-      if (action === 'approve') {
-        // Deduct from balance + remove locks
-        await conn.execute(
-          `UPDATE wallets
-           SET vnd_balance = vnd_balance - ?, vnd_locked = vnd_locked - ?,
-               pending_withdraw = pending_withdraw - ?
-           WHERE user_id = ?`,
-          [wd.amount, wd.amount, wd.amount, wd.user_id]
-        );
+      if (wd.token_type) {
+        // --- REVIEW TOKEN WITHDRAWAL ---
+        if (action === 'approve') {
+          // Call blockchain to transfer
+          let txHash;
+          try {
+            const withdrawFee = Number(wd.amount) * 0.001; // 0.1% fee
+            const netAmount = Number(wd.amount) - withdrawFee;
+
+            const result = await transferToken({
+              tokenType: wd.token_type,
+              toAddress: wd.destination_address,
+              amount: netAmount,
+            });
+            txHash = result.txHash;
+          } catch (chainErr) {
+            console.error('[walletController] Blockchain review approve token failed:', chainErr);
+            await conn.rollback();
+            return res.status(502).json({ success: false, message: `Duyệt rút token thất bại: ${chainErr.message}` });
+          }
+
+          // Deduct from balance
+          await conn.execute(
+            `UPDATE user_balances
+             SET balance = balance - ?, locked_balance = locked_balance - ?
+             WHERE user_id = ? AND token_type = ?`,
+            [wd.amount, wd.amount, wd.user_id, wd.token_type]
+          );
+
+          await conn.execute(
+            `UPDATE withdraw_requests SET status = 'approved', reviewed_by = ?, reviewed_at = NOW(), tx_hash = ?, note = ?
+             WHERE id = ?`,
+            [adminId, txHash, note || null, id]
+          );
+        } else {
+          // Reject - unlock balance
+          await conn.execute(
+            `UPDATE user_balances
+             SET available_balance = available_balance + ?, locked_balance = locked_balance - ?
+             WHERE user_id = ? AND token_type = ?`,
+            [wd.amount, wd.amount, wd.user_id, wd.token_type]
+          );
+
+          await conn.execute(
+            `UPDATE withdraw_requests SET status = 'rejected', reviewed_by = ?, reviewed_at = NOW(), note = ?
+             WHERE id = ?`,
+            [adminId, note || null, id]
+          );
+        }
       } else {
-        // Reject — release lock
+        // --- REVIEW VND WITHDRAWAL (unchanged) ---
+        if (action === 'approve') {
+          // Deduct from balance + remove locks
+          await conn.execute(
+            `UPDATE wallets
+             SET vnd_balance = vnd_balance - ?, vnd_locked = vnd_locked - ?,
+                 pending_withdraw = pending_withdraw - ?
+             WHERE user_id = ?`,
+            [wd.amount, wd.amount, wd.amount, wd.user_id]
+          );
+        } else {
+          // Reject — release lock
+          await conn.execute(
+            `UPDATE wallets
+             SET vnd_locked = vnd_locked - ?, pending_withdraw = pending_withdraw - ?
+             WHERE user_id = ?`,
+            [wd.amount, wd.amount, wd.user_id]
+          );
+        }
+
         await conn.execute(
-          `UPDATE wallets
-           SET vnd_locked = vnd_locked - ?, pending_withdraw = pending_withdraw - ?
-           WHERE user_id = ?`,
-          [wd.amount, wd.amount, wd.user_id]
+          `UPDATE withdraw_requests SET status = ?, reviewed_by = ?, reviewed_at = NOW(), note = ?
+           WHERE id = ?`,
+          [action === 'approve' ? 'approved' : 'rejected', adminId, note || null, id]
         );
       }
-
-      await conn.execute(
-        `UPDATE withdraw_requests SET status = ?, reviewed_by = ?, reviewed_at = NOW(), note = ?
-         WHERE id = ?`,
-        [action === 'approve' ? 'approved' : 'rejected', adminId, note || null, id]
-      );
 
       await conn.commit();
     } catch (err) {

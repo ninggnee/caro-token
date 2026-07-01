@@ -9,15 +9,10 @@ import { getMarketStats } from "../services/marketApi";
 import { formatNumber, formatVND } from '../utils/formatters';
 import { TRADER_KEYS } from '../hooks/useTraderData';
 
-const C = {
-  accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
-  card: "#172524", border: "rgba(72,117,115,0.15)", tealLight: "#7fe0c9",
-};
-
 const TOKENS = [
-  { key: "CR1", label: "CaRo1", color: "#f0b90b", desc: "Hạng A · Robusta Cao cấp"    },
-  { key: "CR2", label: "CaRo2", color: "#00d4aa", desc: "Hạng B · Robusta Tiêu chuẩn" },
-  { key: "CR3", label: "CaRo3", color: "#9b87f5", desc: "Hạng C · Robusta Phổ thông"  },
+  { key: "CR1", label: "CaRo1", color: "#f59e0b", desc: "Hạng A · Robusta Cao cấp"    },
+  { key: "CR2", label: "CaRo2", color: "#B0E4CC", desc: "Hạng B · Robusta Tiêu chuẩn" },
+  { key: "CR3", label: "CaRo3", color: "#408A71", desc: "Hạng C · Robusta Phổ thông"  },
 ];
 
 export default function TraderPortfolio() {
@@ -66,23 +61,19 @@ export default function TraderPortfolio() {
 
   return (
     <TraderLayout title="Danh mục đầu tư">
-      <div style={{ display: "grid", gap: 20, maxWidth: 960 }}>
+      <div className="caro-page">
 
         {/* Page header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+        <div className="caro-page-header">
           <div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>📊 Danh mục đầu tư</h2>
-            <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
-              Hiệu suất danh mục CaRo Token theo thời gian thực
-            </div>
+            <h1 className="caro-page-title">📊 Danh mục đầu tư</h1>
+            <p className="caro-page-subtitle">Hiệu suất danh mục CaRo Token theo thời gian thực</p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => nav("/trader/marketplace")}
-              style={{ padding: "8px 16px", background: "rgba(255,255,255,0.07)", color: "#e2e8f0", border: `1px solid ${C.border}`, borderRadius: 7, cursor: "pointer", fontSize: 13 }}>
+            <button onClick={() => nav("/trader/market/overview")} className="caro-btn caro-btn-ghost">
               Thị trường
             </button>
-            <button onClick={() => nav("/trader/trading")}
-              style={{ padding: "8px 18px", background: C.accent, color: "#fff", border: "none", borderRadius: 7, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
+            <button onClick={() => nav("/trader/market/trading")} className="caro-btn caro-btn-primary">
               Giao dịch →
             </button>
           </div>
@@ -90,63 +81,67 @@ export default function TraderPortfolio() {
 
         {/* Wallet connection prompt */}
         {!account && (
-          <div style={{ padding: "20px 24px", background: "rgba(72,117,115,0.06)", border: "1px solid rgba(72,117,115,0.2)", borderRadius: 10, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <div className="caro-card" style={{ background: "rgba(176, 228, 204,0.05)", borderColor: "rgba(176, 228, 204,0.2)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0", marginBottom: 4 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#f8fafc", marginBottom: 4 }}>
                 Kết nối ví để xem số dư token
               </div>
-              <div style={{ fontSize: 12, color: C.muted }}>
+              <div style={{ fontSize: 12, color: "#94a3b8" }}>
                 Dữ liệu trên blockchain — yêu cầu MetaMask
               </div>
             </div>
-            <button onClick={connect}
-              style={{ padding: "9px 20px", background: C.accent, color: "#fff", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
+            <button onClick={connect} className="caro-btn caro-btn-success">
               🦊 Kết nối ví
             </button>
           </div>
         )}
 
         {/* Summary cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
-          <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "18px 20px" }}>
-            <div style={{ fontSize: 12, color: C.muted, fontWeight: 500, marginBottom: 8 }}>Tổng Token CaRo</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: C.tealLight, marginBottom: 4 }}>
+        <div className="caro-grid-3">
+          <div className="caro-stat-card">
+            <div className="caro-stat-icon" style={{ background: "rgba(176, 228, 204,0.1)", color: "#B0E4CC" }}>🪙</div>
+            <div className="caro-stat-label">Tổng Token CaRo</div>
+            <div className="caro-stat-value" style={{ color: "#B0E4CC" }}>
               {loading ? "…" : formatNumber(totalQty)}
             </div>
-            <div style={{ fontSize: 11, color: C.muted }}>trên blockchain</div>
+            <div className="caro-stat-sub">trên blockchain</div>
           </div>
-          <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "18px 20px" }}>
-            <div style={{ fontSize: 12, color: C.muted, fontWeight: 500, marginBottom: 8 }}>Giá trị ước tính</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: "#e2e8f0", marginBottom: 4 }}>
+          <div className="caro-stat-card">
+            <div className="caro-stat-icon" style={{ background: "rgba(64, 138, 113,0.1)", color: "#408A71" }}>💵</div>
+            <div className="caro-stat-label">Giá trị ước tính</div>
+            <div className="caro-stat-value" style={{ color: "#408A71" }}>
               {totalValue > 0
-                ? formatNumber(totalValue / 1_000_000, 2) + " triệu VND"
+                ? formatNumber(totalValue / 1_000_000, 2) + " triệu"
                 : account ? "—" : "—"}
             </div>
-            <div style={{ fontSize: 11, color: C.muted }}>theo giá thị trường hiện tại</div>
+            <div className="caro-stat-sub">theo giá thị trường hiện tại</div>
           </div>
-          <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "18px 20px" }}>
-            <div style={{ fontSize: 12, color: C.muted, fontWeight: 500, marginBottom: 8 }}>Địa chỉ ví</div>
-            <div style={{ fontSize: 11, fontFamily: "monospace", color: account ? C.tealLight : C.muted, wordBreak: "break-all" }}>
+          <div className="caro-stat-card">
+            <div className="caro-stat-icon" style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b" }}>🦊</div>
+            <div className="caro-stat-label">Địa chỉ ví</div>
+            <div className="caro-stat-value" style={{ fontSize: 16, marginTop: 4, fontFamily: "monospace", wordBreak: "break-all", color: account ? "#f8fafc" : "#64748b" }}>
               {account ? `${account.slice(0, 10)}…${account.slice(-6)}` : "Chưa kết nối"}
             </div>
+            <div className="caro-stat-sub">{account ? "Trạng thái: Đã kết nối" : "—"}</div>
           </div>
         </div>
 
         {/* Holdings table */}
-        <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-          <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>Token đang nắm giữ</div>
-            <span style={{ fontSize: 11, color: C.muted }}>Giá cập nhật mỗi 15s</span>
+        <div className="caro-card" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="caro-section-header">
+            <h3 className="caro-section-title">Token đang nắm giữ</h3>
+            <span className="caro-badge caro-badge-muted">Giá cập nhật mỗi 15s</span>
           </div>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div className="caro-table-wrap">
+            <table className="caro-table">
               <thead>
-                <tr style={{ background: "rgba(255,255,255,0.02)" }}>
-                  {["Token", "Số dư", "Giá hiện tại", "Thay đổi 24H", "Giá trị ước tính", "Tỷ trọng"].map(h => (
-                    <th key={h} style={{ padding: "10px 16px", fontSize: 11, color: C.muted, fontWeight: 600, textAlign: "left", textTransform: "uppercase", letterSpacing: "0.5px", whiteSpace: "nowrap" }}>
-                      {h}
-                    </th>
-                  ))}
+                <tr>
+                  <th>Token</th>
+                  <th>Số dư</th>
+                  <th>Giá hiện tại</th>
+                  <th>Thay đổi 24H</th>
+                  <th>Giá trị ước tính</th>
+                  <th>Tỷ trọng</th>
                 </tr>
               </thead>
               <tbody>
@@ -160,49 +155,49 @@ export default function TraderPortfolio() {
                     ? (value / totalValue * 100).toFixed(1) + "%"
                     : "—";
                   return (
-                    <tr key={key} style={{ borderBottom: `1px solid ${C.border}` }}>
-                      <td style={{ padding: "14px 16px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ width: 32, height: 32, borderRadius: 6, background: "linear-gradient(135deg,#203433,#487573)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color, flexShrink: 0 }}>
+                    <tr key={key}>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <div style={{ width: 36, height: 36, borderRadius: 8, background: `linear-gradient(135deg, rgba(255,255,255,0.05), ${color}20)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color, flexShrink: 0, border: `1px solid ${color}40` }}>
                             {key}
                           </div>
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{label}</div>
-                            <div style={{ fontSize: 10, color: C.muted }}>{desc}</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: "#f8fafc" }}>{label}</div>
+                            <div style={{ fontSize: 11, color: "#64748b" }}>{desc}</div>
                           </div>
                         </div>
                       </td>
-                      <td style={{ padding: "14px 16px", fontSize: 14, fontWeight: 700, color: qty > 0 ? C.green : C.muted }}>
+                      <td style={{ fontSize: 15, fontWeight: 700, color: qty > 0 ? "#B0E4CC" : "#64748b" }}>
                         {loading ? "…" : qty > 0 ? formatNumber(qty) : "—"}
                       </td>
-                      <td style={{ padding: "14px 16px", fontSize: 13, color: "#e2e8f0", fontFamily: "monospace" }}>
+                      <td style={{ fontSize: 14, color: "#e2e8f0", fontFamily: "monospace" }}>
                         {price ? formatVND(price) : "—"}
                       </td>
-                      <td style={{ padding: "14px 16px" }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: change >= 0 ? C.green : C.red }}>
+                      <td>
+                        <span className={`caro-badge ${change >= 0 ? "caro-badge-success" : "caro-badge-danger"}`}>
                           {change >= 0 ? "▲" : "▼"} {Math.abs(change).toFixed(2)}%
                         </span>
                       </td>
-                      <td style={{ padding: "14px 16px", fontSize: 13, fontWeight: 600, color: value > 0 ? "#e2e8f0" : C.muted }}>
+                      <td style={{ fontSize: 14, fontWeight: 600, color: value > 0 ? "#408A71" : "#64748b" }}>
                         {value > 0 ? formatVND(value) : "—"}
                       </td>
-                      <td style={{ padding: "14px 16px", fontSize: 12, color: C.muted }}>
+                      <td style={{ fontSize: 13, color: "#94a3b8" }}>
                         {pct}
                       </td>
                     </tr>
                   );
                 })}
-                <tr style={{ background: "rgba(72,117,115,0.05)", borderTop: `1px solid ${C.border}` }}>
-                  <td style={{ padding: "12px 16px", fontSize: 12, fontWeight: 700, color: C.muted }}>TỔNG CỘNG</td>
-                  <td style={{ padding: "12px 16px", fontSize: 14, fontWeight: 700, color: C.tealLight }}>
+                <tr style={{ background: "rgba(176, 228, 204,0.05)", borderTop: `1px solid var(--border)` }}>
+                  <td style={{ fontWeight: 800, color: "#94a3b8" }}>TỔNG CỘNG</td>
+                  <td style={{ fontSize: 15, fontWeight: 800, color: "#B0E4CC" }}>
                     {totalQty > 0 ? formatNumber(totalQty) : "—"}
-                    <span style={{ fontSize: 11, color: C.muted, marginLeft: 4 }}>CaRo</span>
+                    <span style={{ fontSize: 12, color: "#64748b", marginLeft: 4 }}>CaRo</span>
                   </td>
                   <td /><td />
-                  <td style={{ padding: "12px 16px", fontSize: 14, fontWeight: 700, color: C.tealLight }}>
+                  <td style={{ fontSize: 15, fontWeight: 800, color: "#408A71" }}>
                     {totalValue > 0 ? formatVND(totalValue) : "—"}
                   </td>
-                  <td style={{ padding: "12px 16px", fontSize: 12, color: C.muted }}>
+                  <td style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8" }}>
                     {totalValue > 0 ? "100%" : "—"}
                   </td>
                 </tr>
@@ -212,19 +207,18 @@ export default function TraderPortfolio() {
         </div>
 
         {/* Quick actions */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+        <div className="caro-grid-3">
           {[
-            { icon: "🏪", label: "Thị trường",        sub: "Xem giá và biểu đồ thời gian thực", path: "/trader/marketplace" },
-            { icon: "📈", label: "Giao dịch",          sub: "Đặt lệnh mua / bán CaRo Token",     path: "/trader/trading"     },
-            { icon: "📋", label: "Lịch sử giao dịch", sub: "Xem tất cả giao dịch đã thực hiện", path: "/trader/trades"      },
+            { icon: "🏪", label: "Thị trường",        sub: "Xem giá và biểu đồ thời gian thực", path: "/trader/market/overview" },
+            { icon: "📈", label: "Giao dịch",          sub: "Đặt lệnh mua / bán CaRo Token",     path: "/trader/market/trading"  },
+            { icon: "📋", label: "Lịch sử giao dịch", sub: "Xem tất cả giao dịch đã thực hiện", path: "/trader/trades"          },
           ].map(a => (
-            <button key={a.path} onClick={() => nav(a.path)}
-              style={{ padding: "16px", background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, borderRadius: 9, cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}
-              onMouseEnter={e => { e.currentTarget.style.background = "rgba(72,117,115,0.06)"; e.currentTarget.style.borderColor = C.accent; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = C.border; }}>
-              <div style={{ fontSize: 22, marginBottom: 8 }}>{a.icon}</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{a.label}</div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>{a.sub}</div>
+            <button key={a.path} onClick={() => nav(a.path)} className="caro-card caro-card-sm" style={{ border: "1px solid var(--border)", cursor: "pointer", textAlign: "left", background: "rgba(255,255,255,0.02)", width: "100%" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(176, 228, 204,0.05)"; e.currentTarget.style.borderColor = "rgba(176, 228, 204,0.3)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; e.currentTarget.style.borderColor = "var(--border)"; }}>
+              <div style={{ fontSize: 24, marginBottom: 12 }}>{a.icon}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#f8fafc" }}>{a.label}</div>
+              <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>{a.sub}</div>
             </button>
           ))}
         </div>

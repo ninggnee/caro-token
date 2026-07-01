@@ -1,6 +1,5 @@
 import { Fragment, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import {
   useAllBatches,
@@ -11,8 +10,6 @@ import {
 } from "../hooks/useBatches";
 import { formatNumber, formatKg } from '../utils/formatters';
 
-const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#7fe0c9", muted: "#6b7a99" };
-
 const TABS = [
   { key: "ALL",                   label: "Tất cả" },
   { key: "PENDING_MINT_APPROVAL", label: "Chờ duyệt" },
@@ -21,30 +18,74 @@ const TABS = [
 ];
 
 const STATUS_META = {
-  PENDING_MINT_APPROVAL: { label: "Chờ duyệt",  color: C.gold,   bg: "rgba(240,185,11,0.12)"  },
-  APPROVED:              { label: "Đã duyệt", color: C.accent, bg: "rgba(127,224,201,0.12)"   },
-  MINTED:                { label: "Đã Mint",   color: C.green,  bg: "rgba(14,203,129,0.12)"  },
-  REJECTED:              { label: "Bị từ chối", color: C.red,    bg: "rgba(246,70,93,0.12)"   },
+  PENDING_MINT_APPROVAL: { label: "Chờ duyệt",  cls: "caro-badge-warning"  },
+  APPROVED:              { label: "Đã duyệt", cls: "caro-badge-info"   },
+  MINTED:                { label: "Đã Mint",   cls: "caro-badge-success"  },
+  REJECTED:              { label: "Bị từ chối", cls: "caro-badge-danger"   },
 };
 
 const QG_TO_GRADE = { CR1: "A", CR2: "B", CR3: "C" };
 const GRADE_TO_QG = { A: "CR1", B: "CR2", C: "CR3" };
 
-function StatusBadge({ status }) {
-  const m = STATUS_META[status] || { label: status, color: C.muted, bg: "rgba(255,255,255,0.06)" };
+const DOC_LABELS = {
+  harvest_certificate: "Chứng nhận thu hoạch",
+  quality_inspection:  "Kiểm định chất lượng",
+  coffee_photos:       "Ảnh lô cà phê",
+  additional_docs:     "Tài liệu bổ sung",
+};
+
+const LOGISTICS_LABELS = {
+  PENDING_PICKUP: "Chờ lấy hàng",
+  IN_TRANSIT:     "Đang vận chuyển",
+  DELIVERED:      "Đã đến nhà máy",
+  STANDARDIZED:   "Đã chuẩn hóa",
+  STORED:         "Đã nhập kho",
+  INSPECTED:      "Đã kiểm định",
+  MINTED:         "Đã đúc Token",
+};
+
+function StatusBadge({ batch, status }) {
+  const b = batch || {};
+  const currentStatus = b.status || status;
+
+  let label = "";
+  let cls = "caro-badge-muted";
+
+  if (currentStatus === "MINTED") {
+    label = "Đã Mint";
+    cls = "caro-badge-success";
+  } else if (currentStatus === "REJECTED") {
+    label = "Từ chối";
+    cls = "caro-badge-danger";
+  } else if (currentStatus === "APPROVED") {
+    label = "Đã duyệt";
+    cls = "caro-badge-info";
+  } else if (currentStatus === "PENDING_MINT_APPROVAL") {
+    if (b.logistics_status === "INSPECTED") {
+      label = "Chờ duyệt";
+      cls = "caro-badge-warning";
+    } else {
+      label = LOGISTICS_LABELS[b.logistics_status] || "Chờ lấy hàng";
+      cls = "caro-badge-info";
+    }
+  } else {
+    label = currentStatus || "—";
+    cls = "caro-badge-muted";
+  }
+
   return (
-    <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: m.bg, color: m.color }}>
-      {m.label}
+    <span className={`caro-badge ${cls}`}>
+      {label}
     </span>
   );
 }
 
 function GradeBadge({ qg }) {
   const g = QG_TO_GRADE[qg];
-  if (!g) return <span style={{ color: C.muted, fontSize: 12 }}>—</span>;
-  const colors = { A: C.green, B: C.accent, C: C.gold };
+  if (!g) return <span style={{ color: "#64748b", fontSize: 12 }}>—</span>;
+  const colors = { A: "#B0E4CC", B: "#408A71", C: "#f0b90b" };
   return (
-    <span style={{ padding: "2px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: `${colors[g]}18`, color: colors[g] }}>
+    <span style={{ padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: `${colors[g]}15`, color: colors[g], border: `1px solid ${colors[g]}30` }}>
       {g}
     </span>
   );
@@ -55,26 +96,38 @@ function GradeBadge({ qg }) {
 function RejectModal({ batch, onClose, onConfirm, isPending }) {
   const [reason, setReason] = useState("");
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: "#172524", border: "1px solid rgba(72,117,115,0.2)", borderRadius: 12, padding: 28, width: 460, maxWidth: "90vw" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#7fe0c9" }}>Từ chối lô hàng — {batch.batch_id}</h3>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>✕</button>
+    <div className="caro-modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="caro-card" style={{ width: 480, maxWidth: "90vw", padding: 32 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <h3 className="caro-section-title" style={{ margin: 0, fontSize: 18 }}>Từ chối lô hàng</h3>
+          <button onClick={onClose} className="caro-btn caro-btn-ghost caro-btn-sm" style={{ padding: "4px 8px" }}>✕</button>
         </div>
-        <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>
-          {batch.farmer_name} · {formatKg(batch.quantity)} · {batch.quality_grade}
+        
+        <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)", borderRadius: 12, padding: 16, marginBottom: 20, fontSize: 13 }}>
+          <div style={{ color: "#408A71", fontWeight: 700, fontFamily: "monospace", fontSize: 14, marginBottom: 8 }}>{batch.batch_id}</div>
+          <div style={{ color: "#cbd5e1" }}>
+            <span style={{ color: "#94a3b8" }}>Nông dân:</span> <strong style={{ color: "#f8fafc" }}>{batch.farmer_name}</strong>
+          </div>
+          <div style={{ color: "#cbd5e1", marginTop: 4 }}>
+            <span style={{ color: "#94a3b8" }}>Khối lượng:</span> <strong style={{ color: "#f8fafc" }}>{formatKg(batch.quantity)}</strong>
+          </div>
         </div>
-        <label style={{ display: "block", fontSize: 12, color: C.accent, marginBottom: 6, fontWeight: 600 }}>Lý do từ chối *</label>
-        <textarea
-          value={reason} onChange={(e) => setReason(e.target.value)} rows={4}
-          placeholder="VD: Tài liệu thiếu minh chứng · Sai lệch khối lượng thực tế · Kiểm định không đạt chuẩn chất lượng..."
-          style={{ width: "100%", padding: "10px 12px", background: "#0d1413", border: "1px solid rgba(72,117,115,0.2)", borderRadius: 8, color: "#e2e8f0", fontSize: 13, resize: "vertical", boxSizing: "border-box", outline: "none" }}
-        />
-        <div style={{ display: "flex", gap: 10, marginTop: 16, justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{ padding: "9px 20px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(72,117,115,0.15)", color: "#9aa5b4", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>Hủy</button>
+
+        <div className="caro-field">
+          <label className="caro-label">Lý do từ chối <span style={{ color: "#ef4444" }}>*</span></label>
+          <textarea
+            className="caro-input"
+            value={reason} onChange={(e) => setReason(e.target.value)} rows={4}
+            placeholder="VD: Tài liệu thiếu minh chứng · Sai lệch khối lượng thực tế..."
+            style={{ resize: "vertical" }}
+          />
+        </div>
+        
+        <div style={{ display: "flex", gap: 12, marginTop: 24, justifyContent: "flex-end" }}>
+          <button onClick={onClose} className="caro-btn caro-btn-ghost">Hủy</button>
           <button onClick={() => reason.trim() && onConfirm(reason)} disabled={!reason.trim() || isPending}
-            style={{ padding: "9px 20px", background: !reason.trim() || isPending ? "#555" : C.red, border: "none", color: "#fff", borderRadius: 8, fontWeight: 700, cursor: !reason.trim() || isPending ? "not-allowed" : "pointer", fontSize: 13 }}>
+            className={`caro-btn ${!reason.trim() || isPending ? "caro-btn-ghost" : "caro-btn-danger"}`}
+            style={{ opacity: !reason.trim() || isPending ? 0.5 : 1 }}>
             {isPending ? "Đang xử lý…" : "Xác nhận từ chối"}
           </button>
         </div>
@@ -85,69 +138,92 @@ function RejectModal({ batch, onClose, onConfirm, isPending }) {
 
 function ApproveModal({ batch, onClose, onConfirm, isPending }) {
   const [grade, setGrade] = useState(QG_TO_GRADE[batch.quality_grade] || "");
-  const gradeColors = { A: C.green, B: C.accent, C: C.gold };
+  const gradeColors = { A: "#B0E4CC", B: "#408A71", C: "#f0b90b" };
   const tokenType = GRADE_TO_QG[grade] || "—";
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: "#172524", border: "1px solid rgba(72,117,115,0.2)", borderRadius: 12, padding: 28, width: 480, maxWidth: "90vw" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#7fe0c9" }}>Phê duyệt & Mint — {batch.batch_id}</h3>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>✕</button>
+    <div className="caro-modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="caro-card" style={{ width: 520, maxWidth: "90vw", padding: 32 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <h3 className="caro-section-title" style={{ margin: 0, fontSize: 18 }}>Phê duyệt & Mint</h3>
+          <button onClick={onClose} className="caro-btn caro-btn-ghost caro-btn-sm" style={{ padding: "4px 8px" }}>✕</button>
         </div>
 
         {/* Batch info */}
-        <div style={{ background: "rgba(255,255,255,0.01)", border: "1px solid rgba(72,117,115,0.15)", borderRadius: 8, padding: "12px 14px", marginBottom: 18, fontSize: 13 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7 }}>
-            <span style={{ color: C.muted }}>Nông dân</span>
-            <span style={{ fontWeight: 600 }}>{batch.farmer_name || "—"}</span>
+        <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)", borderRadius: 12, padding: "16px", marginBottom: 24, fontSize: 14 }}>
+          <div style={{ color: "#408A71", fontWeight: 700, fontFamily: "monospace", fontSize: 15, marginBottom: 12 }}>{batch.batch_id}</div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+            <span style={{ color: "#94a3b8" }}>Nông dân</span>
+            <span style={{ fontWeight: 700, color: "#f8fafc" }}>{batch.farmer_name || "—"}</span>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7 }}>
-            <span style={{ color: C.muted }}>Địa chỉ ví</span>
-            <span style={{ fontFamily: "monospace", fontSize: 11, color: C.accent }}>
-              {batch.farmer_wallet ? `${batch.farmer_wallet.slice(0,8)}…${batch.farmer_wallet.slice(-6)}` : "Chưa liên kết ví ⚠️"}
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+            <span style={{ color: "#94a3b8" }}>Địa chỉ ví</span>
+            <span style={{ fontFamily: "monospace", fontSize: 13, color: batch.farmer_wallet ? "#408A71" : "#ef4444" }}>
+              {batch.farmer_wallet ? `${batch.farmer_wallet.slice(0,10)}…${batch.farmer_wallet.slice(-8)}` : "Chưa liên kết ví ⚠️"}
             </span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span style={{ color: C.muted }}>Khối lượng cà phê</span>
-            <span style={{ fontWeight: 600 }}>{formatKg(batch.quantity)}</span>
+            <span style={{ color: "#94a3b8" }}>Khối lượng cà phê</span>
+            <span style={{ fontWeight: 800, color: "#f8fafc" }}>{formatKg(batch.quantity)}</span>
           </div>
         </div>
 
-        {/* Grade selector — REQUIRED */}
-        <label style={{ display: "block", fontSize: 12, color: C.accent, fontWeight: 600, marginBottom: 8 }}>
-          Phân loại Grade * <span style={{ color: C.muted, fontWeight: 400 }}>(bắt buộc chọn trước khi phê duyệt)</span>
+        {/* Grade display */}
+        <label className="caro-label">
+          Phân loại Grade từ Oracle (Tự động)
         </label>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 18 }}>
-          {["A", "B", "C"].map((g) => (
-            <button key={g} onClick={() => setGrade(g)}
-              style={{ padding: "14px 8px", borderRadius: 8, border: grade === g ? `2px solid ${gradeColors[g]}` : "1px solid rgba(72,117,115,0.15)", background: grade === g ? `${gradeColors[g]}15` : "rgba(255,255,255,0.01)", color: grade === g ? gradeColors[g] : "#e2e8f0", cursor: "pointer", transition: "all 0.15s", textAlign: "center" }}>
-              <div style={{ fontSize: 20, fontWeight: 800 }}>{g}</div>
-              <div style={{ fontSize: 10, color: grade === g ? gradeColors[g] : C.muted, marginTop: 2 }}>
-                {g === "A" ? "CR1 · Premium" : g === "B" ? "CR2 · Standard" : "CR3 · Basic"}
+        
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12, marginBottom: 24 }}>
+          {grade ? (
+            <div
+              style={{ 
+                padding: "16px", borderRadius: 12, 
+                border: `2px solid ${gradeColors[grade]}`, 
+                background: `${gradeColors[grade]}15`, 
+                color: gradeColors[grade], textAlign: "center",
+                boxShadow: `0 4px 12px ${gradeColors[grade]}30`
+              }}>
+              <div style={{ fontSize: 24, fontWeight: 900 }}>{grade}</div>
+              <div style={{ fontSize: 13, color: gradeColors[grade], marginTop: 4, fontWeight: 600 }}>
+                {grade === "A" ? "CR1 · Cao cấp" : grade === "B" ? "CR2 · Tiêu chuẩn" : "CR3 · Phổ thông"}
               </div>
-            </button>
-          ))}
+            </div>
+          ) : (
+            <div style={{ padding: "16px", borderRadius: 12, border: "1px dashed #64748b", color: "#94a3b8", textAlign: "center", fontSize: 13 }}>
+              ⚠️ Lô hàng chưa hoàn tất quá trình kiểm định. Vui lòng đợi hệ thống cập nhật.
+            </div>
+          )}
         </div>
 
         {/* Mint preview */}
         {grade && (
-          <div style={{ background: `${gradeColors[grade]}10`, border: `1px solid ${gradeColors[grade]}30`, borderRadius: 8, padding: "12px 14px", marginBottom: 18 }}>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>Sẽ phát hành (Mint)</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: gradeColors[grade] }}>
-              {formatNumber(batch.quantity)} token {tokenType}
+          <div style={{ background: `${gradeColors[grade]}10`, border: `1px solid ${gradeColors[grade]}30`, borderRadius: 12, padding: "16px", marginBottom: 24, textAlign: "center" }}>
+            <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 8, fontWeight: 600 }}>Sẽ phát hành (Mint)</div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: gradeColors[grade], fontFamily: "monospace" }}>
+              {formatNumber(batch.quantity)} <span style={{ fontSize: 18 }}>{tokenType}</span>
             </div>
-            <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>→ đến ví giao dịch nội bộ của nông dân</div>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 8 }}>→ chuyển đến ví giao dịch của nông dân</div>
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{ padding: "9px 20px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(72,117,115,0.15)", color: "#9aa5b4", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>Hủy</button>
-          <button onClick={() => grade && onConfirm(grade)} disabled={!grade || isPending}
-            style={{ padding: "9px 24px", background: !grade || isPending ? "#555" : C.green, border: "none", color: !grade || isPending ? C.muted : "#000", borderRadius: 8, fontWeight: 700, cursor: !grade || isPending ? "not-allowed" : "pointer", fontSize: 13 }}>
-            {isPending ? "Đang Mint…" : "Duyệt & Mint Token"}
-          </button>
+        <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+          <button onClick={onClose} className="caro-btn caro-btn-ghost">Hủy</button>
+          {batch.farmer_wallet ? (
+            <button onClick={() => grade && onConfirm(grade)} disabled={!grade || isPending}
+              className={`caro-btn ${!grade || isPending ? "caro-btn-ghost" : "caro-btn-primary"}`}
+              style={{ 
+                opacity: !grade || isPending ? 0.5 : 1, 
+                background: (!grade || isPending) ? undefined : "#B0E4CC",
+                borderColor: (!grade || isPending) ? undefined : "#B0E4CC",
+                color: (!grade || isPending) ? undefined : "#0f172a"
+              }}>
+              {isPending ? "Đang đúc…" : "Duyệt & Đúc Token"}
+            </button>
+          ) : (
+            <button disabled className="caro-btn caro-btn-ghost" style={{ opacity: 0.5, cursor: "not-allowed" }}>
+              Chưa liên kết ví
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -157,8 +233,9 @@ function ApproveModal({ batch, onClose, onConfirm, isPending }) {
 function DocumentsPanel({ batchId }) {
   const { data, isLoading } = useBatchDocuments(batchId);
   const docs = data?.documents || [];
-  if (isLoading) return <div style={{ padding: "10px 16px", color: C.muted, fontSize: 12 }}>Đang tải tài liệu…</div>;
-  if (!docs.length)  return <div style={{ padding: "10px 16px", color: C.muted, fontSize: 12 }}>Không có tài liệu chứng minh</div>;
+  
+  if (isLoading) return <div style={{ padding: "20px", color: "#94a3b8", fontSize: 13, textAlign: "center" }}><span style={{ animation: "caro-spin 1s linear infinite", display: "inline-block", marginRight: 8 }}>⏳</span> Đang tải tài liệu…</div>;
+  if (!docs.length)  return <div style={{ padding: "20px", color: "#64748b", fontSize: 13, textAlign: "center" }}>Không có tài liệu chứng minh</div>;
 
   const grouped = {};
   for (const d of docs) {
@@ -166,31 +243,42 @@ function DocumentsPanel({ batchId }) {
     grouped[d.document_type].push(d);
   }
   return (
-    <div style={{ padding: "12px 16px", background: "rgba(0,0,0,0.15)", borderRadius: 8, border: "1px solid rgba(72,117,115,0.1)" }}>
-      {Object.entries(grouped).map(([type, files]) => (
-        <div key={type} style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, color: C.accent, fontWeight: 600, marginBottom: 4 }}>{type}</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {files.map((f) => (
-              <div key={f.id} style={{ background: "rgba(255,255,255,0.02)", borderRadius: 6, padding: "4px 8px", fontSize: 11, border: "1px solid rgba(72,117,115,0.1)" }}>
-                {f.ipfs_cid
-                  ? <a href={`https://ipfs.io/ipfs/${f.ipfs_cid}`} target="_blank" rel="noreferrer" style={{ color: C.accent, textDecoration: "none", fontWeight: 500 }}>📄 {f.file_name} ↗</a>
-                  : <span style={{ color: C.muted }}>📄 {f.file_name}</span>}
-              </div>
-            ))}
+    <div style={{ padding: "20px", background: "rgba(0,0,0,0.2)", borderRadius: 12, border: "1px solid var(--border)", margin: "0 16px 16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
+        {Object.entries(grouped).map(([type, files]) => (
+          <div key={type}>
+            <div style={{ fontSize: 12, color: "#408A71", fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>{DOC_LABELS[type] || type}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {files.map((f) => (
+                <div key={f.id} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: "10px 12px", fontSize: 13, border: "1px solid var(--border)", display: "flex", alignItems: "center" }}>
+                  {f.ipfs_cid ? (
+                    <a href={`https://ipfs.io/ipfs/${f.ipfs_cid}`} target="_blank" rel="noreferrer" style={{ color: "#f8fafc", textDecoration: "none", fontWeight: 500, display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
+                      <span style={{ fontSize: 16 }}>📄</span>
+                      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.file_name}</span>
+                      <span style={{ color: "#408A71", fontSize: 16 }}>↗</span>
+                    </a>
+                  ) : (
+                    <span style={{ color: "#94a3b8", display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
+                      <span style={{ fontSize: 16 }}>📄</span>
+                      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.file_name}</span>
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
 
 function SkeletonRow() {
   return (
-    <tr style={{ borderBottom: "1px solid rgba(72,117,115,0.1)" }}>
+    <tr>
       {[60, 120, 100, 80, 70, 60, 60, 80, 90].map((w, i) => (
-        <td key={i} style={{ padding: "14px 16px" }}>
-          <div style={{ height: 12, background: "rgba(72,117,115,0.08)", borderRadius: 4, width: w, animation: "pulse 1.5s infinite" }} />
+        <td key={i} style={{ padding: "20px 16px" }}>
+          <div style={{ height: 16, background: "rgba(255,255,255,0.05)", borderRadius: 4, width: w, animation: "caro-spin 1.5s infinite" }} />
         </td>
       ))}
     </tr>
@@ -247,9 +335,7 @@ export default function AdminMintRequestsPage() {
   };
 
   return (
-    <DashboardLayout title="Lô hàng Farmer">
-      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
-
+    <DashboardLayout title="Duyệt lô hàng">
       {rejectTarget && (
         <RejectModal batch={rejectTarget} onClose={() => setRejectTarget(null)}
           onConfirm={handleRejectConfirm} isPending={reject.isPending} />
@@ -259,187 +345,214 @@ export default function AdminMintRequestsPage() {
           onConfirm={handleApproveConfirm} isPending={approve.isPending} />
       )}
 
-      {/* Header */}
-      <div style={{ marginBottom: 20 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>📦 Lô hàng từ Nông dân</h2>
-        <p style={{ margin: "4px 0 0", fontSize: 12, color: C.muted }}>Tổng số: {total} lô hàng · Phê duyệt hồ sơ chất lượng và phát hành (Mint) token RWA</p>
-      </div>
-
-      {/* Tabs + search */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "1px solid rgba(72,117,115,0.15)", paddingBottom: 0, flexWrap: "wrap", alignItems: "flex-end" }}>
-        {TABS.map((tab) => (
-          <button key={tab.key} onClick={() => handleTabChange(tab.key)}
-            style={{ padding: "9px 18px", background: "none", border: "none", borderBottom: activeTab === tab.key ? `2px solid ${C.accent}` : "2px solid transparent", color: activeTab === tab.key ? "#7fe0c9" : C.muted, fontWeight: activeTab === tab.key ? 700 : 400, cursor: "pointer", fontSize: 13, marginBottom: -1, transition: "all 0.15s" }}>
-            {tab.label}
-          </button>
-        ))}
-        <div style={{ flex: 1 }} />
-        <div style={{ display: "flex", gap: 8, marginBottom: 4, alignItems: "center" }}>
-          <div style={{ display: "flex", background: "#0d1413", borderRadius: 8, overflow: "hidden", border: "1px solid rgba(72,117,115,0.2)" }}>
-            <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              placeholder="Mã lô hàng, nông dân..."
-              style={{ padding: "7px 12px", background: "none", border: "none", color: "#e2e8f0", fontSize: 13, outline: "none", width: 175 }} />
-            {search && <button onClick={handleClear} style={{ padding: "0 8px", background: "none", border: "none", color: C.muted, cursor: "pointer" }}>✕</button>}
-            <button onClick={handleSearch} style={{ padding: "7px 12px", background: "#487573", border: "none", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>🔍</button>
+      <div className="caro-page">
+        {/* Header */}
+        <div className="caro-page-header">
+          <div>
+            <h2 className="caro-page-title">📦 Lô hàng từ Nông dân</h2>
+            <p className="caro-page-subtitle">Tổng số: <strong style={{ color: "#f8fafc" }}>{total}</strong> lô hàng · Phê duyệt hồ sơ chất lượng và phát hành (Mint) token RWA</p>
           </div>
-          <button onClick={() => refetch()} style={{ padding: "7px 12px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(72,117,115,0.15)", color: "#e2e8f0", borderRadius: 7, cursor: "pointer", fontSize: 12 }}>🔄</button>
         </div>
-      </div>
 
-      {/* Table */}
-      <div style={{ overflowX: "auto", background: "#172524", borderRadius: 10, border: "1px solid rgba(72,117,115,0.15)" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead>
-            <tr style={{ background: "rgba(255,255,255,0.01)", borderBottom: "1px solid rgba(72,117,115,0.15)" }}>
-              {["Mã lô hàng", "Nông dân", "Địa chỉ ví", "Khối lượng", "Grade", "Ngày tạo", "Tài liệu", "Trạng thái", "Thao tác"].map((h) => (
-                <th key={h} style={{ padding: "10px 16px", color: C.muted, fontWeight: 600, textAlign: "left", whiteSpace: "nowrap", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.5px" }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
+        {/* Tabs + search */}
+        <div style={{ display: "flex", gap: 16, marginBottom: 24, borderBottom: "1px solid var(--border)", paddingBottom: 16, flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            {TABS.map((tab) => (
+              <button key={tab.key} onClick={() => handleTabChange(tab.key)}
+                className={`caro-btn caro-btn-sm ${activeTab === tab.key ? "caro-btn-secondary" : "caro-btn-ghost"}`}
+                style={{ padding: "8px 20px" }}>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <div className="caro-field" style={{ marginBottom: 0, position: "relative" }}>
+              <input 
+                className="caro-input"
+                value={searchInput} 
+                onChange={(e) => setSearchInput(e.target.value)} 
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                placeholder="Mã lô hàng, nông dân..."
+                style={{ paddingRight: 80, width: 280 }} 
+              />
+              <div style={{ position: "absolute", right: 4, top: 4, display: "flex", gap: 4 }}>
+                {search && (
+                  <button onClick={handleClear} className="caro-btn caro-btn-ghost caro-btn-sm" style={{ padding: "4px 8px" }}>✕</button>
+                )}
+                <button onClick={handleSearch} className="caro-btn caro-btn-primary caro-btn-sm" style={{ padding: "4px 12px" }}>🔍</button>
+              </div>
+            </div>
+            <button onClick={() => refetch()} className="caro-btn caro-btn-ghost">🔄</button>
+          </div>
+        </div>
 
-          {isLoading ? (
-            <tbody>{[1,2,3,4].map(i => <SkeletonRow key={i} />)}</tbody>
-          ) : isError ? (
-            <tbody><tr><td colSpan={9} style={{ textAlign: "center", padding: 60, color: C.red }}>
-              Không thể tải dữ liệu — <button onClick={() => refetch()} style={{ background: "none", border: "none", color: C.accent, cursor: "pointer", textDecoration: "underline" }}>Tải lại</button>
-            </td></tr></tbody>
-          ) : batches.length === 0 ? (
-            <tbody><tr><td colSpan={9} style={{ textAlign: "center", padding: 60, color: C.muted }}>
-              <div style={{ fontSize: 36, marginBottom: 10 }}>📭</div>
-              <div>Không tìm thấy lô hàng nào trong tab này</div>
-            </td></tr></tbody>
-          ) : (
-            <tbody>
-              {batches.map((b) => {
-                const isProcessing = (approve.isPending && approve.variables?.id === b.id) ||
-                                     (reject.isPending  && reject.variables?.id  === b.id);
-                const docsExpanded  = expandedDocs === b.id;
-                const shortWallet   = b.farmer_wallet ? `${b.farmer_wallet.slice(0,6)}…${b.farmer_wallet.slice(-4)}` : "—";
-                const currentGrade  = gradeOverride[b.id] || QG_TO_GRADE[b.quality_grade] || "";
+        {/* Table */}
+        <div className="caro-table-container">
+          <table className="caro-table">
+            <thead>
+              <tr>
+                {["Mã lô hàng", "Nông dân", "Địa chỉ ví", "Khối lượng", "Grade", "Ngày tạo", "Tài liệu", "Trạng thái", "Thao tác"].map((h) => (
+                  <th key={h}>{h}</th>
+                ))}
+              </tr>
+            </thead>
 
-                return (
-                  <Fragment key={b.id}>
-                    <tr style={{ borderBottom: docsExpanded ? "none" : "1px solid rgba(72,117,115,0.1)", transition: "background 0.1s" }}
-                      onMouseEnter={e => (e.currentTarget.style.background = "rgba(72,117,115,0.03)")}
-                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+            {isLoading ? (
+              <tbody>{[1,2,3,4].map(i => <SkeletonRow key={i} />)}</tbody>
+            ) : isError ? (
+              <tbody><tr><td colSpan={9} style={{ textAlign: "center", padding: 60, color: "#ef4444" }}>
+                Không thể tải dữ liệu — <button onClick={() => refetch()} className="caro-btn caro-btn-ghost" style={{ color: "#408A71", marginLeft: 8 }}>Tải lại</button>
+              </td></tr></tbody>
+            ) : batches.length === 0 ? (
+              <tbody><tr><td colSpan={9}>
+                <div className="caro-empty" style={{ padding: "80px 0" }}>
+                  <div className="caro-empty-icon" style={{ fontSize: 48, marginBottom: 16 }}>📭</div>
+                  <div className="caro-empty-title">Không tìm thấy lô hàng nào trong tab này</div>
+                </div>
+              </td></tr></tbody>
+            ) : (
+              <tbody>
+                {batches.map((b) => {
+                  const isProcessing = (approve.isPending && approve.variables?.id === b.id) ||
+                                       (reject.isPending  && reject.variables?.id  === b.id);
+                  const docsExpanded  = expandedDocs === b.id;
+                  const shortWallet   = b.farmer_wallet ? `${b.farmer_wallet.slice(0,6)}…${b.farmer_wallet.slice(-4)}` : "—";
+                  const currentGrade  = gradeOverride[b.id] || QG_TO_GRADE[b.quality_grade] || "";
 
-                      {/* Batch ID */}
-                      <td style={{ padding: "12px 16px", fontWeight: 700, color: C.accent, whiteSpace: "nowrap" }}>
-                        <div>{b.batch_id}</div>
-                        <div style={{ fontSize: 10, color: C.muted, fontWeight: 400 }}>☕ Robusta</div>
-                      </td>
+                  return (
+                    <Fragment key={b.id}>
+                      <tr style={{ cursor: "pointer", transition: "background 0.2s" }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
 
-                      {/* Farmer */}
-                      <td style={{ padding: "12px 16px" }}>
-                        <div style={{ fontWeight: 600, color: "#e2e8f0" }}>{b.farmer_name || "—"}</div>
-                        <div style={{ fontSize: 11, color: C.muted }}>{b.farmer_email}</div>
-                      </td>
+                        {/* Batch ID */}
+                        <td style={{ padding: "16px", fontWeight: 700, color: "#408A71", fontFamily: "monospace", fontSize: 14, whiteSpace: "nowrap" }}>
+                          <div>{b.batch_id}</div>
+                          <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, fontFamily: "sans-serif", marginTop: 4 }}>🫘 Robusta</div>
+                        </td>
 
-                      {/* Wallet */}
-                      <td style={{ padding: "12px 16px" }}>
-                        <span style={{ fontFamily: "monospace", fontSize: 11, color: C.muted }}>{shortWallet}</span>
-                      </td>
+                        {/* Farmer */}
+                        <td style={{ padding: "16px" }}>
+                          <div style={{ fontWeight: 700, color: "#f8fafc", fontSize: 14 }}>{b.farmer_name || "—"}</div>
+                          <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{b.farmer_email}</div>
+                        </td>
 
-                      {/* Qty */}
-                      <td style={{ padding: "12px 16px", fontWeight: 600, color: "#e2e8f0" }}>
-                        {formatKg(b.quantity)}
-                      </td>
+                        {/* Wallet */}
+                        <td style={{ padding: "16px" }}>
+                          <span style={{ fontFamily: "monospace", fontSize: 13, color: b.farmer_wallet ? "#94a3b8" : "#ef4444" }}>{shortWallet}</span>
+                        </td>
 
-                      {/* Grade — editable for pending, badge for others */}
-                      <td style={{ padding: "12px 16px" }}>
-                        {b.status === "PENDING_MINT_APPROVAL" ? (
-                          <select value={currentGrade}
-                            onChange={(e) => handleGradeChange(b, e.target.value)}
-                            style={{ padding: "5px 8px", background: "#0d1413", border: "1px solid rgba(72,117,115,0.2)", borderRadius: 6, color: currentGrade ? (currentGrade === "A" ? C.green : currentGrade === "B" ? C.accent : C.gold) : C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer", outline: "none", minWidth: 80 }}>
-                            <option value="">— Chọn</option>
-                            <option value="A">A · CR1</option>
-                            <option value="B">B · CR2</option>
-                            <option value="C">C · CR3</option>
-                          </select>
-                        ) : (
-                          <GradeBadge qg={b.quality_grade} />
-                        )}
-                      </td>
+                        {/* Qty */}
+                        <td style={{ padding: "16px", fontWeight: 800, color: "#f8fafc", fontSize: 14 }}>
+                          {formatKg(b.quantity)}
+                        </td>
 
-                      {/* Date */}
-                      <td style={{ padding: "12px 16px", color: C.muted, whiteSpace: "nowrap", fontSize: 12 }}>
-                        {new Date(b.created_at).toLocaleDateString("vi-VN")}
-                      </td>
+                        {/* Grade */}
+                        <td style={{ padding: "16px" }}>
+                          {b.quality_grade && (b.logistics_status === 'INSPECTED' || b.status === 'MINTED') ? (
+                            <GradeBadge qg={b.quality_grade} />
+                          ) : (
+                            <span style={{ fontSize: 13, color: "#94a3b8", fontStyle: "italic" }}>Chờ kiểm định</span>
+                          )}
+                        </td>
 
-                      {/* Docs */}
-                      <td style={{ padding: "12px 16px" }}>
-                        <button onClick={() => setExpandedDocs(docsExpanded ? null : b.id)}
-                          style={{ padding: "4px 10px", background: `${C.accent}12`, border: `1px solid ${C.accent}30`, color: C.accent, borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" }}>
-                          📂 {b.doc_count || 0} {docsExpanded ? "▲" : "▼"}
-                        </button>
-                      </td>
+                        {/* Date */}
+                        <td style={{ padding: "16px", color: "#94a3b8", whiteSpace: "nowrap", fontSize: 13 }}>
+                          {new Date(b.created_at).toLocaleDateString("vi-VN")}
+                        </td>
 
-                      {/* Status */}
-                      <td style={{ padding: "12px 16px" }}>
-                        <StatusBadge status={b.status} />
-                        {b.status === "MINTED" && b.tx_hash && (
-                          <div style={{ fontSize: 10, marginTop: 4 }}>
-                            <a href={`https://sepolia.etherscan.io/tx/${b.tx_hash}`} target="_blank" rel="noreferrer"
-                              style={{ color: C.accent, textDecoration: "none" }}>TX ↗</a>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Actions */}
-                      <td style={{ padding: "12px 16px" }}>
-                        <div style={{ display: "flex", gap: 5, flexWrap: "nowrap" }}>
-                          <button onClick={() => nav(`/admin/batch/${b.id}`)}
-                            style={{ padding: "5px 10px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(72,117,115,0.15)", color: "#e2e8f0", borderRadius: 6, cursor: "pointer", fontSize: 11 }}>
-                            Chi tiết
+                        {/* Docs */}
+                        <td style={{ padding: "16px" }}>
+                          <button onClick={() => setExpandedDocs(docsExpanded ? null : b.id)}
+                            className="caro-btn caro-btn-secondary caro-btn-sm"
+                            style={{ padding: "6px 12px", whiteSpace: "nowrap" }}>
+                            📂 {b.doc_count || 0} {docsExpanded ? "▲" : "▼"}
                           </button>
-                          {b.status === "PENDING_MINT_APPROVAL" && (
-                            <>
-                              <button onClick={() => setApproveTarget(b)} disabled={isProcessing}
-                                style={{ padding: "5px 12px", background: isProcessing ? "#555" : C.green, border: "none", color: isProcessing ? C.muted : "#000", borderRadius: 6, cursor: isProcessing ? "not-allowed" : "pointer", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
-                                {approve.isPending && approve.variables?.id === b.id ? "⏳" : "Duyệt"}
-                              </button>
-                              <button onClick={() => setRejectTarget(b)} disabled={isProcessing}
-                                style={{ padding: "5px 10px", background: `${C.red}20`, border: `1px solid ${C.red}40`, color: C.red, borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
-                                ✕
-                              </button>
-                            </>
-                          )}
-                          {b.status === "REJECTED" && b.rejection_reason && (
-                            <span title={b.rejection_reason} style={{ fontSize: 11, color: C.red, cursor: "help" }}>⚠ Lý do</span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                        </td>
 
-                    {docsExpanded && (
-                      <tr style={{ borderBottom: "1px solid rgba(72,117,115,0.1)" }}>
-                        <td colSpan={9} style={{ padding: "0 16px 14px" }}>
-                          <DocumentsPanel batchId={b.id} />
+                        {/* Status */}
+                        <td style={{ padding: "16px" }}>
+                          <StatusBadge batch={b} />
+                          {b.status === "MINTED" && b.tx_hash && (
+                            <div style={{ fontSize: 11, marginTop: 8 }}>
+                              <a href={`https://sepolia.etherscan.io/tx/${b.tx_hash}`} target="_blank" rel="noreferrer"
+                                style={{ color: "#408A71", textDecoration: "none", fontWeight: 600, fontFamily: "monospace" }}>TX ↗</a>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Actions */}
+                        <td style={{ padding: "16px" }}>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "nowrap", justifyContent: "flex-end" }}>
+                            <button onClick={() => nav(`/admin/batch/${b.id}`)}
+                              className="caro-btn caro-btn-ghost caro-btn-sm" style={{ padding: "6px 12px" }}>
+                              Chi tiết
+                            </button>
+                            {b.status === "PENDING_MINT_APPROVAL" && (
+                              <>
+                                {b.quality_grade && b.logistics_status === 'INSPECTED' ? (
+                                  <>
+                                    {b.farmer_wallet ? (
+                                      <button onClick={() => setApproveTarget(b)} disabled={isProcessing}
+                                        className={`caro-btn caro-btn-sm ${isProcessing ? "caro-btn-ghost" : "caro-btn-primary"}`}
+                                        style={{ padding: "6px 16px", background: isProcessing ? undefined : "#B0E4CC", borderColor: isProcessing ? undefined : "#B0E4CC", color: isProcessing ? undefined : "#0f172a" }}>
+                                        {approve.isPending && approve.variables?.id === b.id ? "⏳" : "Duyệt"}
+                                      </button>
+                                    ) : (
+                                      <span style={{ fontSize: 11, color: "#f59e0b", background: "rgba(245,158,11,0.1)", padding: "6px 10px", borderRadius: 6, fontWeight: 600, border: "1px solid rgba(245,158,11,0.2)" }}>
+                                        ⚠️ Chờ liên kết ví
+                                      </span>
+                                    )}
+                                    <button onClick={() => setRejectTarget(b)} disabled={isProcessing}
+                                      className="caro-btn caro-btn-danger caro-btn-sm" style={{ padding: "6px 12px", opacity: isProcessing ? 0.5 : 1 }}>
+                                      ✕
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span style={{ fontSize: 12, color: "#64748b", background: "rgba(255,255,255,0.05)", padding: "6px 10px", borderRadius: 6, fontWeight: 600 }}>
+                                    ⏳ Đợi Oracle
+                                  </span>
+                                )}
+                              </>
+                            )}
+                            {b.status === "REJECTED" && b.rejection_reason && (
+                              <span title={b.rejection_reason} style={{ fontSize: 12, color: "#ef4444", cursor: "help", display: "flex", alignItems: "center", marginLeft: 8 }}>⚠ Lý do</span>
+                            )}
+                          </div>
                         </td>
                       </tr>
-                    )}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          )}
-        </table>
-      </div>
 
-      {/* Pagination */}
-      {total > 10 && (
-        <div style={{ display: "flex", gap: 8, justifyContent: "center", alignItems: "center", marginTop: 20 }}>
-          <button onClick={() => setPage(1)} disabled={page === 1}
-            style={{ padding: "6px 12px", background: "#172524", border: "1px solid rgba(72,117,115,0.15)", color: page === 1 ? C.muted : "#e2e8f0", borderRadius: 6, cursor: page === 1 ? "default" : "pointer", fontSize: 12 }}>«</button>
-          <button onClick={() => setPage(p => p - 1)} disabled={page === 1}
-            style={{ padding: "6px 14px", background: "#172524", border: "1px solid rgba(72,117,115,0.15)", color: page === 1 ? C.muted : "#e2e8f0", borderRadius: 6, cursor: page === 1 ? "default" : "pointer", fontSize: 12 }}> Trước</button>
-          <span style={{ padding: "6px 14px", color: C.muted, fontSize: 13 }}>Trang {page} / {Math.ceil(total / 10)}</span>
-          <button onClick={() => setPage(p => p + 1)} disabled={batches.length < 10}
-            style={{ padding: "6px 14px", background: "#172524", border: "1px solid rgba(72,117,115,0.15)", color: batches.length < 10 ? C.muted : "#e2e8f0", borderRadius: 6, cursor: batches.length < 10 ? "default" : "pointer", fontSize: 12 }}>Sau »</button>
-          <button onClick={() => setPage(Math.ceil(total / 10))} disabled={batches.length < 10}
-            style={{ padding: "6px 12px", background: "#172524", border: "1px solid rgba(72,117,115,0.15)", color: batches.length < 10 ? C.muted : "#e2e8f0", borderRadius: 6, cursor: batches.length < 10 ? "default" : "pointer", fontSize: 12 }}>»</button>
+                      {docsExpanded && (
+                        <tr>
+                          <td colSpan={9} style={{ padding: 0 }}>
+                            <DocumentsPanel batchId={b.id} />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            )}
+          </table>
         </div>
-      )}
+
+        {/* Pagination */}
+        {total > 10 && (
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", alignItems: "center", marginTop: 24 }}>
+            <button onClick={() => setPage(1)} disabled={page === 1}
+              className={`caro-btn caro-btn-sm ${page === 1 ? "caro-btn-ghost" : "caro-btn-secondary"}`} style={{ opacity: page === 1 ? 0.5 : 1 }}>«</button>
+            <button onClick={() => setPage(p => p - 1)} disabled={page === 1}
+              className={`caro-btn caro-btn-sm ${page === 1 ? "caro-btn-ghost" : "caro-btn-secondary"}`} style={{ opacity: page === 1 ? 0.5 : 1 }}> Trước</button>
+            <span style={{ padding: "0 8px", color: "#94a3b8", fontSize: 14, fontWeight: 600 }}>Trang {page} / {Math.ceil(total / 10)}</span>
+            <button onClick={() => setPage(p => p + 1)} disabled={batches.length < 10}
+              className={`caro-btn caro-btn-sm ${batches.length < 10 ? "caro-btn-ghost" : "caro-btn-secondary"}`} style={{ opacity: batches.length < 10 ? 0.5 : 1 }}>Sau »</button>
+            <button onClick={() => setPage(Math.ceil(total / 10))} disabled={batches.length < 10}
+              className={`caro-btn caro-btn-sm ${batches.length < 10 ? "caro-btn-ghost" : "caro-btn-secondary"}`} style={{ opacity: batches.length < 10 ? 0.5 : 1 }}>»</button>
+          </div>
+        )}
+      </div>
     </DashboardLayout>
   );
 }

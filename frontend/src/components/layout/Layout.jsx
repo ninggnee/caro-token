@@ -3,7 +3,7 @@ import Topbar from "./Topbar";
 
 export default function Layout({ children }) {
   return (
-    <div style={{ display: "flex", height: "100vh", background: "#0b0e11" }}>
+    <div style={{ display: "flex", height: "100vh", background: "#091413" }}>
       <Sidebar />
 
       <div style={{ flex: 1 }}>

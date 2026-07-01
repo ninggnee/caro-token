@@ -15,7 +15,7 @@ async function apiFetch(path, opts = {}) {
   return res.json();
 }
 
-const STATUS_COLOR = { pending: '#f39c12', approved: '#27ae60', rejected: '#e74c3c' };
+const STATUS_COLOR = { pending: 'caro-badge-warning', approved: 'caro-badge-success', rejected: 'caro-badge-danger' };
 
 export default function AdminRedeemOrders() {
   const [orders,     setOrders]     = useState([]);
@@ -51,97 +51,106 @@ export default function AdminRedeemOrders() {
 
   return (
     <DashboardLayout title="Quản lý đổi Token → Cà phê">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>Redeem Orders</h2>
-        <button onClick={load} style={{ padding: '6px 14px', borderRadius: 6, cursor: 'pointer' }}>
-          🔄 Refresh
-        </button>
-      </div>
-
-      {loading ? (
-        <div style={{ color: '#aaa' }}>Đang tải...</div>
-      ) : orders.length === 0 ? (
-        <div style={{ color: '#aaa' }}>Không có yêu cầu nào</div>
-      ) : (
-        <div style={{ display: 'grid', gap: 10 }}>
-          {orders.map(o => {
-            const res = results[o.id];
-            return (
-              <div key={o.id} style={{
-                padding: 14, borderRadius: 8, background: 'rgba(255,255,255,0.04)',
-                border: `1px solid ${STATUS_COLOR[o.status] || '#444'}30`,
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <div>
-                    <span style={{ fontWeight: 600 }}>#{o.id} — {o.full_name}</span>
-                    <span style={{ fontSize: 13, color: '#aaa', marginLeft: 8 }}>{o.email}</span>
-                    <div style={{ marginTop: 4, fontSize: 13 }}>
-                      {o.kg_amount} kg → {o.token_amount} {o.token_type || 'CR1'} token
-                    </div>
-                    <div style={{ fontSize: 12, color: '#888' }}>
-                      {new Date(o.created_at).toLocaleString('vi-VN')}
-                    </div>
-                    {o.tx_hash && (
-                      <div style={{ fontSize: 12, marginTop: 4 }}>
-                        TxHash:{' '}
-                        <a href={`https://sepolia.etherscan.io/tx/${o.tx_hash}`}
-                           target="_blank" rel="noreferrer" style={{ color: '#3498db' }}>
-                          {o.tx_hash.slice(0,20)}…
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                  <span style={{
-                    padding: '3px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600,
-                    height: 'fit-content',
-                    background: `${STATUS_COLOR[o.status] || '#555'}20`,
-                    color: STATUS_COLOR[o.status] || '#fff',
-                  }}>{o.status.toUpperCase()}</span>
-                </div>
-
-                {o.status === 'pending' && (
-                  <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                    <button
-                      onClick={() => review(o.id, 'approve')}
-                      disabled={processing === o.id}
-                      style={{ padding: '5px 14px', borderRadius: 6, cursor: 'pointer',
-                        background: '#27ae60', color: '#fff', border: 'none', fontWeight: 600 }}
-                    >
-                      {processing === o.id ? '⏳ Xử lý...' : '✅ Approve & Burn'}
-                    </button>
-                    <button
-                      onClick={() => review(o.id, 'reject')}
-                      disabled={processing === o.id}
-                      style={{ padding: '5px 14px', borderRadius: 6, cursor: 'pointer',
-                        background: '#e74c3c', color: '#fff', border: 'none' }}
-                    >
-                      ❌ Từ chối
-                    </button>
-                  </div>
-                )}
-
-                {res && (
-                  <div style={{ marginTop: 8, padding: 8, borderRadius: 6, fontSize: 13,
-                    background: res.success ? 'rgba(39,174,96,0.1)' : 'rgba(231,76,60,0.1)' }}>
-                    {res.loading && '⏳ Đang burn trên blockchain...'}
-                    {res.success && res.action === 'approve' && (
-                      <span style={{ color: '#27ae60' }}>
-                        ✅ Burn thành công | TxHash: {res.txHash?.slice(0,20)}…
-                      </span>
-                    )}
-                    {res.success && res.action === 'reject' && (
-                      <span style={{ color: '#f39c12' }}>✅ Đã từ chối. Token đã được unlock.</span>
-                    )}
-                    {res.success === false && (
-                      <span style={{ color: '#e74c3c' }}>❌ {res.error}</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+      <div className="caro-page">
+        <div className="caro-page-header">
+          <div>
+            <h2 className="caro-page-title">Quản lý Yêu Cầu Redeem</h2>
+            <p className="caro-page-subtitle">Duyệt các yêu cầu đổi token RWA lấy cà phê vật lý</p>
+          </div>
+          <button onClick={load} className="caro-btn caro-btn-secondary">
+            🔄 Làm mới
+          </button>
         </div>
-      )}
+
+        {loading ? (
+          <div className="caro-empty" style={{ padding: "80px 0" }}>
+            <div className="caro-empty-icon" style={{ animation: "caro-spin 1.5s infinite" }}>🔄</div>
+            <div className="caro-empty-title">Đang tải yêu cầu redeem...</div>
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="caro-empty" style={{ padding: "80px 0" }}>
+            <div className="caro-empty-icon">🫘</div>
+            <div className="caro-empty-title">Không có yêu cầu nào</div>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: 16 }}>
+            {orders.map(o => {
+              const res = results[o.id];
+              return (
+                <div key={o.id} className="caro-card" style={{ padding: 24 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: "flex-start" }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <span style={{ fontWeight: 800, color: "#408A71", fontSize: 18 }}>#{o.id}</span>
+                        <span style={{ fontWeight: 700, color: "#f8fafc", fontSize: 16 }}>{o.full_name}</span>
+                        <span className={`caro-badge ${STATUS_COLOR[o.status] || 'caro-badge-muted'}`} style={{ padding: "4px 10px", fontSize: 12 }}>
+                          {o.status.toUpperCase()}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: 13, color: '#94a3b8', display: "block", marginTop: 4 }}>{o.email}</span>
+                      
+                      <div style={{ marginTop: 12, fontSize: 14, color: "#cbd5e1" }}>
+                        <strong style={{ color: "#f8fafc" }}>{o.kg_amount} kg</strong> cà phê vật lý → <strong style={{ color: "#B0E4CC" }}>{o.token_amount} {o.token_type || 'CR1'} token</strong>
+                      </div>
+                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 8 }}>
+                        Ngày tạo: {new Date(o.created_at).toLocaleString('vi-VN')}
+                      </div>
+                      {o.tx_hash && (
+                        <div style={{ fontSize: 13, marginTop: 12 }}>
+                          <span style={{ color: "#64748b" }}>TxHash:</span>{' '}
+                          <a href={`https://sepolia.etherscan.io/tx/${o.tx_hash}`}
+                             target="_blank" rel="noreferrer" style={{ color: '#408A71', fontFamily: "monospace", textDecoration: "none", fontWeight: 600 }}>
+                            {o.tx_hash} ↗
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {o.status === 'pending' && (
+                    <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+                      <button
+                        onClick={() => review(o.id, 'approve')}
+                        disabled={processing === o.id}
+                        className={`caro-btn ${processing === o.id ? "caro-btn-ghost" : "caro-btn-primary"}`}
+                      >
+                        {processing === o.id ? '⏳ Đang xử lý...' : '✅ Phê duyệt & Burn Token'}
+                      </button>
+                      <button
+                        onClick={() => review(o.id, 'reject')}
+                        disabled={processing === o.id}
+                        className="caro-btn caro-btn-danger"
+                      >
+                        ❌ Từ chối
+                      </button>
+                    </div>
+                  )}
+
+                  {res && (
+                    <div style={{ marginTop: 16, padding: "12px 16px", borderRadius: 8, fontSize: 13,
+                      background: res.success ? 'rgba(176, 228, 204,0.1)' : 'rgba(239,68,68,0.1)',
+                      border: `1px solid ${res.success ? 'rgba(176, 228, 204,0.2)' : 'rgba(239,68,68,0.2)'}`
+                    }}>
+                      {res.loading && <span style={{ color: "#408A71", fontWeight: 600 }}>⏳ Đang ghi nhận trên blockchain (Burn)...</span>}
+                      {res.success && res.action === 'approve' && (
+                        <span style={{ color: '#B0E4CC', fontWeight: 600 }}>
+                          ✅ Burn thành công | TxHash: <span style={{ fontFamily: "monospace" }}>{res.txHash}</span>
+                        </span>
+                      )}
+                      {res.success && res.action === 'reject' && (
+                        <span style={{ color: '#f0b90b', fontWeight: 600 }}>✅ Đã từ chối yêu cầu. Token đã được unlock về ví của Trader.</span>
+                      )}
+                      {res.success === false && (
+                        <span style={{ color: '#ef4444', fontWeight: 600 }}>❌ Lỗi: {res.error}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </DashboardLayout>
   );
 }

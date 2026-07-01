@@ -4,104 +4,174 @@ import FarmerLayout from "../components/layout/FarmerLayout";
 import { useMyBatches } from "../hooks/useBatches";
 import { formatKg, formatToken } from '../utils/formatters';
 
-const C = {
-  accent: "#487573",
-  muted: "#6b7a99",
-  green: "#0ecb81",
-  red: "#f6465d",
-  card: "#172524",
-  border: "rgba(72, 117, 115, 0.15)",
-  tealLight: "#7fe0c9"
-};
-
 const STATUS_META = {
-  PENDING_MINT_APPROVAL: { color: "#f39c12", bg: "rgba(243,156,18,0.06)", label: "⏳ Chờ duyệt" },
-  MINTED:                { color: "#27ae60", bg: "rgba(39,174,96,0.06)",  label: "🪙 Đã Mint"   },
-  REJECTED:              { color: "#e74c3c", bg: "rgba(231,76,60,0.06)",  label: "❌ Từ chối"   },
+  PENDING_MINT_APPROVAL: { cls: "caro-badge-warning", color: "#f0b90b", label: "Chờ duyệt", dot: "#f0b90b"  },
+  MINTED:                { cls: "caro-badge-success", color: "#B0E4CC", label: "Đã Mint",   dot: "#B0E4CC"  },
+  REJECTED:              { cls: "caro-badge-danger",  color: "#ef4444", label: "Từ chối",   dot: "#ef4444"  },
 };
 
 const TABS = [
-  { key: "PENDING_MINT_APPROVAL", label: "⏳ Chờ Duyệt" },
-  { key: "MINTED",                label: "✅ Đã Mint"   },
-  { key: "REJECTED",              label: "❌ Từ Chối"   },
+  { key: "PENDING_MINT_APPROVAL", label: "⏳ Chờ Duyệt",  icon: "⏳" },
+  { key: "MINTED",                label: "🪙 Đã Mint",    icon: "🪙" },
+  { key: "REJECTED",              label: "❌ Từ Chối",    icon: "❌" },
 ];
 
-function StatusBadge({ status }) {
-  const m = STATUS_META[status] || { color: "#aaa", bg: "rgba(255,255,255,0.08)", label: status };
+const LOGISTICS_LABELS = {
+  PENDING_PICKUP: "Chờ lấy hàng",
+  IN_TRANSIT:     "Đang vận chuyển",
+  DELIVERED:      "Đã đến nhà máy",
+  STANDARDIZED:   "Đã chuẩn hóa",
+  STORED:         "Đã nhập kho",
+  INSPECTED:      "Đã kiểm định (Oracle)",
+  MINTED:         "Đã đúc Token",
+};
+
+function StatusBadge({ batch, status }) {
+  const b = batch || {};
+  const currentStatus = b.status || status;
+
+  let label = "";
+  let dot = "#64748b";
+  let cls = "caro-badge-muted";
+
+  if (currentStatus === "MINTED") {
+    label = "Đã Mint";
+    dot = "#B0E4CC";
+    cls = "caro-badge-success";
+  } else if (currentStatus === "REJECTED") {
+    label = "Từ chối";
+    dot = "#ef4444";
+    cls = "caro-badge-danger";
+  } else if (currentStatus === "APPROVED") {
+    label = "Đã duyệt";
+    dot = "#408A71";
+    cls = "caro-badge-info";
+  } else if (currentStatus === "PENDING_MINT_APPROVAL") {
+    if (b.logistics_status === "INSPECTED") {
+      label = "Chờ duyệt";
+      dot = "#f0b90b";
+      cls = "caro-badge-warning";
+    } else {
+      label = LOGISTICS_LABELS[b.logistics_status] || "Chờ lấy hàng";
+      dot = "#408A71";
+      cls = "caro-badge-info";
+    }
+  } else {
+    label = currentStatus || "—";
+    cls = "caro-badge-muted";
+  }
+
   return (
-    <span style={{ background: m.bg, color: m.color, padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600, border: `1px solid ${m.color}30` }}>
-      {m.label}
+    <span className={`caro-badge ${cls}`} style={{ fontSize: 11, padding: "2px 8px" }}>
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: dot, display: "inline-block", marginRight: 6, flexShrink: 0 }} />
+      {label}
     </span>
   );
 }
 
-function Skeleton() {
+function SkeletonCard() {
   return (
-    <div style={{ background: C.card, borderRadius: 12, padding: "18px 20px", marginBottom: 12, border: `1px solid ${C.border}` }}>
-      {[100, 60, 40].map((w, i) => (
-        <div key={i} style={{ height: 14, background: "rgba(255,255,255,0.05)", borderRadius: 6, marginBottom: 10, width: `${w}%`, animation: "pulse 1.5s ease-in-out infinite" }} />
+    <div className="caro-card" style={{ padding: 24, marginBottom: 16 }}>
+      {[100, 65, 40].map((w, i) => (
+        <div key={i} style={{ height: 16, background: "rgba(255,255,255,0.05)", borderRadius: 8, marginBottom: 12, width: `${w}%`, animation: "caro-spin 1.5s ease-in-out infinite" }} />
       ))}
     </div>
   );
 }
 
 function BatchCard({ batch, navigate }) {
-  const isRejected = batch.status === "REJECTED";
   const isMinted   = batch.status === "MINTED";
+  const isRejected = batch.status === "REJECTED";
+  const meta = STATUS_META[batch.status] || {};
 
   return (
     <div
-      style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "18px 20px", marginBottom: 12, transition: "border-color 0.2s" }}
-      onMouseEnter={(e) => e.currentTarget.style.borderColor = C.accent}
-      onMouseLeave={(e) => e.currentTarget.style.borderColor = C.border}
+      style={{
+        background: "var(--card-bg)",
+        border: "1px solid var(--border)",
+        borderRadius: 16,
+        padding: "24px",
+        transition: "all 0.2s",
+        marginBottom: 16,
+      }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = meta.color || "#408A71"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = `0 6px 20px ${meta.color ? meta.color + "20" : "rgba(64, 138, 113,0.15)"}`; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4, color: C.tealLight }}>{batch.batch_id}</div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 8 }}>☕ Cà phê Robusta</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
-            <span>⚖️ {formatKg(Number(batch.quantity))}</span>
-            <span>☕ {batch.coffee_type || "ROBUSTA"}</span>
-            {batch.harvest_date && <span>📅 {batch.harvest_date?.slice(0, 10)}</span>}
-            {batch.storage_location && <span>📍 {batch.storage_location}</span>}
+      {/* Row 1: ID + Status */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 16, color: "#408A71", fontFamily: "monospace", marginBottom: 4 }}>
+            {batch.batch_id}
+          </div>
+          <div style={{ fontSize: 13, color: "#94a3b8" }}>
+            🫘 Cà phê {batch.coffee_type || "Robusta"} · {new Date(batch.created_at).toLocaleDateString("vi-VN")}
           </div>
         </div>
-        <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <StatusBadge status={batch.status} />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
+          <StatusBadge batch={batch} />
           {batch.doc_count > 0 && (
-            <div style={{ marginTop: 6, fontSize: 11, color: "rgba(255,255,255,0.35)" }}>
-              📂 {batch.doc_count} tài liệu
-            </div>
+            <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>📂 {batch.doc_count} tài liệu</div>
           )}
-          <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 4 }}>
-            {new Date(batch.created_at).toLocaleDateString("vi-VN")}
-          </div>
         </div>
       </div>
 
-      {isMinted && (
-        <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.06)", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}>
-          <div style={{ background: "rgba(39,174,96,0.06)", borderRadius: 8, padding: "10px 12px", border: "1px solid rgba(39,174,96,0.1)" }}>
-            <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginBottom: 3 }}>Token đã Mint</div>
-            <div style={{ fontWeight: 700, color: "#22c55e", fontSize: 15 }}>
-              {formatToken(Number(batch.minted_amount), "CaRo")}
+      {/* Row 2: Details pills */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 20 }}>
+        {[
+          { icon: "⚖️", label: formatKg(Number(batch.quantity)) },
+          batch.harvest_date && { icon: "📅", label: batch.harvest_date?.slice(0, 10) },
+          batch.storage_location && { icon: "📍", label: batch.storage_location },
+          batch.logistics_status && { icon: "🚚", label: LOGISTICS_LABELS[batch.logistics_status] || batch.logistics_status, green: true },
+        ].filter(Boolean).map((pill, i) => (
+          <span key={i} style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "6px 12px", borderRadius: 20,
+            background: pill.green ? "rgba(176, 228, 204,0.08)" : "rgba(255,255,255,0.04)",
+            border: `1px solid ${pill.green ? "rgba(176, 228, 204,0.2)" : "rgba(255,255,255,0.08)"}`,
+            fontSize: 13, color: pill.green ? "#B0E4CC" : "#cbd5e1", fontWeight: pill.green ? 700 : 500,
+          }}>
+            {pill.icon} {pill.label}
+          </span>
+        ))}
+      </div>
+
+      {/* Classification Result */}
+      {batch.quality_grade && ['INSPECTED', 'MINTED'].includes(batch.logistics_status) && (
+        <div style={{ padding: "12px 16px", background: "rgba(176, 228, 204,0.05)", border: "1px solid rgba(176, 228, 204,0.2)", borderRadius: 12, marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ color: "#B0E4CC", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Kết quả phân loại (TCVN 4193:20)</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "#f8fafc" }}>
+              {batch.quality_grade === 'CR1' ? 'CaRo1 (Hạng A)' : batch.quality_grade === 'CR2' ? 'CaRo2 (Hạng B)' : 'CaRo3 (Hạng C)'}
             </div>
           </div>
-          <div style={{ background: "rgba(72,117,115,0.06)", borderRadius: 8, padding: "10px 12px", border: `1px solid ${C.border}` }}>
-            <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginBottom: 3 }}>Ví lưu trữ</div>
-            <div style={{ fontWeight: 700, color: C.tealLight, fontSize: 13 }}>🏦 Ví Sàn Giao Dịch</div>
+          <div style={{ fontSize: 28 }}>🏅</div>
+        </div>
+      )}
+
+      {/* Mint details */}
+      {isMinted && (
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12 }}>
+          <div style={{ background: "rgba(176, 228, 204,0.05)", borderRadius: 12, padding: "12px 16px", border: "1px solid rgba(176, 228, 204,0.15)" }}>
+            <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 4, fontWeight: 600 }}>Token đã Mint</div>
+            <div style={{ fontWeight: 800, color: "#B0E4CC", fontSize: 16, fontFamily: "monospace" }}>
+              {formatToken(Number(batch.minted_amount), "CR")}
+            </div>
           </div>
-          <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: "10px 12px", border: "1px solid rgba(255,255,255,0.05)" }}>
-            <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginBottom: 3 }}>Thời gian Mint</div>
-            <div style={{ fontSize: 13, color: "#fff" }}>
+          <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "12px 16px", border: "1px solid var(--border)" }}>
+            <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 4, fontWeight: 600 }}>Ví lưu trữ</div>
+            <div style={{ fontWeight: 800, color: "#408A71", fontSize: 14 }}>🏦 Ví Sàn Giao Dịch</div>
+          </div>
+          <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "12px 16px", border: "1px solid var(--border)" }}>
+            <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 4, fontWeight: 600 }}>Thời gian Mint</div>
+            <div style={{ fontSize: 13, color: "#f8fafc", fontWeight: 500 }}>
               {batch.minted_at ? new Date(batch.minted_at).toLocaleString("vi-VN") : "—"}
             </div>
           </div>
           {batch.tx_hash && (
-            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: "10px 12px", gridColumn: "1/-1", border: "1px solid rgba(255,255,255,0.05)" }}>
-              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginBottom: 3 }}>Transaction Hash (Mã giao dịch)</div>
+            <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 12, padding: "12px 16px", gridColumn: "1/-1", border: "1px solid var(--border)" }}>
+              <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 4, fontWeight: 600 }}>Transaction Hash</div>
               <a href={`https://sepolia.etherscan.io/tx/${batch.tx_hash}`} target="_blank" rel="noreferrer"
-                style={{ color: C.tealLight, fontSize: 11, wordBreak: "break-all", textDecoration: "none" }}>
+                style={{ color: "#408A71", fontSize: 13, wordBreak: "break-all", textDecoration: "none", fontFamily: "monospace", fontWeight: 600 }}>
                 {batch.tx_hash}
               </a>
             </div>
@@ -109,18 +179,18 @@ function BatchCard({ batch, navigate }) {
         </div>
       )}
 
+      {/* Rejection reason */}
       {isRejected && batch.rejection_reason && (
-        <div style={{ marginTop: 12, padding: "10px 14px", background: "rgba(231,76,60,0.06)", borderRadius: 8, fontSize: 13, color: "#e74c3c", borderLeft: "3px solid #e74c3c" }}>
+        <div style={{ marginTop: 16, padding: "12px 16px", background: "rgba(239,68,68,0.05)", borderRadius: 8, fontSize: 14, color: "#ef4444", borderLeft: "4px solid #ef4444" }}>
           <strong>Lý do từ chối:</strong> {batch.rejection_reason}
         </div>
       )}
 
-      <div style={{ marginTop: 14 }}>
+      {/* Footer action */}
+      <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end" }}>
         <button
+          className="caro-btn caro-btn-secondary caro-btn-sm"
           onClick={() => navigate(`/farmer/batch/${batch.id}`)}
-          style={{ padding: "6px 16px", background: "rgba(72,117,115,0.12)", color: C.tealLight, border: `1px solid ${C.border}`, borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600, transition: "opacity 0.2s" }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = 0.9}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = 1}
         >
           Xem chi tiết →
         </button>
@@ -140,72 +210,86 @@ export default function FarmerBatchesPage() {
 
   return (
     <FarmerLayout title="Lô hàng của tôi">
-      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
-      <div style={{ width: "100%" }}>
+      <div className="caro-page">
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+        {/* ── Page Header ── */}
+        <div className="caro-page-header">
           <div>
-            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>📦 Lô Hàng Cà Phê Robusta</h2>
-            <p style={{ margin: "4px 0 0", color: "rgba(255,255,255,0.45)", fontSize: 14 }}>
-              {total} lô hàng — theo dõi trạng thái token hóa
-            </p>
+            <h2 className="caro-page-title">📦 Lô Hàng Cà Phê Robusta</h2>
+            <p className="caro-page-subtitle">{total} lô hàng — theo dõi trạng thái token hóa</p>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => refetch()} style={{ padding: "8px 14px", background: "rgba(255,255,255,0.08)", border: "none", color: "#fff", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>🔄</button>
-            <button
-              onClick={() => navigate("/farmer/status/submit")}
-              style={{ padding: "10px 20px", background: C.accent, color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 14 }}
-            >
+          <div style={{ display: "flex", gap: 12 }}>
+            <button className="caro-btn caro-btn-ghost" onClick={() => refetch()} title="Làm mới">🔄</button>
+            <button className="caro-btn caro-btn-primary" onClick={() => navigate("/farmer/status/submit")}>
               ➕ Tạo Lô Hàng Mới
             </button>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 24 }}>
-          {TABS.map((t) => {
+        {/* ── Tab Filter ── */}
+        <div className="caro-grid-3" style={{ marginBottom: 24 }}>
+          {TABS.map(t => {
             const m = STATUS_META[t.key];
+            const active = tab === t.key;
             return (
               <button key={t.key} onClick={() => { setTab(t.key); setPage(1); }}
-                style={{ background: tab === t.key ? m.bg : "rgba(255,255,255,0.03)", border: `1px solid ${tab === t.key ? m.color : "rgba(255,255,255,0.08)"}`, borderRadius: 10, padding: "14px 16px", cursor: "pointer", textAlign: "left", transition: "all 0.2s" }}
+                style={{
+                  background: active ? `rgba(${active && m.color === '#B0E4CC' ? '176, 228, 204' : active && m.color === '#ef4444' ? '239,68,68' : '240,185,11'}, 0.1)` : "rgba(255,255,255,0.02)",
+                  border: `1px solid ${active ? m.color : "var(--border)"}`,
+                  borderRadius: 16,
+                  padding: "20px 24px",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  transition: "all 0.2s",
+                  color: active ? m.color : "#94a3b8",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+                onMouseEnter={e => { if (!active) { e.currentTarget.style.borderColor = m.color; e.currentTarget.style.color = m.color; } }}
+                onMouseLeave={e => { if (!active) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "#94a3b8"; } }}
               >
-                <div style={{ fontSize: 13, color: tab === t.key ? m.color : "rgba(255,255,255,0.5)", fontWeight: 600 }}>{t.label}</div>
+                <div style={{ fontSize: 24 }}>{t.icon}</div>
+                <div style={{ fontSize: 16, fontWeight: 800 }}>{t.label.split(" ").slice(1).join(" ")}</div>
               </button>
             );
           })}
         </div>
 
-        {/* List */}
-        {isLoading ? (
-          [1, 2, 3].map((i) => <Skeleton key={i} />)
-        ) : isError ? (
-          <div style={{ textAlign: "center", padding: 60, color: "#e74c3c" }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>⚠️</div>
-            <div>Lỗi tải dữ liệu</div>
-            <button onClick={() => refetch()} style={{ marginTop: 12, padding: "8px 20px", background: "#e74c3c", border: "none", color: "#fff", borderRadius: 8, cursor: "pointer" }}>Thử lại</button>
-          </div>
-        ) : batches.length === 0 ? (
-          <div style={{ textAlign: "center", padding: 60, color: "rgba(255,255,255,0.3)" }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>📭</div>
-            <div style={{ fontSize: 15 }}>Chưa có lô hàng nào</div>
-            {tab === "PENDING_MINT_APPROVAL" && (
-              <button onClick={() => navigate("/farmer/status/submit")} style={{ marginTop: 16, padding: "10px 24px", background: C.accent, color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>
-                Tạo Lô Hàng Đầu Tiên
-              </button>
-            )}
-          </div>
-        ) : (
-          <>
-            {batches.map((b) => <BatchCard key={b.id} batch={b} navigate={navigate} />)}
-            {total > 10 && (
-              <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 16 }}>
-                {page > 1 && <button onClick={() => setPage((p) => p - 1)} style={{ padding: "7px 18px", background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: "#fff", borderRadius: 6, cursor: "pointer" }}>← Trước</button>}
-                <span style={{ padding: "7px 14px", color: "rgba(255,255,255,0.4)", fontSize: 13 }}>Trang {page}</span>
-                {batches.length === 10 && <button onClick={() => setPage((p) => p + 1)} style={{ padding: "7px 18px", background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: "#fff", borderRadius: 6, cursor: "pointer" }}>Sau →</button>}
-              </div>
-            )}
-          </>
-        )}
+        {/* ── Batch List ── */}
+        <div>
+          {isLoading ? (
+            [1, 2, 3].map(i => <SkeletonCard key={i} />)
+          ) : isError ? (
+            <div className="caro-empty">
+              <div className="caro-empty-icon">⚠️</div>
+              <div className="caro-empty-title" style={{ color: "#ef4444" }}>Lỗi tải dữ liệu</div>
+              <button className="caro-btn caro-btn-secondary" style={{ marginTop: 12 }} onClick={() => refetch()}>Thử lại</button>
+            </div>
+          ) : batches.length === 0 ? (
+            <div className="caro-empty">
+              <div className="caro-empty-icon">📭</div>
+              <div className="caro-empty-title">Chưa có lô hàng nào</div>
+              {tab === "PENDING_MINT_APPROVAL" && (
+                <button className="caro-btn caro-btn-primary" style={{ marginTop: 16 }} onClick={() => navigate("/farmer/status/submit")}>
+                  Tạo Lô Hàng Đầu Tiên →
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              {batches.map(b => <BatchCard key={b.id} batch={b} navigate={navigate} />)}
+              {total > 10 && (
+                <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 24 }}>
+                  {page > 1 && <button className="caro-btn caro-btn-ghost" onClick={() => setPage(p => p - 1)}>← Trước</button>}
+                  <span style={{ display: "flex", alignItems: "center", padding: "0 16px", fontSize: 14, color: "#94a3b8", fontWeight: 700 }}>Trang {page}</span>
+                  {batches.length === 10 && <button className="caro-btn caro-btn-ghost" onClick={() => setPage(p => p + 1)}>Sau →</button>}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
       </div>
     </FarmerLayout>
   );

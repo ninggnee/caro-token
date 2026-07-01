@@ -8,11 +8,6 @@ import { CA_RO_CONTRACTS, ABI } from "../config/config";
 import axios from "../utils/axiosClient";
 import { formatVND, formatKg } from '../utils/formatters';
 
-const C = {
-  accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
-  gold: "#f0b90b", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#7fe0c9",
-};
-
 // VND wallet balance from API (wallets table — real, not mocked)
 function useVndWallet() {
   return useQuery({
@@ -56,7 +51,7 @@ function useTxHistory() {
 }
 
 const STATUS_LABEL = { pending: "Đang xử lý", approved: "Hoàn thành", rejected: "Từ chối" };
-const STATUS_COLOR = { pending: C.gold, approved: C.green, rejected: C.red };
+const STATUS_COLOR = { pending: "caro-badge-warning", approved: "caro-badge-success", rejected: "caro-badge-danger" };
 
 export default function FarmerWallet() {
   const { account, connect, disconnect, provider, lastConnected } = useWallet();
@@ -141,32 +136,38 @@ export default function FarmerWallet() {
 
   return (
     <FarmerLayout title="Ví tài khoản">
-      <div style={{ display: "grid", gap: 16, width: "100%" }}>
+      <div className="caro-page">
+        <div className="caro-page-header">
+          <div>
+            <h2 className="caro-page-title">👛 Ví Tài Khoản</h2>
+            <p className="caro-page-subtitle">Quản lý số dư, MetaMask và lịch sử giao dịch</p>
+          </div>
+        </div>
 
         {/* MetaMask connection card */}
-        <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: 20, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+        <div className="caro-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, marginBottom: 24, padding: "20px 24px" }}>
           <div>
-            <div style={{ fontSize: 14, color: "#e2e8f0", marginBottom: 6 }}>
-              Trạng thái kết nối: <b style={{ color: account ? C.green : C.red }}>{account ? "Đã kết nối" : "Chưa kết nối"}</b>
+            <div style={{ fontSize: 14, color: "#f8fafc", marginBottom: 8, fontWeight: 600 }}>
+              Trạng thái kết nối: <span style={{ color: account ? "#B0E4CC" : "#ef4444" }}>{account ? "Đã kết nối" : "Chưa kết nối"}</span>
             </div>
-            <div style={{ fontSize: 13, color: C.muted, marginBottom: 4 }}>
-              Địa chỉ ví: <b style={{ color: account ? C.tealLight : "#e2e8f0", fontFamily: "monospace" }}>{account || "—"}</b>
+            <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 6 }}>
+              Địa chỉ ví: <strong style={{ color: account ? "#408A71" : "#f8fafc", fontFamily: "monospace", fontSize: 14 }}>{account || "—"}</strong>
             </div>
-            <div style={{ fontSize: 12, color: C.muted }}>
+            <div style={{ fontSize: 12, color: "#64748b" }}>
               Kết nối gần nhất: {lastConnected ? new Date(lastConnected).toLocaleString("vi-VN") : "—"}
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 12 }}>
             {!account ? (
-              <button onClick={handleConnect} style={{ padding: "8px 16px", background: C.accent, color: "#fff", border: "none", borderRadius: 6, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
+              <button onClick={handleConnect} className="caro-btn caro-btn-primary" style={{ padding: "10px 20px" }}>
                 🦊 Kết nối ví
               </button>
             ) : (
               <>
-                <button onClick={handleCopy} style={{ padding: "8px 16px", background: "rgba(72,117,115,0.12)", border: `1px solid ${C.border}`, color: C.tealLight, borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+                <button onClick={handleCopy} className="caro-btn caro-btn-ghost">
                   Sao chép địa chỉ
                 </button>
-                <button onClick={handleDisconnect} style={{ padding: "8px 16px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: C.red, borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+                <button onClick={handleDisconnect} className="caro-btn caro-btn-danger">
                   Ngắt kết nối
                 </button>
               </>
@@ -174,101 +175,106 @@ export default function FarmerWallet() {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 380px", gap: 24 }}>
 
           {/* Asset table */}
-          <div style={{ flex: 1, minWidth: 320, background: C.card, padding: 20, borderRadius: 10, border: `1px solid ${C.border}` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#e2e8f0" }}>☕ Danh mục tài sản</h3>
-              <span style={{ fontSize: 11, color: C.muted, background: "rgba(72,117,115,0.1)", padding: "3px 8px", borderRadius: 4 }}>{tokenSource}</span>
+          <div className="caro-card">
+            <div className="caro-section-header">
+              <h3 className="caro-section-title">🫘 Danh mục tài sản</h3>
+              <span className="caro-badge caro-badge-info" style={{ fontSize: 11 }}>{tokenSource}</span>
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                  <th style={{ textAlign: "left",  padding: "8px 0", fontSize: 12, color: C.muted }}>Token</th>
-                  <th style={{ textAlign: "right", padding: "8px 0", fontSize: 12, color: C.muted }}>Số lượng</th>
-                  <th style={{ textAlign: "right", padding: "8px 0", fontSize: 12, color: C.muted }}>Đơn giá</th>
-                  <th style={{ textAlign: "right", padding: "8px 0", fontSize: 12, color: C.muted }}>Giá trị</th>
-                </tr>
-              </thead>
-              <tbody>
-                {/* VND balance — from wallets table (real) */}
-                <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                  <td style={{ padding: "12px 0", fontSize: 13, color: "#e2e8f0" }}>VND</td>
-                  <td style={{ textAlign: "right", padding: "12px 0", fontSize: 13, color: C.muted }}>—</td>
-                  <td style={{ textAlign: "right", padding: "12px 0", fontSize: 13, color: C.muted }}>1 VND</td>
-                  <td style={{ textAlign: "right", padding: "12px 0", fontSize: 13, fontWeight: 600, color: C.tealLight }}>
-                    {vndQ.isLoading ? "…" : formatVND(vndAvailable)}
-                  </td>
-                </tr>
+            
+            <div className="caro-table-container">
+              <table className="caro-table">
+                <thead>
+                  <tr>
+                    <th>Token</th>
+                    <th style={{ textAlign: "right" }}>Số lượng</th>
+                    <th style={{ textAlign: "right" }}>Đơn giá</th>
+                    <th style={{ textAlign: "right" }}>Giá trị</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* VND balance — from wallets table (real) */}
+                  <tr>
+                    <td>VND</td>
+                    <td style={{ textAlign: "right", color: "#64748b" }}>—</td>
+                    <td style={{ textAlign: "right", color: "#64748b" }}>1 VND</td>
+                    <td style={{ textAlign: "right", fontWeight: 800, color: "#408A71" }}>
+                      {vndQ.isLoading ? "…" : formatVND(vndAvailable)}
+                    </td>
+                  </tr>
 
-                {[
-                  { label: "CaRo1", value: cr1Display, price: 100_000 },
-                  { label: "CaRo2", value: cr2Display, price:  85_000 },
-                  { label: "CaRo3", value: cr3Display, price:  70_000 },
-                ].map(({ label, value, price }) => {
-                  const qty = Number(value);
-                  return (
-                    <tr key={label} style={{ borderBottom: `1px solid ${C.border}` }}>
-                      <td style={{ padding: "12px 0", fontSize: 13, color: "#e2e8f0" }}>{label}</td>
-                      <td style={{ textAlign: "right", padding: "12px 0", fontSize: 13, fontWeight: 600, color: qty > 0 ? C.green : C.muted }}>
-                        {(onChain.loading && account) ? "…" : formatKg(qty)}
-                      </td>
-                      <td style={{ textAlign: "right", padding: "12px 0", fontSize: 13, color: C.muted }}>
-                        {formatVND(price)}
-                      </td>
-                      <td style={{ textAlign: "right", padding: "12px 0", fontSize: 13, fontWeight: 600, color: C.tealLight }}>
-                        {formatVND(qty * price)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  {[
+                    { label: "CaRo1", value: cr1Display, price: 100_000 },
+                    { label: "CaRo2", value: cr2Display, price:  85_000 },
+                    { label: "CaRo3", value: cr3Display, price:  70_000 },
+                  ].map(({ label, value, price }) => {
+                    const qty = Number(value);
+                    return (
+                      <tr key={label}>
+                        <td>{label}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700, color: qty > 0 ? "#B0E4CC" : "#64748b" }}>
+                          {(onChain.loading && account) ? "…" : formatKg(qty)}
+                        </td>
+                        <td style={{ textAlign: "right", color: "#94a3b8" }}>
+                          {formatVND(price)}
+                        </td>
+                        <td style={{ textAlign: "right", fontWeight: 800, color: "#408A71" }}>
+                          {formatVND(qty * price)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
             {/* VND breakdown */}
             {vndLocked > 0 && (
-              <div style={{ marginTop: 12, padding: "10px 12px", background: "rgba(240,185,11,0.06)", border: "1px solid rgba(240,185,11,0.15)", borderRadius: 7, fontSize: 12, color: C.muted }}>
-                Số dư VND: <span style={{ color: "#e2e8f0" }}>{formatVND(vndTotal)}</span>
-                {" "}· Đang khoá: <span style={{ color: C.gold }}>{formatVND(vndLocked)}</span>
-                {" "}· Khả dụng: <span style={{ color: C.green }}>{formatVND(vndAvailable)}</span>
+              <div style={{ marginTop: 16, padding: "12px 16px", background: "rgba(240,185,11,0.06)", border: "1px solid rgba(240,185,11,0.15)", borderRadius: 8, fontSize: 13, color: "#94a3b8" }}>
+                Số dư VND: <strong style={{ color: "#f8fafc" }}>{formatVND(vndTotal)}</strong>
+                {" "}· Đang khoá: <strong style={{ color: "#f0b90b" }}>{formatVND(vndLocked)}</strong>
+                {" "}· Khả dụng: <strong style={{ color: "#B0E4CC" }}>{formatVND(vndAvailable)}</strong>
               </div>
             )}
           </div>
 
           {/* Transaction history — real deposit/withdraw records */}
-          <div style={{ width: 360, background: C.card, padding: 20, borderRadius: 10, border: `1px solid ${C.border}` }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700, color: "#e2e8f0" }}>📈 Lịch sử giao dịch</h3>
+          <div className="caro-card">
+            <h3 className="caro-section-title" style={{ marginBottom: 20 }}>📈 Lịch sử giao dịch</h3>
 
             {historyQ.isLoading && (
-              <div style={{ fontSize: 13, color: C.muted, textAlign: "center", padding: "20px 0" }}>Đang tải…</div>
+              <div style={{ fontSize: 13, color: "#64748b", textAlign: "center", padding: "30px 0" }}>Đang tải…</div>
             )}
 
             {!historyQ.isLoading && txHistory.length === 0 && (
-              <div style={{ fontSize: 13, color: C.muted, textAlign: "center", padding: "20px 0" }}>
-                Chưa có giao dịch nào.
+              <div className="caro-empty" style={{ padding: "30px 0" }}>
+                <div className="caro-empty-icon" style={{ fontSize: 24, marginBottom: 8 }}>📭</div>
+                <div className="caro-empty-title" style={{ fontSize: 14 }}>Chưa có giao dịch nào.</div>
               </div>
             )}
 
             {!historyQ.isLoading && txHistory.length > 0 && (
-              <ul style={{ paddingLeft: 0, margin: 0, display: "grid", gap: 10, listStyle: "none" }}>
+              <ul style={{ paddingLeft: 0, margin: 0, display: "grid", gap: 12, listStyle: "none" }}>
                 {txHistory.map(tx => {
                   const isDeposit = tx.txType === "deposit";
                   const sign      = isDeposit ? "+" : "−";
-                  const color     = isDeposit ? C.green : C.red;
+                  const color     = isDeposit ? "#B0E4CC" : "#ef4444";
                   const label     = isDeposit ? "Nạp VND" : "Rút VND";
                   const status    = tx.status || "pending";
                   return (
-                    <li key={`${tx.txType}-${tx.id}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
+                    <li key={`${tx.txType}-${tx.id}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
                       <div>
-                        <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 500 }}>{label}</div>
-                        <div style={{ fontSize: 11, color: C.muted }}>
+                        <div style={{ fontSize: 14, color: "#f8fafc", fontWeight: 600, marginBottom: 4 }}>{label}</div>
+                        <div style={{ fontSize: 12, color: "#94a3b8", display: "flex", alignItems: "center", gap: 8 }}>
                           {new Date(tx.created_at).toLocaleDateString("vi-VN")}
-                          {" · "}
-                          <span style={{ color: STATUS_COLOR[status] || C.muted }}>{STATUS_LABEL[status] || status}</span>
+                          <span className={`caro-badge ${STATUS_COLOR[status] || "caro-badge-muted"}`} style={{ padding: "2px 6px", fontSize: 10 }}>
+                            {STATUS_LABEL[status] || status}
+                          </span>
                         </div>
                       </div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color }}>
+                      <div style={{ fontSize: 15, fontWeight: 800, color, fontFamily: "monospace" }}>
                         {sign}{formatVND(Number(tx.amount))}
                       </div>
                     </li>

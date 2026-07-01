@@ -7,8 +7,8 @@ import axios from "../utils/axiosClient";
 import { formatKg } from '../utils/formatters';
 
 const C = {
-  accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
-  gold: "#f0b90b", card: "#172524", border: "rgba(72,117,115,0.15)", tealLight: "#7fe0c9",
+  accent: "#408A71", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
+  gold: "#f0b90b", card: "#172524", border: "rgba(72,117,115,0.15)", tealLight: "#B0E4CC",
 };
 
 const DOC_TYPES = [
@@ -191,7 +191,7 @@ export default function SupplementDocuments() {
   // ── Main form ───────────────────────────────────────────────────────────────
   return (
     <FarmerLayout title="Bổ sung giấy tờ">
-      <div style={{ maxWidth: 640, display: "grid", gap: 20 }}>
+      <div style={{ width: "100%", display: "grid", gap: 20 }}>
 
         {/* Batch info card */}
         <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "16px 20px" }}>

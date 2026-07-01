@@ -11,13 +11,8 @@ import { getMarketStats } from "../services/marketApi";
 import { formatNumber, formatVND } from '../utils/formatters';
 import { TRADER_KEYS } from '../hooks/useTraderData';
 
-const C = {
-  accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
-  card: "#172524", border: "rgba(72,117,115,0.15)", tealLight: "#7fe0c9",
-};
-const TOKEN_COLORS = { CR1: "#f0b90b", CR2: "#00d4aa", CR3: "#9b87f5" };
+const TOKEN_COLORS = { CR1: "#f59e0b", CR2: "#B0E4CC", CR3: "#8b5cf6" };
 const TOKEN_LABELS = { CR1: "CaRo1", CR2: "CaRo2", CR3: "CaRo3" };
-
 
 export default function TraderHome() {
   const { user } = useAuth();
@@ -77,163 +72,187 @@ export default function TraderHome() {
   }, 0);
   const totalAssets = vndBalance + tokenValue;
 
-  return (
-    <TraderLayout title="Dashboard">
-      <div style={{ display: "grid", gap: 20, maxWidth: 1100 }}>
+  const now = new Date();
+  const greeting = now.getHours() < 12 ? "Chào buổi sáng" : now.getHours() < 18 ? "Chào buổi chiều" : "Chào buổi tối";
 
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+  const gridCss = `
+    .th-metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+    .th-body    { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .th-actions { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+    @media (max-width: 1100px) { .th-metrics { grid-template-columns: repeat(2,1fr); } .th-actions { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 768px)  { .th-body { grid-template-columns: 1fr; } .th-metrics { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 480px)  { .th-metrics { grid-template-columns: 1fr; } .th-actions { grid-template-columns: 1fr; } }
+  `;
+
+  return (
+    <TraderLayout title="Bảng điều khiển">
+      <style dangerouslySetInnerHTML={{ __html: gridCss }} />
+      <div className="caro-page">
+
+        {/* ── Header ── */}
+        <div className="caro-page-header">
           <div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
-              Xin chào, {user?.full_name || user?.email} 👋
-            </h2>
-            <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
-              Tổng quan tài khoản CaRo Trader
+            <div className="caro-page-title">
+              {greeting}, {user?.full_name?.split(" ").at(-1) || user?.email} 👋
+            </div>
+            <div className="caro-page-subtitle">
+              Tổng quan tài khoản CaRo Trader · {now.toLocaleDateString("vi-VN", { weekday: "long", day: "numeric", month: "long" })}
             </div>
           </div>
-          <button onClick={() => nav("/trader/trading")}
-            style={{ padding: "9px 20px", background: C.accent, color: "#fff", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+          <button className="caro-btn caro-btn-secondary" onClick={() => nav("/trader/trading")}>
             📈 Giao dịch ngay →
           </button>
         </div>
 
-        {/* Summary cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+        {/* ── 4 Metrics ── */}
+        <div className="th-metrics">
           {[
-            { label: "Số dư VND",        value: formatVND(vndBalance),  sub: "Có thể giao dịch",       color: C.tealLight, icon: "💵" },
-            { label: "Giá trị Token",    value: account ? (tokenValue > 0 ? (tokenValue / 1e6).toFixed(2) + " triệu VND" : "0 VND") : "Chưa kết nối ví", sub: "CR1 + CR2 + CR3", color: "#f0b90b", icon: "🪙" },
-            { label: "Tổng tài sản",     value: totalAssets > 0 ? formatVND(totalAssets) : "—", sub: "VND + Token on-chain", color: "#e2e8f0", icon: "📊" },
-            { label: "Lệnh đang mở",     value: String(openCount),        sub: "Chờ khớp lệnh",          color: "#9b87f5",   icon: "⏳" },
+            { label: "Số dư VND",      value: formatVND(vndBalance),  sub: "Có thể giao dịch ngay",     accent: "#B0E4CC", icon: "💵", iconBg: "rgba(176, 228, 204,0.12)" },
+            { label: "Giá trị Token",  value: account ? (tokenValue > 0 ? (tokenValue / 1e6).toFixed(2) + "M VND" : "0") : "Chưa kết nối ví", sub: "CR1 + CR2 + CR3 on-chain", accent: "#f59e0b", icon: "🪙", iconBg: "rgba(245,158,11,0.12)" },
+            { label: "Tổng tài sản",   value: totalAssets > 0 ? formatVND(totalAssets) : "—", sub: "VND + Token on-chain",        accent: "#408A71", icon: "📊", iconBg: "rgba(64, 138, 113,0.12)" },
+            { label: "Lệnh đang mở",   value: String(openCount),       sub: "Đang chờ khớp lệnh",         accent: "#8b5cf6", icon: "⏳", iconBg: "rgba(139,92,246,0.12)" },
           ].map(c => (
-            <div key={c.label} style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "16px 18px" }}>
+            <div key={c.label} className="caro-stat-card">
+              <div style={{ position: "absolute", top: -15, right: -15, width: 70, height: 70, borderRadius: "50%", background: `radial-gradient(circle, ${c.accent}18 0%, transparent 70%)`, pointerEvents: "none" }} />
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                <div style={{ fontSize: 12, color: C.muted, fontWeight: 500 }}>{c.label}</div>
-                <span style={{ fontSize: 18 }}>{c.icon}</span>
+                <div className="caro-stat-label">{c.label}</div>
+                <div style={{ width: 34, height: 34, borderRadius: 9, background: c.iconBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 }}>{c.icon}</div>
               </div>
-              <div style={{ fontSize: 17, fontWeight: 800, color: c.color, marginBottom: 4, lineHeight: 1.25 }}>{c.value}</div>
-              <div style={{ fontSize: 11, color: C.muted }}>{c.sub}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: c.accent, lineHeight: 1, fontFamily: "'Manrope',sans-serif", marginBottom: 5 }}>{c.value}</div>
+              <div className="caro-stat-sub">{c.sub}</div>
             </div>
           ))}
         </div>
 
-        {/* Token holdings + recent trades */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        {/* ── Body: Token Holdings + Recent Trades ── */}
+        <div className="th-body">
 
-          {/* Token overview */}
-          <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>🪙 Danh mục Token</span>
-              <button onClick={() => nav("/trader/portfolio")}
-                style={{ fontSize: 11, color: C.tealLight, background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>
-                Xem chi tiết →
+          {/* Token Portfolio */}
+          <div className="caro-card" style={{ padding: 0, overflow: "hidden" }}>
+            <div className="caro-section-header">
+              <div className="caro-section-title">🪙 Danh mục Token</div>
+              <button className="caro-btn caro-btn-ghost caro-btn-sm" onClick={() => nav("/trader/portfolio")}>
+                Chi tiết →
               </button>
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ background: "rgba(255,255,255,0.02)" }}>
-                  {["Token", "Số dư", "Giá hiện tại", "Giá trị"].map(h => (
-                    <th key={h} style={{ padding: "8px 14px", fontSize: 11, color: C.muted, fontWeight: 600, textAlign: "left", textTransform: "uppercase", letterSpacing: "0.4px" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {["CR1", "CR2", "CR3"].map(key => {
-                  const qty   = Number(tokenBals[key] || 0);
-                  const price = Number(stats.find(s => s.token === key)?.last_price || 0);
-                  const value = qty * price;
-                  return (
-                    <tr key={key} style={{ borderBottom: `1px solid ${C.border}` }}>
-                      <td style={{ padding: "10px 14px" }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: TOKEN_COLORS[key] }}>{TOKEN_LABELS[key]}</span>
-                      </td>
-                      <td style={{ padding: "10px 14px", fontSize: 13, color: qty > 0 ? C.green : C.muted, fontFamily: "monospace" }}>
-                        {account ? (qty > 0 ? formatNumber(qty, 2) : "—") : "—"}
-                      </td>
-                      <td style={{ padding: "10px 14px", fontSize: 12, color: "#e2e8f0", fontFamily: "monospace" }}>
-                        {price ? formatVND(price) : "—"}
-                      </td>
-                      <td style={{ padding: "10px 14px", fontSize: 12, color: value > 0 ? "#e2e8f0" : C.muted }}>
-                        {value > 0 ? formatVND(value) : "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {!account && (
-              <div style={{ padding: "10px 16px", fontSize: 11, color: C.muted, borderTop: `1px solid ${C.border}` }}>
-                ℹ Kết nối MetaMask để xem số dư on-chain
-              </div>
-            )}
-          </div>
-
-          {/* Recent trades */}
-          <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>🔄 Giao dịch gần đây</span>
-              <button onClick={() => nav("/trader/trades")}
-                style={{ fontSize: 11, color: C.tealLight, background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>
-                Xem tất cả →
-              </button>
-            </div>
-            {recentTrades.length === 0 ? (
-              <div style={{ padding: "36px 20px", textAlign: "center", color: C.muted, fontSize: 13 }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>📋</div>
-                Chưa có giao dịch nào
-                <div style={{ marginTop: 12 }}>
-                  <button onClick={() => nav("/trader/trading")}
-                    style={{ padding: "7px 16px", background: C.accent, color: "#fff", border: "none", borderRadius: 7, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                    Bắt đầu giao dịch →
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <div className="caro-table-wrap">
+              <table className="caro-table">
                 <thead>
-                  <tr style={{ background: "rgba(255,255,255,0.02)" }}>
-                    {["Cặp", "Giá", "SL", "Thời gian"].map(h => (
-                      <th key={h} style={{ padding: "8px 14px", fontSize: 11, color: C.muted, fontWeight: 600, textAlign: "left", textTransform: "uppercase" }}>{h}</th>
-                    ))}
+                  <tr>
+                    <th>Token</th>
+                    <th>Số dư</th>
+                    <th>Giá hiện tại</th>
+                    <th>Giá trị</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {recentTrades.slice(0, 5).map((t, i) => (
-                    <tr key={t.id || i} style={{ borderBottom: `1px solid ${C.border}` }}>
-                      <td style={{ padding: "9px 14px", fontSize: 12, color: "#e2e8f0", fontWeight: 600 }}>{t.pair || "—"}</td>
-                      <td style={{ padding: "9px 14px", fontSize: 12, color: t.side === "buy" ? C.green : C.red, fontFamily: "monospace", fontWeight: 700 }}>
-                        {formatVND(t.price)}
-                      </td>
-                      <td style={{ padding: "9px 14px", fontSize: 12, color: "#e2e8f0", fontFamily: "monospace" }}>
-                        {Number(t.amount || t.quantity || 0).toFixed(4)}
-                      </td>
-                      <td style={{ padding: "9px 14px", fontSize: 11, color: C.muted }}>
-                        {t.created_at ? new Date(t.created_at).toLocaleString("vi-VN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
-                      </td>
-                    </tr>
-                  ))}
+                  {["CR1", "CR2", "CR3"].map(key => {
+                    const qty   = Number(tokenBals[key] || 0);
+                    const price = Number(stats.find(s => s.token === key)?.last_price || 0);
+                    const value = qty * price;
+                    return (
+                      <tr key={key}>
+                        <td>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: TOKEN_COLORS[key], fontFamily: "'Space Grotesk',sans-serif" }}>
+                            {TOKEN_LABELS[key]}
+                          </span>
+                        </td>
+                        <td style={{ fontFamily: "'JetBrains Mono','Fira Code',monospace", color: qty > 0 ? "#B0E4CC" : "#64748b" }}>
+                          {account ? (qty > 0 ? formatNumber(qty, 2) : "—") : "—"}
+                        </td>
+                        <td style={{ fontFamily: "'JetBrains Mono','Fira Code',monospace", color: "#f8fafc" }}>
+                          {price ? formatVND(price) : "—"}
+                        </td>
+                        <td style={{ fontFamily: "'JetBrains Mono','Fira Code',monospace", color: value > 0 ? "#f8fafc" : "#64748b" }}>
+                          {value > 0 ? formatVND(value) : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
+            </div>
+            {!account && (
+              <div style={{ padding: "10px 16px", fontSize: 11, color: "#64748b", borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", gap: 6 }}>
+                <span>ℹ️</span> Kết nối MetaMask để xem số dư on-chain
+              </div>
+            )}
+          </div>
+
+          {/* Recent Trades */}
+          <div className="caro-card" style={{ padding: 0, overflow: "hidden" }}>
+            <div className="caro-section-header">
+              <div className="caro-section-title">🔄 Giao dịch gần đây</div>
+              <button className="caro-btn caro-btn-ghost caro-btn-sm" onClick={() => nav("/trader/trades")}>
+                Tất cả →
+              </button>
+            </div>
+            {recentTrades.length === 0 ? (
+              <div className="caro-empty">
+                <div className="caro-empty-icon">📋</div>
+                <div className="caro-empty-title">Chưa có giao dịch nào</div>
+                <button className="caro-btn caro-btn-secondary caro-btn-sm" onClick={() => nav("/trader/trading")}>
+                  Bắt đầu giao dịch →
+                </button>
+              </div>
+            ) : (
+              <div className="caro-table-wrap">
+                <table className="caro-table">
+                  <thead>
+                    <tr>
+                      <th>Cặp</th>
+                      <th>Giá</th>
+                      <th>Số lượng</th>
+                      <th>Thời gian</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentTrades.slice(0, 5).map((t, i) => (
+                      <tr key={t.id || i}>
+                        <td style={{ fontWeight: 700, color: "#f8fafc" }}>{t.pair || "—"}</td>
+                        <td style={{ fontFamily: "'JetBrains Mono','Fira Code',monospace", color: t.side === "buy" ? "#B0E4CC" : "#ef4444", fontWeight: 700 }}>
+                          {formatVND(t.price)}
+                        </td>
+                        <td style={{ fontFamily: "'JetBrains Mono','Fira Code',monospace", color: "#94a3b8" }}>
+                          {Number(t.amount || t.quantity || 0).toFixed(4)}
+                        </td>
+                        <td style={{ color: "#64748b", fontSize: 11 }}>
+                          {t.created_at ? new Date(t.created_at).toLocaleString("vi-VN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Quick actions */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
-          {[
-            { icon: "🏪", label: "Thị trường",       sub: "Xem giá & biểu đồ",       path: "/trader/marketplace" },
-            { icon: "📈", label: "Giao dịch",         sub: "Đặt lệnh mua / bán",       path: "/trader/trading"     },
-            { icon: "💵", label: "Ví tài khoản",      sub: "Nạp / rút VND",            path: "/trader/wallet"      },
-            { icon: "📊", label: "Danh mục đầu tư",   sub: "Xem hiệu suất token",      path: "/trader/portfolio"   },
-          ].map(a => (
-            <button key={a.path} onClick={() => nav(a.path)}
-              style={{ padding: "14px", background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, borderRadius: 9, cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}
-              onMouseEnter={e => { e.currentTarget.style.background = "rgba(72,117,115,0.07)"; e.currentTarget.style.borderColor = C.accent; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = C.border; }}>
-              <div style={{ fontSize: 20, marginBottom: 8 }}>{a.icon}</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{a.label}</div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>{a.sub}</div>
-            </button>
-          ))}
+        {/* ── Quick Actions ── */}
+        <div className="caro-card" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="caro-section-header">
+            <div className="caro-section-title">⚡ Thao tác nhanh</div>
+          </div>
+          <div style={{ padding: 16 }}>
+            <div className="th-actions">
+              {[
+                { icon: "🏪", label: "Thị trường",      sub: "Xem giá & biểu đồ",       path: "/trader/market/overview", accent: "#408A71" },
+                { icon: "📈", label: "Giao dịch",        sub: "Đặt lệnh mua / bán",       path: "/trader/market/trading",  accent: "#B0E4CC" },
+                { icon: "💵", label: "Ví tài khoản",     sub: "Nạp / rút VND",            path: "/trader/wallet",      accent: "#f59e0b" },
+                { icon: "📊", label: "Danh mục đầu tư",  sub: "Xem hiệu suất token",      path: "/trader/portfolio",   accent: "#8b5cf6" },
+              ].map(a => (
+                <button key={a.path} onClick={() => nav(a.path)}
+                  style={{ padding: "16px 14px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, cursor: "pointer", textAlign: "left", transition: "all 0.25s", color: "#f8fafc" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = `${a.accent}0d`; e.currentTarget.style.borderColor = `${a.accent}35`; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.transform = "translateY(0)"; }}
+                >
+                  <div style={{ fontSize: 22, marginBottom: 8 }}>{a.icon}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#f1f5f9", marginBottom: 3, fontFamily: "'Manrope',sans-serif" }}>{a.label}</div>
+                  <div style={{ fontSize: 11, color: "#64748b" }}>{a.sub}</div>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
       </div>

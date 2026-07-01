@@ -7,7 +7,6 @@ import { logAction, auditMeta } from '../services/AuditService.js';
 // Document categories that are required before a batch can be submitted
 const REQUIRED_DOC_TYPES = [
   'harvest_certificate',
-  'quality_inspection',
   'coffee_photos',
 ];
 
@@ -24,7 +23,11 @@ export const createBatch = async (req, res) => {
     const farmerId = req.user?.id;
     if (!farmerId) return res.status(401).json({ message: 'Unauthorized' });
 
-    const { quantity, harvest_date, storage_location, batch_description } = req.body;
+    const {
+      quantity, harvest_date, storage_location, batch_description,
+      farm_coords, estimated_yield, crop_year, farming_method,
+      production_diary, traceability_info
+    } = req.body;
 
     if (!quantity || Number(quantity) <= 0) {
       return res.status(400).json({ message: 'Khối lượng (quantity) phải lớn hơn 0' });
@@ -45,12 +48,22 @@ export const createBatch = async (req, res) => {
     await db.execute(
       `INSERT INTO asset_batches
          (batch_id, farmer_id, coffee_type, quantity,
-          harvest_date, storage_location, batch_description, status)
+          harvest_date, storage_location, batch_description, status,
+          farm_coords, estimated_yield, crop_year, farming_method,
+          production_diary, traceability_info, logistics_status,
+          moisture_content, defect_rate, temperature_sensor, humidity_sensor)
        VALUES (?, ?, 'ROBUSTA', ?,
-               ?, ?, ?, 'PENDING_MINT_APPROVAL')`,
-      [batchId, farmerId, quantity,
-       harvest_date || null, storage_location || null,
-       batch_description || null]
+               ?, ?, ?, 'PENDING_MINT_APPROVAL',
+               ?, ?, ?, ?,
+               ?, ?, 'PENDING_PICKUP',
+               13.5, 2.5, 26.5, 68.0)`,
+      [
+        batchId, farmerId, quantity,
+        harvest_date || null, storage_location || null, batch_description || null,
+        farm_coords || null, estimated_yield ? Number(estimated_yield) : null,
+        crop_year || null, farming_method || null,
+        production_diary || null, traceability_info || null
+      ]
     );
 
     // ── Upload each file to IPFS and store document records ───────────────
@@ -402,7 +415,7 @@ export const approveBatch = async (req, res) => {
       // Update batch to MINTED
       await conn.execute(
         `UPDATE asset_batches
-         SET status='MINTED', minted_amount=?, tx_hash=?, block_number=?, minted_at=NOW()
+         SET status='MINTED', minted_amount=?, tx_hash=?, block_number=?, logistics_status='MINTED', minted_at=NOW()
          WHERE id=?`,
         [batch.quantity, txHash, blockNumber, id]
       );
@@ -557,6 +570,64 @@ export const getAvailableBatchesForTrader = async (req, res) => {
     res.json({ success: true, data: rows });
   } catch (err) {
     console.error('getAvailableBatchesForTrader error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const simulateLogistics = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { next_status } = req.body;
+
+    const [[batch]] = await db.execute(
+      `SELECT * FROM asset_batches WHERE id = ? LIMIT 1`,
+      [id]
+    );
+    if (!batch) {
+      return res.status(404).json({ message: 'Không tìm thấy lô hàng' });
+    }
+
+    let updates = [];
+    let params = [];
+
+    if (next_status) {
+      updates.push('logistics_status = ?');
+      params.push(next_status);
+
+      // Simulate mass balance loss on STANDARDIZED
+      if (next_status === 'STANDARDIZED') {
+        const originalQty = Number(batch.quantity);
+        const netQty = Number((originalQty * 0.98).toFixed(2)); // 2% cleaning loss
+        updates.push('quantity = ?');
+        params.push(netQty);
+        updates.push('batch_description = ?');
+        params.push(`${batch.batch_description || ''}\n[Mass Balance] Đã sấy lọc & trừ 2% hao hụt. Khối lượng ròng sau chuẩn hóa: ${netQty} kg.`);
+      }
+
+      // Simulate Oracle inspection results on INSPECTED
+      if (next_status === 'INSPECTED') {
+        updates.push('moisture_content = ?');
+        params.push(11.8); // 11.8% moisture (passed <12.5% standard)
+        updates.push('defect_rate = ?');
+        params.push(1.2); // 1.2% defect rate (excellent)
+        updates.push('temperature_sensor = ?');
+        params.push(22.5); // 22.5°C
+        updates.push('humidity_sensor = ?');
+        params.push(58.2); // 58.2% humidity
+      }
+    }
+
+    if (updates.length > 0) {
+      params.push(id);
+      await db.execute(
+        `UPDATE asset_batches SET ${updates.join(', ')} WHERE id = ?`,
+        params
+      );
+    }
+
+    res.json({ success: true, message: `Chuyển trạng thái sang ${next_status} thành công` });
+  } catch (err) {
+    console.error('simulateLogistics error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 };

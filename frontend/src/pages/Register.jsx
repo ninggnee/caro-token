@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "../utils/axiosClient";
 import { useAuth } from "../context/AuthContext";
-import "../styles/register.css";
+import "../styles/login.css";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -19,29 +19,12 @@ export default function Register() {
   const [error, setError]       = useState("");
   const [loading, setLoading]   = useState(false);
 
-  useEffect(() => {
-    sessionStorage.setItem("reg_fullName", fullName);
-  }, [fullName]);
-
-  useEffect(() => {
-    sessionStorage.setItem("reg_email", email);
-  }, [email]);
-
-  useEffect(() => {
-    sessionStorage.setItem("reg_phone", phone);
-  }, [phone]);
-
-  useEffect(() => {
-    sessionStorage.setItem("reg_password", password);
-  }, [password]);
-
-  useEffect(() => {
-    sessionStorage.setItem("reg_confirm", confirm);
-  }, [confirm]);
-
-  useEffect(() => {
-    sessionStorage.setItem("reg_role", role);
-  }, [role]);
+  useEffect(() => { sessionStorage.setItem("reg_fullName", fullName); }, [fullName]);
+  useEffect(() => { sessionStorage.setItem("reg_email", email); }, [email]);
+  useEffect(() => { sessionStorage.setItem("reg_phone", phone); }, [phone]);
+  useEffect(() => { sessionStorage.setItem("reg_password", password); }, [password]);
+  useEffect(() => { sessionStorage.setItem("reg_confirm", confirm); }, [confirm]);
+  useEffect(() => { sessionStorage.setItem("reg_role", role); }, [role]);
 
   const validate = () => {
     if (!fullName.trim())                                    return "Họ tên không được để trống";
@@ -71,7 +54,6 @@ export default function Register() {
       if (res.data?.success && res.data?.token) {
         auth.login({ token: res.data.token, user: res.data.user });
 
-        // Clear forms data on success
         sessionStorage.removeItem("reg_fullName");
         sessionStorage.removeItem("reg_email");
         sessionStorage.removeItem("reg_phone");
@@ -92,165 +74,210 @@ export default function Register() {
   };
 
   return (
-    <div className="register-page">
-      {/* LEFT SIDE */}
-      <div className="register-left">
-        <div className="hero-badge">
-          Real World Asset • Coffee Tokenization
-        </div>
+    <div className="auth-page">
 
-        <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
-          <h1>CaRo Exchange</h1>
+      {/* ── LEFT PANEL ── */}
+      <div className="auth-left">
+        <Link to="/" className="auth-brand" style={{ textDecoration: "none" }}>
+          <div className="auth-brand-icon">🫘</div>
+          <div>
+            <div className="auth-brand-name">CaRo Exchange</div>
+            <div className="auth-brand-sub">Coffee RWA Platform</div>
+          </div>
         </Link>
 
-        <p style={{ marginTop: 8 }}>
-          Nền tảng giao dịch tài sản số hóa từ cà phê Robusta Việt Nam
+        <div className="auth-badge">
+          ⛓️ Real World Asset · Coffee Tokenization
+        </div>
+
+        <h1>
+          Tham gia <span>CaRo</span><br />
+          ngay hôm nay
+        </h1>
+
+        <p>
+          Tạo tài khoản và bắt đầu hành trình token hóa cà phê Robusta
+          Việt Nam trên nền tảng blockchain minh bạch nhất.
         </p>
 
-        <div className="feature-grid">
-          <div className="feature-card">
-            <div className="feature-icon">🪪</div>
-            <div className="feature-title">Định danh số</div>
-            <div className="feature-desc">Xác thực bằng CCCD, VNeID và KYC điện tử.</div>
+        <div className="auth-features">
+          <div className="auth-feature-card">
+            <div className="auth-feature-icon">🌱</div>
+            <div className="auth-feature-title">Farmer</div>
+            <div className="auth-feature-desc">
+              Gửi lô hàng, đúc token CR và nhận thanh toán trực tiếp.
+            </div>
           </div>
-          <div className="feature-card">
-            <div className="feature-icon">☕</div>
-            <div className="feature-title">Token hóa cà phê</div>
-            <div className="feature-desc">Chuyển cà phê Robusta thành tài sản số trên blockchain.</div>
+          <div className="auth-feature-card">
+            <div className="auth-feature-icon">💼</div>
+            <div className="auth-feature-title">Trader</div>
+            <div className="auth-feature-desc">
+              Mua bán token cà phê, tài trợ nông dân và đổi hàng vật lý.
+            </div>
           </div>
-          <div className="feature-card">
-            <div className="feature-icon">📈</div>
-            <div className="feature-title">Giao dịch minh bạch</div>
-            <div className="feature-desc">Theo dõi lịch sử và quyền sở hữu theo thời gian thực.</div>
+          <div className="auth-feature-card">
+            <div className="auth-feature-icon">🔐</div>
+            <div className="auth-feature-title">Bảo mật cao</div>
+            <div className="auth-feature-desc">
+              KYC bằng CCCD, xác thực 2 lớp, ví MetaMask cá nhân.
+            </div>
           </div>
-          <div className="feature-card">
-            <div className="feature-icon">📦</div>
-            <div className="feature-title">Quy đổi tài sản thực</div>
-            <div className="feature-desc">Đổi token lấy lô hàng cà phê vật lý đã chứng thực.</div>
+          <div className="auth-feature-card">
+            <div className="auth-feature-icon">⛓️</div>
+            <div className="auth-feature-title">On-chain minh bạch</div>
+            <div className="auth-feature-desc">
+              Mọi giao dịch đều có thể kiểm tra trên Ethereum.
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Right panel - 50% Full white */}
-      <div className="register-right">
-        <div className="register-card">
+      {/* ── RIGHT PANEL ── */}
+      <div className="auth-right">
+        <div className="auth-card">
           <h2>Tạo tài khoản</h2>
+          <p className="auth-card-subtitle">
+            Điền thông tin bên dưới để bắt đầu
+          </p>
 
           {error && (
-            <div style={{ background: "#fff0f0", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", color: "#b91c1c", fontSize: 14, marginBottom: 8 }}>
-              {error}
+            <div className="auth-error">
+              <span>⚠️</span>
+              <span>{error}</span>
             </div>
           )}
 
-          <label>Họ và tên</label>
-          <input
-            placeholder="Nguyễn Văn A"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-          />
-
-          <label>Email</label>
-          <input
-            type="email"
-            placeholder="example@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-
-          <label>Số điện thoại</label>
-          <input
-            type="tel"
-            placeholder="0901234567"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
-
-          <label>Mật khẩu</label>
-          <div style={{ display: "flex", gap: 8 }}>
+          {/* Full Name */}
+          <div className="auth-field">
+            <label className="auth-label">Họ và tên</label>
             <input
-              type={showPass ? "text" : "password"}
-              placeholder="Tối thiểu 8 ký tự"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={{ flex: 1 }}
+              className="auth-input"
+              placeholder="Nguyễn Văn A"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
             />
-            <button
-              type="button"
-              onClick={() => setShowPass(!showPass)}
-              style={{ minWidth: 80 }}
-            >
-              {showPass ? "Ẩn" : "Hiện"}
-            </button>
           </div>
 
-          <label>Xác nhận mật khẩu</label>
-          <input
-            type={showPass ? "text" : "password"}
-            placeholder="Nhập lại mật khẩu"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-          />
+          {/* Email */}
+          <div className="auth-field">
+            <label className="auth-label">Email</label>
+            <input
+              className="auth-input"
+              type="email"
+              placeholder="example@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
 
-          <label>Vai trò</label>
-          <div style={{ display: "flex", gap: 16 }}>
-            {["farmer", "trader"].map((r) => (
-              <label
-                key={r}
-                style={{
-                  display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
-                  padding: "10px 20px", borderRadius: 10, border: "1.5px solid",
-                  borderColor: role === r ? "#487573" : "#d8e0e0",
-                  background: role === r ? "rgba(72,117,115,0.08)" : "#fafcfc",
-                  color: "#243b3a", fontWeight: 600, fontSize: 15, transition: ".2s",
-                }}
+          {/* Phone */}
+          <div className="auth-field">
+            <label className="auth-label">Số điện thoại</label>
+            <input
+              className="auth-input"
+              type="tel"
+              placeholder="0901234567"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+          </div>
+
+          {/* Password */}
+          <div className="auth-field">
+            <label className="auth-label">Mật khẩu</label>
+            <div className="auth-input-row">
+              <input
+                className="auth-input"
+                type={showPass ? "text" : "password"}
+                placeholder="Tối thiểu 8 ký tự"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="auth-toggle-btn"
+                onClick={() => setShowPass(!showPass)}
               >
-                <input
-                  type="radio"
-                  name="role"
-                  value={r}
-                  checked={role === r}
-                  onChange={() => setRole(r)}
-                  style={{ accentColor: "#487573" }}
-                />
-                {r === "farmer" ? "🌱 Farmer" : "📊 Trader"}
-              </label>
-            ))}
+                {showPass ? "🙈 Ẩn" : "👁 Hiện"}
+              </button>
+            </div>
           </div>
 
-          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontWeight: 500, fontSize: 14, color: "#365f5d", marginTop: 8 }}>
+          {/* Confirm Password */}
+          <div className="auth-field">
+            <label className="auth-label">Xác nhận mật khẩu</label>
+            <input
+              className="auth-input"
+              type={showPass ? "text" : "password"}
+              placeholder="Nhập lại mật khẩu"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
+          </div>
+
+          {/* Role selector */}
+          <div className="auth-field">
+            <label className="auth-label">Vai trò</label>
+            <div className="auth-role-grid">
+              {["farmer", "trader"].map((r) => (
+                <div key={r} className="auth-role-option">
+                  <input
+                    type="radio"
+                    name="role"
+                    value={r}
+                    id={`role-${r}`}
+                    checked={role === r}
+                    onChange={() => setRole(r)}
+                  />
+                  <label htmlFor={`role-${r}`} className="auth-role-label">
+                    {r === "farmer" ? "🌱 Farmer" : "📊 Trader"}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Terms */}
+          <label className="auth-terms-label">
             <input
               type="checkbox"
               checked={agree}
               onChange={(e) => setAgree(e.target.checked)}
-              style={{ width: 16, height: 16, accentColor: "#487573" }}
             />
-            Tôi đồng ý với{" "}
-            <span style={{ color: "#487573", fontWeight: 700 }}>Điều khoản sử dụng</span>{" "}
-            và{" "}
-            <span style={{ color: "#487573", fontWeight: 700 }}>Chính sách bảo mật</span>
+            <span>
+              Tôi đồng ý với{" "}
+              <span className="auth-terms-link">Điều khoản sử dụng</span>{" "}
+              và{" "}
+              <span className="auth-terms-link">Chính sách bảo mật</span>
+            </span>
           </label>
 
+          {/* Register button */}
           <button
+            className="auth-btn-primary"
             onClick={handleRegister}
-            className="btn"
             disabled={loading}
-            style={{ opacity: loading ? 0.7 : 1, cursor: loading ? "not-allowed" : "pointer" }}
           >
-            {loading ? "Đang xử lý..." : "Đăng ký"}
+            {loading ? "⏳ Đang xử lý..." : "🚀 Tạo tài khoản"}
           </button>
 
+          <div className="auth-divider">hoặc</div>
+
+          {/* VNeID */}
           <button
             type="button"
+            className="auth-btn-secondary"
             onClick={() => navigate("/vneid-login")}
-            className="vneid-btn"
-            style={{ background: "transparent", border: "1.5px solid #487573", color: "#487573" }}
           >
-            Đăng ký bằng VNeID
+            🪪 Đăng ký bằng VNeID
           </button>
 
-          <div className="register-text">
-            Đã có tài khoản?{" "}
-            <Link to="/login" className="register-link">Đăng nhập</Link>
+          {/* Login link */}
+          <div className="auth-footer-text">
+            Đã có tài khoản?
+            <Link to="/login" className="auth-footer-link">
+              Đăng nhập →
+            </Link>
           </div>
         </div>
       </div>

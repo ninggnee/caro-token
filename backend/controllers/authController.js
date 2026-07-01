@@ -15,6 +15,7 @@ import jwt    from 'jsonwebtoken';
 import crypto from 'crypto';
 import db     from '../config/db.js';
 import { logAction, auditMeta } from '../services/AuditService.js';
+import { uploadToIPFS } from '../services/IpfsService.js';
 
 const ACCESS_EXPIRES  = '8h';
 const REFRESH_DAYS    = 30;
@@ -275,7 +276,9 @@ export const getMe = async (req, res) => {
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     const [[user]] = await db.execute(
-      `SELECT id, email, full_name, phone, address, role, kyc_status, wallet_address FROM users WHERE id = ? LIMIT 1`,
+      `SELECT id, email, full_name, phone, address, role, kyc_status, wallet_address,
+              farm_coords, farm_code, farm_area, farm_location, farm_soil_type, certifications
+       FROM users WHERE id = ? LIMIT 1`,
       [userId]
     );
 
@@ -318,18 +321,31 @@ export const getMe = async (req, res) => {
 export const updateProfile = async (req, res) => {
   try {
     const userId = req.user?.id;
-    const { full_name, phone, address } = req.body;
+    const {
+      full_name, phone, address,
+      farm_coords, farm_code, farm_area, farm_location, farm_soil_type, certifications
+    } = req.body;
     if (!full_name?.trim()) {
       return res.status(400).json({ message: 'full_name is required' });
     }
 
     await db.execute(
-      `UPDATE users SET full_name = ?, phone = ?, address = ? WHERE id = ?`,
-      [full_name.trim(), phone?.trim() || null, address?.trim() || null, userId]
+      `UPDATE users SET
+         full_name = ?, phone = ?, address = ?,
+         farm_coords = ?, farm_code = ?, farm_area = ?, farm_location = ?, farm_soil_type = ?, certifications = ?
+       WHERE id = ?`,
+      [
+        full_name.trim(), phone?.trim() || null, address?.trim() || null,
+        farm_coords || null, farm_code || null, farm_area ? Number(farm_area) : null,
+        farm_location || null, farm_soil_type || null, certifications || null,
+        userId
+      ]
     );
 
     const [[user]] = await db.execute(
-      `SELECT id, email, full_name, phone, address, role, kyc_status, wallet_address FROM users WHERE id = ? LIMIT 1`,
+      `SELECT id, email, full_name, phone, address, role, kyc_status, wallet_address,
+              farm_coords, farm_code, farm_area, farm_location, farm_soil_type, certifications
+       FROM users WHERE id = ? LIMIT 1`,
       [userId]
     );
 
@@ -410,5 +426,30 @@ export const saveWallet = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+export const uploadCertDoc = async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ message: 'Không có file nào được chọn' });
+    }
+
+    let cid = null;
+    try {
+      cid = await uploadToIPFS(file.buffer, file.originalname, file.mimetype);
+    } catch (ipfsErr) {
+      console.warn(`IPFS upload skipped for cert: ${ipfsErr.message}`);
+    }
+
+    res.json({
+      success: true,
+      file_name: file.originalname,
+      ipfs_cid: cid
+    });
+  } catch (err) {
+    console.error('uploadCertDoc error:', err);
+    res.status(500).json({ success: false, message: err.message });
   }
 };

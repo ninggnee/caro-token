@@ -23,9 +23,9 @@ body{
   justify-content:flex-start; /* Move content up */
   padding:120px 80px 80px 80px; /* Higher top padding */
   background:
-    radial-gradient(circle at top left,#6fa9a6 0%,transparent 35%),
-    radial-gradient(circle at bottom right,#2d4d4b 0%,transparent 40%),
-    linear-gradient(135deg,#3f6664,#203433);
+    radial-gradient(circle at top left,#408A71 0%,transparent 35%),
+    radial-gradient(circle at bottom right,#18332d 0%,transparent 40%),
+    linear-gradient(135deg,#285A48,#091413);
 }
 
 .register-left h1{
@@ -47,7 +47,7 @@ body{
   padding: 8px 14px;
   border-radius: 999px;
   background: rgba(127, 224, 201, 0.08);
-  color: #7fe0c9;
+  color: #B0E4CC;
   margin-bottom: 16px;
   width: fit-content;
   font-size: 13px;
@@ -121,14 +121,14 @@ body{
 }
 
 .register-card h2{
-  color:#2f5f5d;
+  color:#285A48;
   font-size:30px;
   font-weight:700;
   margin-bottom:12px;
 }
 
 .register-card label{
-  color:#365f5d;
+  color:#285A48;
   font-weight:600;
   font-size:14px;
   display:block;
@@ -140,14 +140,14 @@ body{
   padding:14px;
   border-radius:10px;
   border:1px solid #d8e0e0;
-  background:#fafcfc;
-  color:#243b3a;
+  background:#122622;
+  color:#091413;
   outline:none;
   font-size:14px;
 }
 
 .register-card input:not([type="checkbox"]):not([type="radio"]):focus{
-  border-color:#487573;
+  border-color:#408A71;
   box-shadow:0 0 0 4px rgba(72,117,115,.12);
 }
 
@@ -155,7 +155,7 @@ body{
 .register-card button{
   padding:14px;
   border:none;
-  background:#487573;
+  background:#408A71;
   color:white;
   font-weight:600;
   border-radius:10px;
@@ -174,7 +174,7 @@ body{
   width:100%;
   padding:14px;
   border:none;
-  background:#487573;
+  background:#408A71;
   color:white;
   font-weight:600;
   border-radius:10px;
@@ -203,14 +203,14 @@ body{
 .register-link,
 .register-link:visited {
   margin-left:6px;
-  color:#487573;
+  color:#408A71;
   text-decoration:none;
   font-weight:700;
 }
 
 .register-link:hover,
 .register-link:visited:hover {
-  color:#2f5f5d;
+  color:#285A48;
   text-decoration:underline;
 }
 

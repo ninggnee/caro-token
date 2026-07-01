@@ -12,18 +12,20 @@ export const BATCH_KEYS = {
 };
 
 // ── Farmer: my batches ───────────────────────────────────────────────────────
-export function useMyBatches(params) {
+export function useMyBatches(params, options = {}) {
   return useQuery({
     queryKey: BATCH_KEYS.mine(params),
     queryFn:  () => api.getMyBatches(params),
+    ...options,
   });
 }
 
 // ── Admin: all batches ───────────────────────────────────────────────────────
-export function useAllBatches(params) {
+export function useAllBatches(params, options = {}) {
   return useQuery({
     queryKey: BATCH_KEYS.all(params),
     queryFn:  () => api.getAllBatches(params),
+    ...options,
   });
 }
 

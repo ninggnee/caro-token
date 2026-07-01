@@ -6,6 +6,8 @@ import "react-toastify/dist/ReactToastify.css";
 import AppRouter from "./routes/AppRouter";
 import { AuthProvider } from "./context/AuthContext";
 import { WalletProvider } from "./context/WalletContext";
+import "./index.css";
+import "./styles/theme.css";
 import "./styles/app.css";
 
 const queryClient = new QueryClient({

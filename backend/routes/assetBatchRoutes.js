@@ -13,6 +13,7 @@ import {
   updateGrade,
   supplementBatch,
   getAvailableBatchesForTrader,
+  simulateLogistics,
 } from '../controllers/AssetBatchController.js';
 import { verifyToken, requireRole } from '../middleware/auth.js';
 
@@ -103,5 +104,6 @@ router.get('/available', verifyToken, getAvailableBatchesForTrader);
 
 // ── Shared (farmer own or admin) ──────────────────────────────────────────
 router.get('/:id', verifyToken, getBatchById);
+router.post('/:id/simulate-logistics', verifyToken, simulateLogistics);
 
 export default router;
