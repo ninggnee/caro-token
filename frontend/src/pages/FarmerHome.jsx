@@ -1,16 +1,29 @@
 import { useNavigate } from "react-router-dom";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import { useAuth } from "../context/AuthContext";
-import { useMyBatches } from "../hooks/useBatches";
 import { useQuery } from "@tanstack/react-query";
 import axios from "../utils/axiosClient";
 import { formatNumber, formatVND } from '../utils/formatters';
 
-function useTokenBalances() {
+// Single aggregated dashboard call — same source as FarmerDashboard.jsx
+function useFarmerDashboard() {
   return useQuery({
-    queryKey: ["token-balances"],
-    queryFn: () => axios.get("/token/balances").then((r) => r.data),
-    staleTime: 30_000,
+    queryKey: ["farmer-dashboard"],
+    queryFn: () => axios.get("/farmer/dashboard").then(r => r.data),
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    retry: 2,
+  });
+}
+
+// Live market prices — avoids hardcoded reference prices
+function useMarketPrices() {
+  return useQuery({
+    queryKey: ["market-prices"],
+    queryFn: () => axios.get("/market/prices").then(r => r.data),
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+    retry: 1,
   });
 }
 
@@ -25,15 +38,12 @@ function StatCard({ label, value, sub, color, icon }) {
   );
 }
 
-function BatchStatusWidget({ navigate }) {
-  const pending = useMyBatches({ status: "PENDING_MINT_APPROVAL", limit: 1 });
-  const minted  = useMyBatches({ status: "MINTED",                limit: 1 });
-  const rejected= useMyBatches({ status: "REJECTED",              limit: 1 });
-
+function BatchStatusWidget({ navigate, batchStats, isLoading }) {
+  const stats = batchStats || {};
   const items = [
-    { label: "Chờ duyệt", count: pending.data?.total ?? "—", color: "#f39c12", bg: "rgba(243,156,18,0.06)",  icon: "⏳", status: "PENDING_MINT_APPROVAL" },
-    { label: "Đã Mint",   count: minted.data?.total  ?? "—", color: "#27ae60", bg: "rgba(39,174,96,0.06)",   icon: "🪙", status: "MINTED" },
-    { label: "Từ chối",   count: rejected.data?.total ?? "—",color: "#e74c3c", bg: "rgba(231,76,60,0.06)",   icon: "❌", status: "REJECTED" },
+    { label: "Chờ duyệt", count: isLoading ? "…" : (stats.PENDING_MINT_APPROVAL ?? 0), color: "#f39c12", bg: "rgba(243,156,18,0.06)",  icon: "⏳" },
+    { label: "Đã Mint",   count: isLoading ? "…" : (stats.MINTED               ?? 0), color: "#27ae60", bg: "rgba(39,174,96,0.06)",   icon: "🪙" },
+    { label: "Từ chối",   count: isLoading ? "…" : (stats.REJECTED             ?? 0), color: "#e74c3c", bg: "rgba(231,76,60,0.06)",   icon: "❌" },
   ];
 
   return (
@@ -50,7 +60,7 @@ function BatchStatusWidget({ navigate }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
         {items.map((it) => (
           <button
-            key={it.status}
+            key={it.label}
             onClick={() => navigate("/farmer/status")}
             style={{ background: it.bg, border: `1px solid ${it.color}30`, borderRadius: 10, padding: "14px 12px", cursor: "pointer", textAlign: "center" }}
           >
@@ -64,13 +74,13 @@ function BatchStatusWidget({ navigate }) {
   );
 }
 
-function InternalWalletWidget({ balances }) {
+function InternalWalletWidget({ tokenBals, priceMap, isLoading }) {
   const tokenTypes = ["CR1", "CR2", "CR3"];
-  const data = balances?.data?.balances || {};
-
-  const priceMap = { CR1: 100_000, CR2: 85_000, CR3: 70_000 };
+  const data = tokenBals || {};
+  // priceMap from live market engine; fallback only when prices are unavailable
+  const prices = priceMap || { CR1: 100_000, CR2: 85_000, CR3: 70_000 };
   const totalVnd = tokenTypes.reduce((sum, t) => {
-    return sum + (Number(data[t]?.available_balance || 0) * (priceMap[t] || 0));
+    return sum + (Number(data[t]?.available || data[t]?.available_balance || 0) * (prices[t] || 0));
   }, 0);
 
   return (
@@ -89,19 +99,19 @@ function InternalWalletWidget({ balances }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
         {tokenTypes.map((t) => {
-          const avail = Number(data[t]?.available_balance || 0);
-          const locked = Number(data[t]?.locked_balance || 0);
+          const avail  = Number(data[t]?.available || data[t]?.available_balance || 0);
+          const locked = Number(data[t]?.locked   || data[t]?.locked_balance    || 0);
           return (
             <div key={t} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: "10px 12px" }}>
               <div style={{ fontSize: 12, color: "#7fe0c9", fontWeight: 700, marginBottom: 6 }}>{t}</div>
-              <div style={{ fontSize: 16, fontWeight: 700 }}>{avail > 0 ? formatNumber(avail) : "0"}</div>
+              <div style={{ fontSize: 16, fontWeight: 700 }}>{isLoading ? "…" : (avail > 0 ? formatNumber(avail) : "0")}</div>
               {locked > 0 && (
                 <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 3 }}>
                   {formatNumber(locked)} khoá
                 </div>
               )}
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>
-                ≈ {formatVND(avail * (priceMap[t] || 0))}
+                ≈ {formatVND(avail * (prices[t] || 0))}
               </div>
             </div>
           );
@@ -118,7 +128,30 @@ function InternalWalletWidget({ balances }) {
 export default function FarmerHome() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const balances = useTokenBalances();
+
+  const dashQ  = useFarmerDashboard();
+  const priceQ = useMarketPrices();
+
+  const isLoading   = dashQ.isLoading;
+  const batchStats  = dashQ.data?.batchStats  || {};
+  const dbHoldings  = dashQ.data?.tokenBalances || {};
+  const onChainBals = dashQ.data?.onChainBalances;
+  const useOnChain  = dashQ.data?.dataSource === 'on-chain' && onChainBals;
+
+  // Build a unified tokenBals map keyed by CR1/CR2/CR3
+  const tokenBals = {
+    CR1: { available: useOnChain ? Number(onChainBals.caro1 ?? 0) : Number(dbHoldings.caro1 ?? 0) },
+    CR2: { available: useOnChain ? Number(onChainBals.caro2 ?? 0) : Number(dbHoldings.caro2 ?? 0) },
+    CR3: { available: useOnChain ? Number(onChainBals.caro3 ?? 0) : Number(dbHoldings.caro3 ?? 0) },
+  };
+
+  // Market prices from live engine (keyed by token type in stats array)
+  const mp = priceQ.data?.prices || {};
+  const priceMap = {
+    CR1: Number(mp.CR1?.price) || 100_000,
+    CR2: Number(mp.CR2?.price) || 85_000,
+    CR3: Number(mp.CR3?.price) || 70_000,
+  };
 
   return (
     <FarmerLayout title="Bảng điều khiển Farmer">
@@ -153,8 +186,8 @@ export default function FarmerHome() {
 
         {/* 2-column: batch status + wallet */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-          <BatchStatusWidget navigate={navigate} />
-          <InternalWalletWidget balances={balances} />
+          <BatchStatusWidget navigate={navigate} batchStats={batchStats} isLoading={isLoading} />
+          <InternalWalletWidget tokenBals={tokenBals} priceMap={priceMap} isLoading={isLoading} />
         </div>
 
         {/* Quick actions */}

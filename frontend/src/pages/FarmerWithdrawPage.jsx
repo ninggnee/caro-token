@@ -73,7 +73,7 @@ export default function FarmerWithdrawPage() {
 
   return (
     <FarmerLayout title="Rút tiền">
-      <div style={{ maxWidth: 560, margin: "0 auto", display: "grid", gap: 16 }}>
+      <div style={{ width: "100%", display: "grid", gap: 16 }}>
 
         <div>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Rút tiền</h2>
@@ -137,7 +137,7 @@ export default function FarmerWithdrawPage() {
             <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 8, padding: "14px 16px", border: `1px solid ${C.border}` }}>
               {[
                 { label: "Số lượng rút",        value: formatToken(amt, token) },
-                { label: "Phí rút (0.1%)",      value: `-${fee.toFixed(4)} ${token}`, color: C.red },
+                { label: "Phí rút (0.1%)",      value: `-${formatToken(Math.round(fee), token)}`, color: C.red },
                 { label: "Thực nhận",           value: formatToken(netAmt, token), color: C.green, bold: true },
                 { label: "Giá trị ước tính",    value: `≈ ${formatVND(estVnd)}`, color: C.muted },
               ].map(r => (

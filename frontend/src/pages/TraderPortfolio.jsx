@@ -66,7 +66,7 @@ export default function TraderPortfolio() {
 
   return (
     <TraderLayout title="Danh mục đầu tư">
-      <div style={{ display: "grid", gap: 20, maxWidth: 960 }}>
+      <div style={{ display: "grid", gap: 20, width: "100%" }}>
 
         {/* Page header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
@@ -157,7 +157,7 @@ export default function TraderPortfolio() {
                   const change = Number(stat.change_24h || 0);
                   const value = qty * price;
                   const pct   = totalValue > 0 && value > 0
-                    ? (value / totalValue * 100).toFixed(1) + "%"
+                    ? formatNumber(value / totalValue * 100, 1) + "%"
                     : "—";
                   return (
                     <tr key={key} style={{ borderBottom: `1px solid ${C.border}` }}>
@@ -180,7 +180,7 @@ export default function TraderPortfolio() {
                       </td>
                       <td style={{ padding: "14px 16px" }}>
                         <span style={{ fontSize: 12, fontWeight: 700, color: change >= 0 ? C.green : C.red }}>
-                          {change >= 0 ? "▲" : "▼"} {Math.abs(change).toFixed(2)}%
+                          {change >= 0 ? "▲" : "▼"} {formatNumber(Math.abs(change), 2)}%
                         </span>
                       </td>
                       <td style={{ padding: "14px 16px", fontSize: 13, fontWeight: 600, color: value > 0 ? "#e2e8f0" : C.muted }}>

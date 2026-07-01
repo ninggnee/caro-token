@@ -3,7 +3,7 @@ import { verifyToken, requireRole } from '../middleware/auth.js';
 import {
   uploadProof,
   getWallet,
-  directDeposit, simulateDeposit, getTransactions,
+  directDeposit, simulateDeposit, simulateWithdraw, getTransactions,
   createDeposit, listDepositsForUser, listAllDeposits, reviewDeposit,
   createWithdraw, listWithdrawsForUser, listAllWithdraws, reviewWithdraw,
 } from '../controllers/walletController.js';
@@ -23,6 +23,7 @@ router.get   ('/deposit/all',           verifyToken, requireRole('admin'), listA
 router.post  ('/deposit/:id/review',    verifyToken, requireRole('admin'), reviewDeposit);
 
 // ── Withdrawals ───────────────────────────────────────────────────────────────
+router.post  ('/simulate-withdraw',     verifyToken,                      simulateWithdraw);
 router.post  ('/withdraw',              verifyToken,                      createWithdraw);
 router.get   ('/withdraw',              verifyToken,                      listWithdrawsForUser);
 router.get   ('/withdraw/all',          verifyToken, requireRole('admin'), listAllWithdraws);

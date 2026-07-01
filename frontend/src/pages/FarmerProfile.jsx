@@ -106,7 +106,7 @@ export default function FarmerProfile() {
 
   return (
     <FarmerLayout title="Thông tin cá nhân">
-      <div style={{ maxWidth: 720, margin: "0 auto", display: "grid", gap: 20 }}>
+      <div style={{ width: "100%", display: "grid", gap: 20 }}>
 
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>👤 Hồ Sơ Cá Nhân</h2>
 

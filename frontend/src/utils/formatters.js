@@ -16,7 +16,7 @@ export function formatNumber(n, decimals = 0) {
   const num = Number(n ?? 0);
   if (isNaN(num)) return '0';
   return num.toLocaleString('vi-VN', {
-    minimumFractionDigits: decimals,
+    minimumFractionDigits: 0,
     maximumFractionDigits: decimals,
   });
 }

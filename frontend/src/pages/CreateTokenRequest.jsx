@@ -27,7 +27,7 @@ export default function CreateTokenRequest() {
 
   return (
     <DashboardLayout title="Tạo yêu cầu Token hóa">
-      <div style={{ maxWidth: 720 }}>
+      <div style={{ width: "100%" }}>
         <h2>Tạo yêu cầu Token hóa</h2>
         <label>Mã lô</label>
         <input value={lotId} onChange={(e) => setLotId(e.target.value)} />

@@ -38,6 +38,56 @@ export const getSummary = async (req, res) => {
       console.warn("asset_batches table count error, using 0 fallback:", batchErr.message);
     }
 
+    // ── Token state breakdown ──────────────────────────────────────────────
+    // Available / locked come directly from user_balances aggregate.
+    // Specific lock reasons are derived from the domain tables.
+    let tokenAvailable = 0, tokenLocked = 0, tokenCirculating = 0;
+    let tokenPledged = 0, tokenLcLocked = 0, tokenDiscounted = 0, tokenBurned = 0;
+
+    try {
+      const [[bals]] = await db.execute(
+        `SELECT COALESCE(SUM(available_balance),0) AS avail,
+                COALESCE(SUM(locked_balance),   0) AS locked,
+                COALESCE(SUM(balance),          0) AS total
+         FROM user_balances`
+      );
+      tokenAvailable   = Number(bals.avail);
+      tokenLocked      = Number(bals.locked);
+      tokenCirculating = Number(bals.total);
+    } catch {}
+
+    try {
+      const [[r]] = await db.execute(
+        `SELECT COALESCE(SUM(quantity),0) AS v FROM collateral_loans
+         WHERE status IN ('approved','disbursed','active')`
+      );
+      tokenPledged = Number(r.v);
+    } catch {}
+
+    try {
+      const [[r]] = await db.execute(
+        `SELECT COALESCE(SUM(token_amount),0) AS v FROM redeem_requests
+         WHERE status = 'pending'`
+      );
+      tokenLcLocked = Number(r.v);
+    } catch {}
+
+    try {
+      const [[r]] = await db.execute(
+        `SELECT COALESCE(SUM(quantity),0) AS v FROM token_discounting
+         WHERE status IN ('approved','payment_pending','completed')`
+      );
+      tokenDiscounted = Number(r.v);
+    } catch {}
+
+    try {
+      const [[r]] = await db.execute(
+        `SELECT COALESCE(SUM(token_amount),0) AS v FROM redeem_requests
+         WHERE status = 'approved'`
+      );
+      tokenBurned = Number(r.v);
+    } catch {}
+
     res.json({
       success: true,
       summary: {
@@ -55,7 +105,15 @@ export const getSummary = async (req, res) => {
         pendingBatches,
         mintedBatches,
         rejectedBatches,
-        totalBatchKg
+        totalBatchKg,
+        // token state breakdown
+        tokenCirculating,
+        tokenAvailable,
+        tokenLocked,
+        tokenPledged,
+        tokenLcLocked,
+        tokenDiscounted,
+        tokenBurned,
       }
     });
   } catch (err) {

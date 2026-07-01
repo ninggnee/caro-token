@@ -1,20 +1,24 @@
 /**
- * orderController — limit order placement and matching engine integration.
+ * orderController — limit/market order placement with price-time priority matching.
  *
  * Valid pairs: CR1/VND, CR2/VND, CR3/VND.
  * Cross-grade matching is NOT allowed (enforced via pair validation).
  *
- * Flow for SELL order:
- *   1. Lock seller's tokens (BalanceService.lockBalance)
- *   2. Insert order
- *   3. Run matching engine
- *   4. For each trade: transfer tokens to buyer, deduct VND from buyer
+ * Order lifecycle:
+ *   PENDING → OPEN → PARTIALLY_FILLED → FILLED
+ *          ↘ (market order unfilled)  → CANCELLED
+ *          ↘ (user action)            → CANCELLED
  *
- * Flow for BUY order:
- *   1. Lock buyer's VND balance (WalletService.lockVnd)
- *   2. Insert order
- *   3. Run matching engine
- *   4. For each trade: credit tokens to buyer, deduct VND from buyer wallet
+ * Execution price rule:
+ *   Trades execute at the MAKER (resting) order's price, not the taker's price.
+ *   A BUY limit price is the buyer's maximum — if a seller rests at a lower ask,
+ *   the buyer executes at the lower price and the VND savings are released immediately.
+ *
+ * VND lock rule for BUY orders:
+ *   Lock = order.price × amount  (worst-case reservation)
+ *   On each fill: release order.price × filledQty from locked,
+ *                 deduct trade.price × filledQty from balance.
+ *   Net effect: price-improvement savings become available immediately.
  */
 
 import db                    from '../config/db.js';
@@ -27,6 +31,12 @@ const VALID_PAIRS  = ['CR1/VND', 'CR2/VND', 'CR3/VND'];
 const TOKEN_OF     = { 'CR1/VND': 'CR1', 'CR2/VND': 'CR2', 'CR3/VND': 'CR3' };
 const TICK_SIZE    = 100;
 
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+// Active orders that can participate in matching or be cancelled
+// Accept both old ('partial') and new ('partially_filled') values for backward compat
+const ACTIVE_STATUSES = `('open','partial','partially_filled')`;
+
 // ── Place order ─────────────────────────────────────────────────────────────
 
 export const placeOrder = async (req, res) => {
@@ -34,7 +44,7 @@ export const placeOrder = async (req, res) => {
     const userId = req.user?.id;
     const { pair, side, price, amount, type = 'limit' } = req.body;
 
-    // ── Basic validation ──────────────────────────────────────────────────────
+    // ── Validation ──────────────────────────────────────────────────────────
     if (!VALID_PAIRS.includes(pair)) {
       return res.status(400).json({ message: `Invalid pair. Valid: ${VALID_PAIRS.join(', ')}` });
     }
@@ -51,7 +61,7 @@ export const placeOrder = async (req, res) => {
     const tokenType = TOKEN_OF[pair];
     const numAmount = Number(amount);
 
-    // ── Limit order: price rules (Rules 2 & 3) ────────────────────────────────
+    // ── Limit order: price rules ─────────────────────────────────────────────
     let numPrice;
     if (type === 'limit') {
       if (!price || Number(price) <= 0) {
@@ -59,12 +69,14 @@ export const placeOrder = async (req, res) => {
       }
       numPrice = Number(price);
 
-      // Rule 3: tick size = 100 VND
+      // Tick size: 100 VND
       if (numPrice % TICK_SIZE !== 0) {
-        return res.status(422).json({ message: `Giá phải là bội số của ${TICK_SIZE} VND (Tick Size). Ví dụ: 88.000, 88.100, 88.200` });
+        return res.status(422).json({
+          message: `Giá phải là bội số của ${TICK_SIZE} VND (Tick Size). Ví dụ: 88.000, 88.100, 88.200`,
+        });
       }
 
-      // Rule 2: price must be within daily trading band (reference ±7%)
+      // Daily trading band: reference price ±7%
       const band = getTradingBand(tokenType);
       if (numPrice < band.floor || numPrice > band.ceiling) {
         return res.status(422).json({
@@ -74,20 +86,21 @@ export const placeOrder = async (req, res) => {
       }
     }
 
-    // ── Market order: resolve price from order book ────────────────────────────
+    // ── Market order: resolve price from order book ──────────────────────────
     if (type === 'market') {
       const oppSide    = side === 'buy' ? 'sell' : 'buy';
-      const priceOrder = side === 'buy' ? 'ASC' : 'DESC';
+      const priceOrder = side === 'buy' ? 'ASC'  : 'DESC';
       const [[bestRow]] = await db.execute(
-        `SELECT price FROM orders WHERE pair = ? AND side = ? AND status IN ('open','partial')
+        `SELECT price FROM orders WHERE pair = ? AND side = ? AND status IN ${ACTIVE_STATUSES}
          ORDER BY price ${priceOrder}, created_at ASC LIMIT 1`,
         [pair, oppSide]
       );
       if (!bestRow) {
-        return res.status(422).json({ message: 'Sổ lệnh đang trống, không thể đặt lệnh thị trường. Vui lòng thử lại sau.' });
+        return res.status(422).json({
+          message: 'Sổ lệnh đang trống, không thể đặt lệnh thị trường. Vui lòng thử lại sau.',
+        });
       }
-      // For market BUY: match at any ask ≤ a very high price (sweep all asks)
-      // For market SELL: match at any bid ≥ 0 (sweep all bids)
+      // Sweep all asks (BUY) or all bids (SELL) using a price that beats everything
       numPrice = side === 'buy' ? 999_999_999 : 0;
     }
 
@@ -95,16 +108,17 @@ export const placeOrder = async (req, res) => {
     try {
       await conn.beginTransaction();
 
-      // ── Pre-trade locks ───────────────────────────────────────────────────────
-      let vndLocked = 0;
+      // ── Pre-trade locks ──────────────────────────────────────────────────────
+      let vndLockPrice = 0; // price per unit used for VND locking
+      let vndLocked    = 0;
+
       if (side === 'sell') {
         await lockBalance(userId, tokenType, numAmount, conn);
       } else {
-        // For market BUY, lock at best ask; for limit BUY lock at order price
-        let lockPrice = numPrice;
+        // BUY: lock VND at order price (worst-case reservation for limit; best ask for market)
         if (type === 'market') {
           const [[best]] = await conn.execute(
-            `SELECT price FROM orders WHERE pair = ? AND side = 'sell' AND status IN ('open','partial')
+            `SELECT price FROM orders WHERE pair = ? AND side = 'sell' AND status IN ${ACTIVE_STATUSES}
              ORDER BY price ASC, created_at ASC LIMIT 1`,
             [pair]
           );
@@ -112,16 +126,21 @@ export const placeOrder = async (req, res) => {
             await conn.rollback();
             return res.status(422).json({ message: 'Sổ lệnh đang trống, không thể đặt lệnh thị trường.' });
           }
-          lockPrice = Number(best.price);
+          vndLockPrice = Number(best.price);
+        } else {
+          vndLockPrice = numPrice;
         }
-        vndLocked = lockPrice * numAmount;
+
+        vndLocked = vndLockPrice * numAmount;
         const [[wallet]] = await conn.execute(
           `SELECT vnd_balance, vnd_locked FROM wallets WHERE user_id = ? FOR UPDATE`,
           [userId]
         );
         if (!wallet || Number(wallet.vnd_balance) - Number(wallet.vnd_locked) < vndLocked) {
           await conn.rollback();
-          return res.status(422).json({ message: `Số dư VND không đủ. Cần tối thiểu ${vndLocked.toLocaleString()} VND` });
+          return res.status(422).json({
+            message: `Số dư VND không đủ. Cần tối thiểu ${vndLocked.toLocaleString()} VND`,
+          });
         }
         await conn.execute(
           `UPDATE wallets SET vnd_locked = vnd_locked + ? WHERE user_id = ?`,
@@ -129,71 +148,89 @@ export const placeOrder = async (req, res) => {
         );
       }
 
-      // ── Insert order ──────────────────────────────────────────────────────────
+      // ── Insert order — starts as 'open' so it works with existing DB ENUM ──────
       const [r] = await conn.execute(
         `INSERT INTO orders (user_id, pair, side, type, price, amount, filled, remaining, status, created_at)
          VALUES (?, ?, ?, ?, ?, ?, 0, ?, 'open', NOW())`,
         [userId, pair, side, type, numPrice, numAmount, numAmount]
       );
 
+      const orderId = r.insertId;
+
       const newOrder = {
-        id: r.insertId, user_id: userId, pair, side, type,
+        id: orderId, user_id: userId, pair, side, type,
         price: numPrice, amount: numAmount, filled: 0, remaining: numAmount,
       };
 
-      // ── Run matching engine ───────────────────────────────────────────────────
+      // ── Run matching engine ──────────────────────────────────────────────────
       const { trades, filledAmount, remainingAmount } = await matchOrder(conn, newOrder);
 
-      // ── Settle each trade ─────────────────────────────────────────────────────
-      let vndActuallySpent = 0;
+      // ── Settle each trade ────────────────────────────────────────────────────
+      // Execution price rule: trade executes at the MAKER's price.
+      // For a BUY taker: maker price ≤ order price, so we deduct vndCost from balance
+      // but release vndReserved (= order.price × qty) from locked — freeing the savings.
       for (const trade of trades) {
+        // Credit tokens to buyer
         await creditMint(trade.buyerId, tokenType, trade.amount, conn);
+
+        // Deduct tokens from seller's locked balance
         await conn.execute(
           `UPDATE user_balances
            SET locked_balance = locked_balance - ?, balance = balance - ?
            WHERE user_id = ? AND token_type = ?`,
           [trade.amount, trade.amount, trade.sellerId, tokenType]
         );
+
         const vndCost = trade.price * trade.amount;
-        vndActuallySpent += vndCost;
+
+        // Buyer's VND settlement:
+        // - Release the reserved amount (at lock price) from vnd_locked
+        // - Deduct the actual cost (at trade price) from vnd_balance
+        // When trade.price < lockPrice (buyer got a better price), the difference
+        // is immediately freed into the buyer's available VND balance.
+        const buyerLockPrice = (side === 'buy' && trade.buyerId === userId)
+          ? vndLockPrice           // taker buy: locked at order/market price
+          : trade.price;           // maker buy: locked exactly at their own price
+        const vndReservedForTrade = buyerLockPrice * trade.amount;
+
         await conn.execute(
-          `UPDATE wallets SET vnd_balance = vnd_balance - ?, vnd_locked = vnd_locked - ? WHERE user_id = ?`,
-          [vndCost, vndCost, trade.buyerId]
+          `UPDATE wallets
+           SET vnd_balance = vnd_balance - ?,
+               vnd_locked  = vnd_locked  - ?
+           WHERE user_id = ?`,
+          [vndCost, vndReservedForTrade, trade.buyerId]
         );
+
+        // Credit VND to seller
         await conn.execute(
           `UPDATE wallets SET vnd_balance = vnd_balance + ? WHERE user_id = ?`,
           [vndCost, trade.sellerId]
         );
       }
 
-      // ── Determine final order status ──────────────────────────────────────────
+      // ── Determine final order status ─────────────────────────────────────────
+      // PENDING → OPEN            (no fills, sits in book)
+      // PENDING → PARTIALLY_FILLED (some fills, remainder sits in book)
+      // PENDING → FILLED           (fully matched immediately)
+      // PENDING → CANCELLED        (market order — unfilled remainder discarded)
       let newStatus;
       if (remainingAmount <= 0) {
         newStatus = 'filled';
       } else if (type === 'market') {
-        // Market orders: cancel unfilled remainder immediately (Rule 5)
+        // Market orders: cancel unfilled portion, release remaining VND/token lock
         newStatus = 'cancelled';
-        // Release VND locked for unfilled portion
-        if (side === 'buy') {
-          // vndLocked was at bestAskPrice × totalAmount; trades deducted at maker prices
-          // Release: total locked - actually spent = over-locked
-          const vndExcess = vndLocked - vndActuallySpent;
-          if (vndExcess > 0) {
-            // vndExcess = overLocked from favorable prices + locked for unfilled qty
-            // Add back only the portion for unfilled qty at lockPrice (vndLocked / numAmount per unit)
-            const lockPricePerUnit = vndLocked / numAmount;
-            const refundBalance    = vndExcess - lockPricePerUnit * remainingAmount; // overLocked on filled trades
-            const releaseFromLock  = vndExcess;
-            await conn.execute(
-              `UPDATE wallets SET vnd_locked = vnd_locked - ?, vnd_balance = vnd_balance + ? WHERE user_id = ?`,
-              [releaseFromLock, Math.max(0, refundBalance), userId]
-            );
-          }
-        } else {
-          // SELL market: unlock unfilled tokens
-          if (remainingAmount > 0) {
-            await unlockBalance(userId, tokenType, remainingAmount, conn);
-          }
+        if (side === 'buy' && remainingAmount > 0) {
+          // Release VND lock for unfilled portion (at lock price)
+          const vndReleaseForUnfilled = vndLockPrice * remainingAmount;
+          // Also refund any price-improvement savings already released above
+          // vndLocked remaining = vndLocked - sum(vndReservedForTrade)
+          // We just release the lock for unfilled qty; the rest was released per-trade above
+          await conn.execute(
+            `UPDATE wallets SET vnd_locked = vnd_locked - ? WHERE user_id = ?`,
+            [vndReleaseForUnfilled, userId]
+          );
+        } else if (side === 'sell' && remainingAmount > 0) {
+          await unlockBalance(userId, tokenType, remainingAmount, conn);
         }
       } else {
         newStatus = filledAmount > 0 ? 'partial' : 'open';
@@ -201,25 +238,25 @@ export const placeOrder = async (req, res) => {
 
       await conn.execute(
         `UPDATE orders SET filled = ?, remaining = ?, status = ?, updated_at = NOW() WHERE id = ?`,
-        [filledAmount, remainingAmount, newStatus, r.insertId]
+        [filledAmount, remainingAmount, newStatus, orderId]
       );
 
       await conn.commit();
 
       await logAction({
         actorId: userId, action: `order:place:${side}:${type}`,
-        entityType: 'order', entityId: r.insertId,
+        entityType: 'order', entityId: orderId,
         newData: { pair, side, type, price: numPrice, amount: numAmount, trades: trades.length },
         ...auditMeta(req),
       });
 
       res.status(201).json({
-        success: true,
-        id:       r.insertId,
-        status:   newStatus,
-        filled:   filledAmount,
+        success:   true,
+        id:        orderId,
+        status:    newStatus,
+        filled:    filledAmount,
         remaining: remainingAmount,
-        trades:   trades.length,
+        trades:    trades.length,
       });
     } catch (err) {
       await conn.rollback();
@@ -236,7 +273,7 @@ export const placeOrder = async (req, res) => {
   }
 };
 
-// ── Cancel order ────────────────────────────────────────────────────────────
+// ── Cancel order ─────────────────────────────────────────────────────────────
 
 export const cancelOrder = async (req, res) => {
   try {
@@ -248,12 +285,12 @@ export const cancelOrder = async (req, res) => {
       [orderId, userId]
     );
     if (!order) return res.status(404).json({ message: 'Order not found' });
-    if (!['open', 'partial'].includes(order.status)) {
+    if (!['open', 'partial', 'partially_filled'].includes(order.status)) {
       return res.status(409).json({ message: `Cannot cancel an order with status: ${order.status}` });
     }
 
-    const tokenType    = TOKEN_OF[order.pair];
-    const unfilledAmt  = Number(order.remaining);
+    const tokenType   = TOKEN_OF[order.pair];
+    const unfilledAmt = Number(order.remaining);
 
     const conn = await db.getConnection();
     try {
@@ -262,11 +299,11 @@ export const cancelOrder = async (req, res) => {
       if (order.side === 'sell') {
         await unlockBalance(userId, tokenType, unfilledAmt, conn);
       } else {
-        // Release VND lock
-        const vndLocked = Number(order.price) * unfilledAmt;
+        // Release VND locked for the unfilled portion at order price
+        const vndToRelease = Number(order.price) * unfilledAmt;
         await conn.execute(
           `UPDATE wallets SET vnd_locked = vnd_locked - ? WHERE user_id = ?`,
-          [vndLocked, userId]
+          [vndToRelease, userId]
         );
       }
 
@@ -296,7 +333,7 @@ export const cancelOrder = async (req, res) => {
   }
 };
 
-// ── Read ─────────────────────────────────────────────────────────────────────
+// ── Read ──────────────────────────────────────────────────────────────────────
 
 export const getOpenOrders = async (req, res) => {
   try {
@@ -305,7 +342,7 @@ export const getOpenOrders = async (req, res) => {
     const where  = pair ? `AND pair = ?` : '';
     const params = pair ? [userId, pair] : [userId];
     const [rows] = await db.execute(
-      `SELECT * FROM orders WHERE user_id = ? ${where} AND status IN ('open','partial')
+      `SELECT * FROM orders WHERE user_id = ? ${where} AND status IN ${ACTIVE_STATUSES}
        ORDER BY created_at DESC`,
       params
     );
@@ -328,7 +365,7 @@ export const getAllBuyOrders = async (req, res) => {
               u.full_name AS trader_name, u.email AS trader_email
        FROM orders o
        JOIN users u ON u.id = o.user_id
-       WHERE o.side = 'buy' ${whereClause} AND o.status IN ('open','partial')
+       WHERE o.side = 'buy' ${whereClause} AND o.status IN ${ACTIVE_STATUSES}
        ORDER BY o.price DESC, o.created_at ASC`,
       params
     );
@@ -348,17 +385,17 @@ export const getOrderbook = async (req, res) => {
     const [rows] = await db.execute(
       `SELECT side, price, SUM(remaining) AS total_remaining
        FROM orders
-       WHERE pair = ? AND status IN ('open','partial')
+       WHERE pair = ? AND status IN ${ACTIVE_STATUSES}
        GROUP BY side, price
        ORDER BY side, price`,
       [pair]
     );
     const bids = rows.filter(r => r.side === 'buy')
                      .map(r => ({ price: Number(r.price), amount: Number(r.total_remaining) }))
-                     .sort((a,b) => b.price - a.price);
+                     .sort((a, b) => b.price - a.price);
     const asks = rows.filter(r => r.side === 'sell')
                      .map(r => ({ price: Number(r.price), amount: Number(r.total_remaining) }))
-                     .sort((a,b) => a.price - b.price);
+                     .sort((a, b) => a.price - b.price);
     res.json({ success: true, data: { pair, bids, asks } });
   } catch (err) {
     console.error(err);
@@ -395,8 +432,8 @@ export const getTickers = async (req, res) => {
        GROUP BY t.pair`
     );
     const data = rows.map(r => {
-      const last     = Number(r.last_price  || 0);
-      const old      = Number(r.price_24h_ago || 0);
+      const last      = Number(r.last_price   || 0);
+      const old       = Number(r.price_24h_ago || 0);
       const change24h = old > 0 ? ((last - old) / old) * 100 : 0;
       return {
         pair:       r.pair,
@@ -414,47 +451,39 @@ export const getTickers = async (req, res) => {
   }
 };
 
-// ── Public market chart (OHLC from real trades — shared by Farmer view) ─────
-
 export const getPublicMarketChart = async (req, res) => {
   try {
     const { token = 'all', time = '24h' } = req.query;
 
     const TIME_CFG = {
-      '1h':  { ms: 1   * 3600 * 1000,       secs: 60           },
-      '24h': { ms: 24  * 3600 * 1000,       secs: 30  * 60     },
-      '7d':  { ms: 7   * 24 * 3600 * 1000,  secs: 4   * 3600   },
-      '30d': { ms: 30  * 24 * 3600 * 1000,  secs: 86400        },
-      '90d': { ms: 90  * 24 * 3600 * 1000,  secs: 3   * 86400  },
-      '1y':  { ms: 365 * 24 * 3600 * 1000,  secs: 7   * 86400  },
+      '1h':  { ms: 1   * 3600 * 1000,      secs: 60          },
+      '24h': { ms: 24  * 3600 * 1000,      secs: 30 * 60     },
+      '7d':  { ms: 7   * 24 * 3600 * 1000, secs: 4  * 3600   },
+      '30d': { ms: 30  * 24 * 3600 * 1000, secs: 86400       },
+      '90d': { ms: 90  * 24 * 3600 * 1000, secs: 3  * 86400  },
+      '1y':  { ms: 365 * 24 * 3600 * 1000, secs: 7  * 86400  },
     };
 
     const cfg   = TIME_CFG[time] || TIME_CFG['24h'];
     const since = new Date(Date.now() - cfg.ms);
 
     const ALL_PAIRS = ['CR1/VND', 'CR2/VND', 'CR3/VND'];
-    const pairs = token === 'all'
-      ? ALL_PAIRS
-      : [`${token.toUpperCase()}/VND`];
-
-    const result = {};
+    const pairs     = token === 'all' ? ALL_PAIRS : [`${token.toUpperCase()}/VND`];
+    const result    = {};
 
     for (const pair of pairs) {
       const key = pair.split('/')[0];
-
-      const [trades] = await db.execute(
-        `SELECT price, amount, created_at
-         FROM trades
+      const [tradeRows] = await db.execute(
+        `SELECT price, amount, created_at FROM trades
          WHERE pair = ? AND created_at >= ?
-         ORDER BY created_at ASC
-         LIMIT 5000`,
+         ORDER BY created_at ASC LIMIT 5000`,
         [pair, since]
       );
 
-      if (!trades.length) { result[key] = []; continue; }
+      if (!tradeRows.length) { result[key] = []; continue; }
 
       const buckets = {};
-      for (const t of trades) {
+      for (const t of tradeRows) {
         const ts  = Math.floor(new Date(t.created_at).getTime() / 1000);
         const bkt = Math.floor(ts / cfg.secs) * cfg.secs;
         const p = Number(t.price), v = Number(t.amount);
@@ -462,7 +491,7 @@ export const getPublicMarketChart = async (req, res) => {
           buckets[bkt] = { open: p, high: p, low: p, close: p, volume: v };
         } else {
           buckets[bkt].high   = Math.max(buckets[bkt].high, p);
-          buckets[bkt].low    = Math.min(buckets[bkt].low,  p);
+          buckets[bkt].low    = Math.min(buckets[bkt].low, p);
           buckets[bkt].close  = p;
           buckets[bkt].volume += v;
         }
@@ -479,8 +508,6 @@ export const getPublicMarketChart = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
-
-// ── Trader: get own token balances (from user_balances) ──────────────────────
 
 export const getMyTokenBalances = async (req, res) => {
   try {

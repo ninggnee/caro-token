@@ -79,7 +79,7 @@ export default function FarmerNotifications() {
 
   return (
     <FarmerLayout title="Thông báo">
-      <div style={{ maxWidth: 760, display: "grid", gap: 16 }}>
+      <div style={{ width: "100%", display: "grid", gap: 16 }}>
 
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>

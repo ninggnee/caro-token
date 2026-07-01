@@ -76,7 +76,7 @@ export default function FarmerSettings() {
 
   return (
     <FarmerLayout title="Cài đặt">
-      <div style={{ maxWidth: 680, margin: "0 auto", display: "grid", gap: 20 }}>
+      <div style={{ width: "100%", display: "grid", gap: 20 }}>
 
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>⚙️ Cài Đặt</h2>
 

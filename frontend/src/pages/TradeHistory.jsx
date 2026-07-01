@@ -69,7 +69,7 @@ export default function TradeHistory() {
 
   return (
     <TraderLayout title="Lịch sử giao dịch">
-      <div style={{ display: "grid", gap: 18, maxWidth: 1000 }}>
+      <div style={{ display: "grid", gap: 18, width: "100%" }}>
 
         {/* Summary cards */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
@@ -183,7 +183,7 @@ export default function TradeHistory() {
                         <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{t.pair || "—"}</td>
                         <td style={{ padding: "10px 14px" }}><Badge side={t.side} /></td>
                         <td style={{ padding: "10px 14px", fontSize: 13, fontFamily: "monospace", color: "#e2e8f0", fontWeight: 600 }}>{formatNumber(price)}</td>
-                        <td style={{ padding: "10px 14px", fontSize: 13, fontFamily: "monospace", color: "#e2e8f0" }}>{qty.toFixed(4)}</td>
+                        <td style={{ padding: "10px 14px", fontSize: 13, fontFamily: "monospace", color: "#e2e8f0" }}>{formatNumber(Math.round(qty))}</td>
                         <td style={{ padding: "10px 14px", fontSize: 13, fontFamily: "monospace", color: t.side === "buy" ? C.green : C.red, fontWeight: 700 }}>{formatVND(total_)}</td>
                         <td style={{ padding: "10px 14px", fontSize: 12, color: C.muted }}>{fee ? formatVND(fee) : "—"}</td>
                         <td style={{ padding: "10px 14px", fontSize: 11, color: C.muted, whiteSpace: "nowrap" }}>

@@ -31,7 +31,7 @@ export default function TraderHome() {
     queryFn: () => axios.get("/wallet/balance").then(r => r.data),
     staleTime: 15_000, refetchInterval: 30_000,
   });
-  const vndBalance = Number(walletData?.balance || 0);
+  const vndBalance = Number(walletData?.vnd_available ?? walletData?.vnd_balance ?? 0);
 
   const { data: statsData } = useQuery({
     queryKey: TRADER_KEYS.prices,
@@ -52,7 +52,18 @@ export default function TraderHome() {
     queryFn: () => axios.get("/orders/open").then(r => r.data),
     staleTime: 15_000, refetchInterval: 20_000,
   });
-  const openCount = openData?.data?.length || 0;
+  const openOrders   = openData?.data || [];
+  const openCount    = openOrders.length;
+  const buyCount     = openOrders.filter(o => o.side === 'buy').length;
+  const sellCount    = openOrders.filter(o => o.side === 'sell').length;
+  const lockedVND    = openOrders.filter(o => o.side === 'buy').reduce((s, o) => s + Number(o.remaining ?? o.amount) * Number(o.price), 0);
+  const lockedTokens = openOrders.filter(o => o.side === 'sell').reduce((s, o) => s + Number(o.remaining ?? o.amount), 0);
+
+  const { data: dbBalsData } = useQuery({
+    queryKey: TRADER_KEYS.tokens,
+    queryFn:  () => axios.get('/orders/my-balances').then(r => r.data),
+    staleTime: 15_000, refetchInterval: 30_000,
+  });
 
   useEffect(() => {
     if (!account || !provider) return;
@@ -70,8 +81,14 @@ export default function TraderHome() {
     })();
   }, [account, provider]);
 
+  const effectiveBals = {
+    CR1: account ? Number(tokenBals.CR1 || 0) : Number(dbBalsData?.data?.CR1?.available ?? 0),
+    CR2: account ? Number(tokenBals.CR2 || 0) : Number(dbBalsData?.data?.CR2?.available ?? 0),
+    CR3: account ? Number(tokenBals.CR3 || 0) : Number(dbBalsData?.data?.CR3?.available ?? 0),
+  };
+
   const tokenValue = ["CR1", "CR2", "CR3"].reduce((sum, key) => {
-    const qty   = Number(tokenBals[key] || 0);
+    const qty   = effectiveBals[key];
     const price = Number(stats.find(s => s.token === key)?.last_price || 0);
     return sum + qty * price;
   }, 0);
@@ -79,7 +96,7 @@ export default function TraderHome() {
 
   return (
     <TraderLayout title="Dashboard">
-      <div style={{ display: "grid", gap: 20, maxWidth: 1100 }}>
+      <div style={{ display: "grid", gap: 20, width: "100%" }}>
 
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
@@ -100,10 +117,9 @@ export default function TraderHome() {
         {/* Summary cards */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
           {[
-            { label: "Số dư VND",        value: formatVND(vndBalance),  sub: "Có thể giao dịch",       color: C.tealLight, icon: "💵" },
-            { label: "Giá trị Token",    value: account ? (tokenValue > 0 ? (tokenValue / 1e6).toFixed(2) + " triệu VND" : "0 VND") : "Chưa kết nối ví", sub: "CR1 + CR2 + CR3", color: "#f0b90b", icon: "🪙" },
-            { label: "Tổng tài sản",     value: totalAssets > 0 ? formatVND(totalAssets) : "—", sub: "VND + Token on-chain", color: "#e2e8f0", icon: "📊" },
-            { label: "Lệnh đang mở",     value: String(openCount),        sub: "Chờ khớp lệnh",          color: "#9b87f5",   icon: "⏳" },
+            { label: "Số dư VND",     value: formatVND(vndBalance),                              sub: "Có thể giao dịch",      color: C.tealLight, icon: "💵" },
+            { label: "Giá trị Token", value: tokenValue > 0 ? formatVND(tokenValue) : "0 VND",  sub: "CaRo1 + CaRo2 + CaRo3", color: "#f0b90b",   icon: "🪙" },
+            { label: "Tổng tài sản",  value: totalAssets > 0 ? formatVND(totalAssets) : "0 VND", sub: "VND + Token Assets",    color: "#e2e8f0",   icon: "📊" },
           ].map(c => (
             <div key={c.label} style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "16px 18px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
@@ -114,6 +130,27 @@ export default function TraderHome() {
               <div style={{ fontSize: 11, color: C.muted }}>{c.sub}</div>
             </div>
           ))}
+
+          {/* Open orders — enhanced card with buy/sell breakdown */}
+          <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "16px 18px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: C.muted, fontWeight: 500 }}>Lệnh đang mở</div>
+              <span style={{ fontSize: 18 }}>⏳</span>
+            </div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: "#9b87f5", marginBottom: 4, lineHeight: 1.25 }}>{openCount} lệnh</div>
+            <div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>{buyCount} mua · {sellCount} bán</div>
+            {lockedVND > 0 && (
+              <div style={{ fontSize: 11, color: C.muted }}>
+                Khoá VND: <span style={{ color: "#e2e8f0", fontWeight: 600 }}>{formatVND(lockedVND)}</span>
+              </div>
+            )}
+            {lockedTokens > 0 && (
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                Khoá Token: <span style={{ color: "#e2e8f0", fontWeight: 600 }}>{formatNumber(lockedTokens, 4)} CaRo</span>
+              </div>
+            )}
+            {openCount === 0 && <div style={{ fontSize: 11, color: C.muted }}>Chờ khớp lệnh</div>}
+          </div>
         </div>
 
         {/* Token holdings + recent trades */}
@@ -138,7 +175,7 @@ export default function TraderHome() {
               </thead>
               <tbody>
                 {["CR1", "CR2", "CR3"].map(key => {
-                  const qty   = Number(tokenBals[key] || 0);
+                  const qty   = effectiveBals[key];
                   const price = Number(stats.find(s => s.token === key)?.last_price || 0);
                   const value = qty * price;
                   return (
@@ -147,7 +184,7 @@ export default function TraderHome() {
                         <span style={{ fontSize: 12, fontWeight: 700, color: TOKEN_COLORS[key] }}>{TOKEN_LABELS[key]}</span>
                       </td>
                       <td style={{ padding: "10px 14px", fontSize: 13, color: qty > 0 ? C.green : C.muted, fontFamily: "monospace" }}>
-                        {account ? (qty > 0 ? formatNumber(qty, 2) : "—") : "—"}
+                        {qty > 0 ? formatNumber(qty, 2) : "—"}
                       </td>
                       <td style={{ padding: "10px 14px", fontSize: 12, color: "#e2e8f0", fontFamily: "monospace" }}>
                         {price ? formatVND(price) : "—"}
@@ -160,11 +197,11 @@ export default function TraderHome() {
                 })}
               </tbody>
             </table>
-            {!account && (
-              <div style={{ padding: "10px 16px", fontSize: 11, color: C.muted, borderTop: `1px solid ${C.border}` }}>
-                ℹ Kết nối MetaMask để xem số dư on-chain
-              </div>
-            )}
+            <div style={{ padding: "10px 16px", fontSize: 11, color: C.muted, borderTop: `1px solid ${C.border}` }}>
+              {account
+                ? `✅ Số dư on-chain · Ví: ${account.slice(0, 6)}...${account.slice(-4)}`
+                : "ℹ Hiển thị số dư sàn · Kết nối MetaMask để xem số dư on-chain"}
+            </div>
           </div>
 
           {/* Recent trades */}
@@ -204,7 +241,7 @@ export default function TraderHome() {
                         {formatVND(t.price)}
                       </td>
                       <td style={{ padding: "9px 14px", fontSize: 12, color: "#e2e8f0", fontFamily: "monospace" }}>
-                        {Number(t.amount || t.quantity || 0).toFixed(4)}
+                        {formatNumber(Math.round(Number(t.amount || t.quantity || 0)))}
                       </td>
                       <td style={{ padding: "9px 14px", fontSize: 11, color: C.muted }}>
                         {t.created_at ? new Date(t.created_at).toLocaleString("vi-VN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}

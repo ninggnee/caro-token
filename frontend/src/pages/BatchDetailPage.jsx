@@ -162,7 +162,7 @@ function SkeletonDetail({ isAdmin }) {
   const Layout = isAdmin ? DashboardLayout : FarmerLayout;
   return (
     <Layout title="Chi tiết lô hàng">
-      <div style={{ maxWidth: 760, margin: "0 auto" }}>
+      <div style={{ width: "100%" }}>
         {[240, 320, 200].map((h, i) => (
           <div key={i} style={{ height: h, background: isAdmin ? "#141a1f" : "#172524", borderRadius: 12, marginBottom: 16, border: isAdmin ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(72,117,115,0.15)", animation: "pulse 1.5s ease-in-out infinite" }} />
         ))}
@@ -210,7 +210,7 @@ export default function BatchDetailPage() {
   if (isError || !batch) {
     return (
       <Layout title="Chi tiết lô hàng">
-        <div style={{ maxWidth: 760, margin: "0 auto", textAlign: "center", padding: 80 }}>
+        <div style={{ textAlign: "center", padding: 80 }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>❌</div>
           <div style={{ color: "#e74c3c", fontSize: 16 }}>Không tìm thấy lô hàng hoặc bạn không có quyền truy cập</div>
           <button onClick={() => navigate(backPath)} style={{ marginTop: 20, padding: "9px 22px", background: isAdmin ? "#1f6f64" : "#487573", border: "none", color: "#fff", borderRadius: 8, cursor: "pointer" }}>← Quay lại</button>
@@ -231,7 +231,7 @@ export default function BatchDetailPage() {
   return (
     <Layout title={`Chi tiết lô hàng — ${batch.batch_id}`}>
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
-      <div style={{ maxWidth: 760, margin: "0 auto" }}>
+      <div style={{ width: "100%" }}>
 
         <button onClick={() => navigate(backPath)} style={{ background: "none", border: "none", color: accentColor, cursor: "pointer", fontSize: 13, marginBottom: 16, padding: 0, display: "flex", alignItems: "center", gap: 4 }}>
           ← Quay lại

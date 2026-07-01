@@ -125,7 +125,7 @@ export default function TraderProfile() {
 
   return (
     <TraderLayout title="Hồ sơ cá nhân">
-      <div style={{ display: "grid", gap: 18, maxWidth: 780 }}>
+      <div style={{ display: "grid", gap: 18, width: "100%" }}>
 
         {/* Profile header */}
         <div style={{ background: `linear-gradient(135deg, #172524 0%, #1e302f 100%)`, borderRadius: 14, border: `1px solid ${C.border}`, padding: "22px 24px", display: "flex", alignItems: "center", gap: 18 }}>
@@ -176,7 +176,7 @@ export default function TraderProfile() {
         {tab === "security" && (
           <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "22px 24px" }}>
             <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 18 }}>Đổi mật khẩu</div>
-            <div style={{ display: "grid", gap: 14, maxWidth: 400 }}>
+            <div style={{ display: "grid", gap: 14 }}>
               <Field label="Mật khẩu hiện tại" type="password" value={pwd.current} onChange={v => setPwd(p => ({ ...p, current: v }))} placeholder="••••••••" />
               <Field label="Mật khẩu mới" type="password" value={pwd.newPwd} onChange={v => setPwd(p => ({ ...p, newPwd: v }))} placeholder="Ít nhất 6 ký tự" />
               <Field label="Xác nhận mật khẩu mới" type="password" value={pwd.confirm} onChange={v => setPwd(p => ({ ...p, confirm: v }))} placeholder="Nhập lại mật khẩu mới" />

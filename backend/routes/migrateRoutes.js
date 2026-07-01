@@ -8,11 +8,11 @@ const router = express.Router();
 
 async function runSqlFile(filePath) {
   const sql = fs.readFileSync(filePath, 'utf8');
-  // Split on statement-ending semicolons; skip comment-only blocks
+  // Split on statement-ending semicolons; strip -- comment lines from each block
   const statements = sql
     .split(/;\s*(?:\r?\n|$)/)
-    .map(s => s.trim())
-    .filter(s => s && !s.startsWith('--'));
+    .map(s => s.split('\n').filter(line => !line.trim().startsWith('--')).join('\n').trim())
+    .filter(s => s.length > 0);
 
   const results = [];
   for (const stmt of statements) {
@@ -57,6 +57,51 @@ router.post('/v2', verifyToken, requireRole('admin'), async (req, res) => {
   }
 
   res.json({ success: true, message: 'v2 migrations executed', allResults });
+});
+
+// POST /api/migrate/v4 — create collateral_loans + token_discounting tables
+router.post('/v4', verifyToken, requireRole('admin'), async (req, res) => {
+  try {
+    const sqlPath = path.join(process.cwd(), 'migrations', 'v4_finance_tables.sql');
+    if (!fs.existsSync(sqlPath)) {
+      return res.status(404).json({ success: false, message: 'v4 migration file not found' });
+    }
+    const results = await runSqlFile(sqlPath);
+    res.json({ success: true, message: 'v4_finance_tables.sql executed', results });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST /api/migrate/v6 — create/patch wallet, deposit_requests, withdraw_requests tables
+router.post('/v6', verifyToken, requireRole('admin'), async (req, res) => {
+  try {
+    const sqlPath = path.join(process.cwd(), 'migrations', 'v6_wallet_schema.sql');
+    if (!fs.existsSync(sqlPath)) {
+      return res.status(404).json({ success: false, message: 'v6 migration file not found' });
+    }
+    const results = await runSqlFile(sqlPath);
+    res.json({ success: true, message: 'v6_wallet_schema.sql executed', results });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST /api/migrate/v5 — add PENDING + PARTIALLY_FILLED to orders ENUM, add trade FK columns
+router.post('/v5', verifyToken, requireRole('admin'), async (req, res) => {
+  try {
+    const sqlPath = path.join(process.cwd(), 'migrations', 'v5_order_status_ptm.sql');
+    if (!fs.existsSync(sqlPath)) {
+      return res.status(404).json({ success: false, message: 'v5 migration file not found' });
+    }
+    const results = await runSqlFile(sqlPath);
+    res.json({ success: true, message: 'v5_order_status_ptm.sql executed', results });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 export default router;

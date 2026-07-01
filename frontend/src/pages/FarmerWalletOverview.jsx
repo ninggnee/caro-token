@@ -145,7 +145,7 @@ export default function FarmerWalletOverview() {
           {/* Giá trị ước tính */}
           <BalCard
             label="Giá trị ước tính"
-            value={estimatedValue > 0 ? (estimatedValue / 1_000_000).toFixed(2) + " triệu VND" : "0 VND"}
+            value={estimatedValue > 0 ? formatNumber(estimatedValue / 1_000_000, 1) + " triệu VND" : "0 VND"}
             sub={`${priceSource} · CR1: ${formatNumber(priceMap.CR1)} · CR2: ${formatNumber(priceMap.CR2)} · CR3: ${formatNumber(priceMap.CR3)}`}
             accent="#e2e8f0"
             loading={isLoading || priceQ.isLoading}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import TraderLayout from '../components/layout/TraderLayout';
 import { API_URL } from '../config/api';
-import { formatNumber, formatVND, formatKg } from '../utils/formatters';
+import { formatNumber, formatVND, formatKg, formatToken } from '../utils/formatters';
 import { getTradingBand } from '../services/marketApi';
 
 const PAIRS = [
@@ -113,7 +113,7 @@ export default function TraderTrading() {
     loadTickers(); loadWallet(); loadTokenBals(); loadBand();
     const iv = setInterval(() => {
       loadOrderbook(); loadTickers(); loadWallet(); loadTokenBals(); loadBand();
-    }, 30000);
+    }, 10000);
     return () => clearInterval(iv);
   }, [pairKey, loadOrderbook, loadOpenOrders, loadTradeHistory, loadTickers, loadWallet, loadTokenBals, loadBand]);
 
@@ -149,16 +149,19 @@ export default function TraderTrading() {
     if (side === 'buy') {
       if (priceN <= 0) return;
       const qty = (vndAvail * pct / 100) / priceN;
-      setAmount(qty > 0 ? qty.toFixed(2) : '');
+      setAmount(qty > 0 ? String(Math.round(qty)) : '');
     } else {
       const qty = tokAvail * pct / 100;
-      setAmount(qty > 0 ? qty.toFixed(2) : '');
+      setAmount(qty > 0 ? String(Math.round(qty)) : '');
     }
   };
 
   const placeOrder = async () => {
     if (!amount || amtN <= 0) {
       return setMsg({ ok: false, text: 'Vui lòng nhập Số lượng hợp lệ' });
+    }
+    if (side === 'sell' && amtN > tokAvail) {
+      return setMsg({ ok: false, text: `Không đủ số dư ${tokenLabel}. Khả dụng: ${formatNumber(tokAvail)} kg` });
     }
     if (!isMarket) {
       if (!price || priceN <= 0) {
@@ -245,7 +248,7 @@ export default function TraderTrading() {
           <div>
             <div style={{ fontSize: 11, color: C.muted }}>Thay đổi 24H</div>
             <div style={{ fontWeight: 700, color: chg24h >= 0 ? C.green : C.red, fontFamily: 'monospace' }}>
-              {chg24h >= 0 ? '+' : ''}{chg24h.toFixed(2)}%
+              {chg24h >= 0 ? '+' : ''}{formatNumber(Math.abs(chg24h), 2)}%
             </div>
           </div>
           {[
@@ -370,15 +373,35 @@ export default function TraderTrading() {
 
               {/* Available balance */}
               <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                marginBottom: 14, padding: '8px 12px', borderRadius: 6,
+                marginBottom: 14, padding: '10px 12px', borderRadius: 6,
                 background: side === 'buy' ? 'rgba(14,203,129,0.05)' : 'rgba(246,70,93,0.05)',
                 border: `1px solid ${side === 'buy' ? 'rgba(14,203,129,0.15)' : 'rgba(246,70,93,0.15)'}`,
               }}>
-                <span style={{ fontSize: 12, color: C.muted }}>Khả dụng</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: accentColor, fontFamily: 'monospace' }}>
-                  {side === 'buy' ? formatVND(vndAvail) : formatKg(tokAvail)}
-                </span>
+                {side === 'buy' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 11, color: C.muted }}>Số dư VND</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: C.green, fontFamily: 'monospace' }}>{formatVND(vndAvail)}</span>
+                    </div>
+                    {priceN > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, color: C.muted }}>Có thể mua tối đa</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: C.teal, fontFamily: 'monospace' }}>{formatKg(maxBuyQty)}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 11, color: C.muted }}>Số dư {tokenLabel}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: pairInfo.color, fontFamily: 'monospace' }}>{formatToken(tokAvail, tokenLabel)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 11, color: C.muted }}>Có thể bán tối đa</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: C.red, fontFamily: 'monospace' }}>{formatKg(tokAvail)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Trading band info (Rule 1 & 2) */}
@@ -418,21 +441,38 @@ export default function TraderTrading() {
 
               {/* Amount input */}
               <div style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 11, color: C.muted, marginBottom: 5, fontWeight: 600, display: 'flex', justifyContent: 'space-between' }}>
-                  <span>SỐ LƯỢNG (kg)</span>
-                  {side === 'buy' && priceN > 0 && (
-                    <span style={{ color: C.muted }}>
-                      Tối đa: <span style={{ color: C.green }}>{formatNumber(maxBuyQty, 2)} kg</span>
-                    </span>
-                  )}
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 5, fontWeight: 600 }}>
+                  SỐ LƯỢNG (kg)
                 </div>
                 <input
                   type="number"
                   value={amount}
                   onChange={e => setAmount(e.target.value)}
-                  placeholder="0"
+                  placeholder={
+                    side === 'sell' && tokAvail > 0
+                      ? `Nhập số lượng (Khả dụng: ${formatNumber(tokAvail)} kg)`
+                      : side === 'buy' && priceN > 0
+                      ? `Nhập số lượng (Tối đa: ${formatNumber(maxBuyQty)} kg)`
+                      : '0'
+                  }
                   style={{ ...inputStyle, background: C.input }}
                 />
+                {/* Balance info below input */}
+                {side === 'sell' ? (
+                  <div style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, color: C.muted }}>Khả dụng:</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: pairInfo.color, fontFamily: 'monospace' }}>
+                      {formatToken(tokAvail, tokenLabel)} ({formatKg(tokAvail)})
+                    </span>
+                  </div>
+                ) : priceN > 0 ? (
+                  <div style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, color: C.muted }}>Có thể mua tối đa:</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: C.green, fontFamily: 'monospace' }}>
+                      {formatKg(maxBuyQty)}
+                    </span>
+                  </div>
+                ) : null}
               </div>
 
               {/* Percentage quick-fill buttons */}
@@ -457,7 +497,7 @@ export default function TraderTrading() {
                       e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
                     }}
                   >
-                    {pct === 100 ? 'Tối đa' : `${pct}%`}
+                    {pct === 100 ? 'MAX' : `${pct}%`}
                   </button>
                 ))}
               </div>
@@ -552,10 +592,10 @@ export default function TraderTrading() {
                           <td style={{ padding: '8px 10px' }}>
                             <span style={{
                               fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600,
-                              background: o.status === 'partial' ? 'rgba(240,185,11,0.12)' : 'rgba(0,212,170,0.1)',
-                              color: o.status === 'partial' ? C.gold : C.teal,
+                              background: o.status === 'partial' || o.status === 'partially_filled' ? 'rgba(240,185,11,0.12)' : 'rgba(0,212,170,0.1)',
+                              color: o.status === 'partial' || o.status === 'partially_filled' ? C.gold : C.teal,
                             }}>
-                              {o.status === 'partial' ? 'Khớp 1 phần' : 'Đang mở'}
+                              {o.status === 'partial' || o.status === 'partially_filled' ? 'Khớp 1 phần' : 'Đang mở'}
                             </span>
                           </td>
                           <td style={{ padding: '8px 10px' }}>

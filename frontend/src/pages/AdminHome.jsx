@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import { useAuth } from "../context/AuthContext";
 import axios from "../utils/axiosClient";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from "recharts";
 import { formatKg, formatToken } from '../utils/formatters';
 
 const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#7fe0c9", muted: "#6b7a99" };
@@ -13,6 +13,7 @@ function useAdminSummary() {
     queryKey: ["admin-summary"],
     queryFn: () => axios.get("/admin/summary").then(r => r.data?.summary || {}),
     staleTime: 20_000,
+    refetchInterval: 20_000,
     retry: 1,
   });
 }
@@ -22,6 +23,7 @@ function useAdminLogs() {
     queryKey: ["admin-dashboard-logs"],
     queryFn: () => axios.get("/admin/logs?page=1&limit=4").then(r => r.data?.logs || []),
     staleTime: 15_000,
+    refetchInterval: 20_000,
     retry: 1,
   });
 }
@@ -31,6 +33,7 @@ function useLatestBatches() {
     queryKey: ["latest-batches-dashboard"],
     queryFn: () => axios.get("/batches?limit=4").then(r => r.data?.batches || []),
     staleTime: 20_000,
+    refetchInterval: 20_000,
     retry: 1,
   });
 }
@@ -190,16 +193,16 @@ export default function AdminHome() {
   const { data: batches, isLoading: isBatchesLoading } = useLatestBatches();
 
   const val = (key) => isLoading ? "…" : (s?.[key] ?? 0);
+  const numVal = (key) => Number(s?.[key] || 0);
   const totalUsers = isLoading ? "…" : ((s?.totalFarmers || 0) + (s?.totalTraders || 0));
 
-  // Generate chart data using live metrics as the final point
-  const chartData = [
-    { name: "T1", coffee: 45000, tokens: 90000 },
-    { name: "T2", coffee: 62000, tokens: 124000 },
-    { name: "T3", coffee: 78000, tokens: 156000 },
-    { name: "T4", coffee: 95000, tokens: 190000 },
-    { name: "T5", coffee: 110000, tokens: 220000 },
-    { name: "T6", coffee: Math.max(126, Number(val("totalBatchKg"))), tokens: Math.max(210, Number(val("totalTokens"))) },
+  // Token state breakdown — all values from real backend data
+  const tokenStateData = isLoading ? [] : [
+    { name: "Khả dụng",    value: numVal("tokenAvailable"),   color: "#0ecb81" },
+    { name: "Thế chấp",    value: numVal("tokenPledged"),     color: "#f0b90b" },
+    { name: "Chờ L/C",     value: numVal("tokenLcLocked"),    color: "#38bdf8" },
+    { name: "Chiết khấu",  value: numVal("tokenDiscounted"),  color: "#f77f00" },
+    { name: "Đã đốt",      value: numVal("tokenBurned"),      color: "#f6465d" },
   ];
 
   const thStyle = { textAlign: "left", padding: "10px 12px", color: C.muted, fontWeight: 600, fontSize: 11, borderBottom: "1px solid rgba(72,117,115,0.15)" };
@@ -270,34 +273,48 @@ export default function AdminHome() {
 
         {/* Top Consolidated Metrics Cards */}
         <div className="admin-metrics-grid">
-          <StatCard 
-            label="Thành viên hệ thống" 
-            value={totalUsers} 
-            sub={`${val("totalFarmers")} Farmer · ${val("totalTraders")} Trader`} 
-            accent="#e2e8f0" 
-            icon="👥" 
+          <StatCard
+            label="Thành viên hệ thống"
+            value={totalUsers}
+            sub={`${val("totalFarmers")} Farmer · ${val("totalTraders")} Trader`}
+            accent="#e2e8f0"
+            icon="👥"
           />
-          <StatCard 
-            label="Duyệt KYC (Chờ duyệt)" 
-            value={val("pendingKyc")} 
-            sub="Yêu cầu chờ xác thực" 
-            accent={s?.pendingKyc > 0 ? C.gold : "#e2e8f0"} 
-            icon="🛡️" 
+          <StatCard
+            label="Duyệt KYC (Chờ duyệt)"
+            value={val("pendingKyc")}
+            sub="Yêu cầu chờ xác thực"
+            accent={s?.pendingKyc > 0 ? C.gold : "#e2e8f0"}
+            icon="🛡️"
           />
-          <StatCard 
-            label="Khối lượng token hóa" 
-            value={formatKg(Number(val("totalBatchKg")))} 
-            sub="Tổng cà phê số hóa" 
-            accent="#e2e8f0" 
-            icon="☕" 
+          <StatCard
+            label="Khối lượng token hóa"
+            value={formatKg(Number(val("totalBatchKg")))}
+            sub="Tổng cà phê số hóa"
+            accent="#e2e8f0"
+            icon="☕"
           />
-          <StatCard 
-            label="CaRo đã phát hành" 
-            value={formatToken(Number(val("totalTokens")), "CaRo")} 
-            sub="Tổng cung lưu thông" 
-            accent={C.accent} 
-            icon="🪙" 
+          <StatCard
+            label="CaRo đã phát hành"
+            value={formatToken(Number(val("totalTokens")), "CaRo")}
+            sub="Tổng cung lưu thông"
+            accent={C.accent}
+            icon="🪙"
           />
+        </div>
+
+        {/* Token State Breakdown Cards */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
+          {[
+            { label: "Khả dụng",   key: "tokenAvailable",   color: C.green,  icon: "✅", sub: "AVAILABLE" },
+            { label: "Thế chấp",   key: "tokenPledged",     color: C.gold,   icon: "🔒", sub: "PLEDGED" },
+            { label: "Chờ L/C",    key: "tokenLcLocked",    color: "#38bdf8",icon: "📄", sub: "LC_LOCKED" },
+            { label: "Chiết khấu", key: "tokenDiscounted",  color: "#f77f00",icon: "🏦", sub: "DISCOUNTED" },
+            { label: "Đã đốt",     key: "tokenBurned",      color: C.red,    icon: "🔥", sub: "BURNED" },
+          ].map(({ label, key, color, icon, sub }) => (
+            <StatCard key={key} label={label} value={formatToken(numVal(key), "CaRo")}
+              sub={sub} accent={color} icon={icon} />
+          ))}
         </div>
 
         {/* Dashboard Grid (Main column, Sidebar column) */}
@@ -306,32 +323,44 @@ export default function AdminHome() {
           {/* Main Column (Left) */}
           <div className="admin-main-col">
             
-            {/* Recharts Area Chart */}
+            {/* Token State Bar Chart — all values from live backend data */}
             <div style={{ background: "#172524", borderRadius: 12, border: "1px solid rgba(72,117,115,0.15)", padding: "16px 20px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>📈 Biểu đồ tăng trưởng cà phê số hóa (kg)</h3>
-                <span style={{ fontSize: 11, color: C.accent, fontWeight: 500 }}>Live Update 🟢</span>
+                <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>📊 Phân bổ trạng thái token (CaRo)</h3>
+                <span style={{ fontSize: 11, color: C.accent, fontWeight: 500 }}>Dữ liệu thực · Tự động cập nhật 🟢</span>
               </div>
-              
-              <div style={{ height: 180, width: "100%", minWidth: 0 }}>
-                <ResponsiveContainer width="100%" height={180}>
-                  <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorCoffee" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={C.accent} stopOpacity={0.25}/>
-                        <stop offset="95%" stopColor={C.accent} stopOpacity={0.0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(72,117,115,0.08)" />
-                    <XAxis dataKey="name" stroke="#6b7a99" fontSize={10} tickLine={false} />
-                    <YAxis stroke="#6b7a99" fontSize={10} tickLine={false} />
-                    <Tooltip 
-                      contentStyle={{ background: "#172524", border: "1px solid rgba(72,117,115,0.25)", borderRadius: 8, fontSize: 12 }} 
-                      labelStyle={{ color: "#fff", fontWeight: 700 }}
-                    />
-                    <Area type="monotone" dataKey="coffee" name="Cà phê (kg)" stroke={C.accent} strokeWidth={2} fillOpacity={1} fill="url(#colorCoffee)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+
+              {isLoading ? (
+                <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: C.muted, fontSize: 12 }}>
+                  Đang tải...
+                </div>
+              ) : (
+                <div style={{ height: 160, width: "100%", minWidth: 0 }}>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <BarChart data={tokenStateData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
+                      barCategoryGap="30%">
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(72,117,115,0.08)" vertical={false} />
+                      <XAxis dataKey="name" stroke="#6b7a99" fontSize={10} tickLine={false} />
+                      <YAxis stroke="#6b7a99" fontSize={10} tickLine={false} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
+                      <Tooltip
+                        contentStyle={{ background: "#172524", border: "1px solid rgba(72,117,115,0.25)", borderRadius: 8, fontSize: 12 }}
+                        labelStyle={{ color: "#fff", fontWeight: 700 }}
+                        formatter={(v) => [`${Number(v).toLocaleString("vi-VN")} CaRo`, "Số lượng"]}
+                      />
+                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                        {tokenStateData.map((entry, i) => (
+                          <Cell key={i} fill={entry.color} fillOpacity={0.85} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* Total circulating footnote */}
+              <div style={{ marginTop: 8, fontSize: 11, color: C.muted, display: "flex", gap: 16, flexWrap: "wrap" }}>
+                <span>Lưu thông: <b style={{ color: "#e2e8f0" }}>{formatToken(numVal("tokenCirculating"), "CaRo")}</b></span>
+                <span>Tổng đã phát hành: <b style={{ color: C.accent }}>{formatToken(numVal("totalTokens"), "CaRo")}</b></span>
               </div>
             </div>
 

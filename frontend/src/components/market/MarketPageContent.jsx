@@ -161,7 +161,7 @@ function MultiLineChart({ dataMap }) {
                   fill={col} rx="2" opacity="0.9" />
             <text x={W - 3} y={lastY + 3} textAnchor="end" fill="#000"
                   fontSize="8" fontFamily="monospace" fontWeight="bold">
-              {last >= 0 ? "+" : ""}{last.toFixed(1)}%
+              {last >= 0 ? "+" : ""}{formatNumber(Math.abs(last), 1)}%
             </text>
           </g>
         );
@@ -169,7 +169,7 @@ function MultiLineChart({ dataMap }) {
       {yTicks.map((t, i) => (
         <text key={i} x={chartW - 3} y={t.y - 2} textAnchor="end"
               fill="#6b7a99" fontSize="8" fontFamily="monospace">
-          {t.pct >= 0 ? "+" : ""}{t.pct.toFixed(1)}%
+          {t.pct >= 0 ? "+" : ""}{formatNumber(Math.abs(t.pct), 1)}%
         </text>
       ))}
     </svg>
@@ -314,7 +314,7 @@ function StatsBar({ stats, token }) {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                 <span style={{ fontSize: 12, fontWeight: 800, color: TOKEN_COLORS[t] }}>{TOKEN_LABELS[t]}</span>
                 <span style={{ fontSize: 11, fontWeight: 700, color: chg >= 0 ? C.green : C.red }}>
-                  {chg >= 0 ? "▲" : "▼"}{Math.abs(chg).toFixed(2)}%
+                  {chg >= 0 ? "▲" : "▼"}{formatNumber(Math.abs(chg), 2)}%
                 </span>
               </div>
               <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", marginBottom: 6 }}>
@@ -345,7 +345,7 @@ function StatsBar({ stats, token }) {
       <div>
         <div style={{ fontSize: 11, color: C.muted, marginBottom: 2 }}>24H Change</div>
         <span style={{ fontSize: 14, fontWeight: 700, color: chg >= 0 ? C.green : C.red }}>
-          {chg >= 0 ? "▲" : "▼"} {Math.abs(chg).toFixed(2)}%
+          {chg >= 0 ? "▲" : "▼"} {formatNumber(Math.abs(chg), 2)}%
         </span>
       </div>
       {[

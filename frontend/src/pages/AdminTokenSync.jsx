@@ -66,7 +66,7 @@ export default function AdminTokenSync() {
 
   return (
     <DashboardLayout title="Đồng bộ Token On-Chain">
-      <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px' }}>
+      <div style={{ width: '100%', padding: '0 16px' }}>
 
         {/* Header */}
         <div style={{

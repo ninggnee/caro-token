@@ -5,12 +5,11 @@ import FarmerLayout from "../components/layout/FarmerLayout";
 import { useAuth } from "../context/AuthContext";
 import { useMyBatches } from "../hooks/useBatches";
 import axios from "../utils/axiosClient";
-import { formatNumber, formatKg, formatPct } from '../utils/formatters';
+import { formatNumber, formatKg, formatPct, formatVND } from '../utils/formatters';
+import { getMarketStats } from "../services/marketApi";
 
 const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#487573", muted: "#6b7a99" };
 
-// Returns DB balances + on-chain balances (when wallet registered + RPC live).
-// Backend tries on-chain with 5 s timeout; falls back to DB if unavailable.
 function useDashboard() {
   return useQuery({
     queryKey: ["farmer-dashboard"],
@@ -18,6 +17,26 @@ function useDashboard() {
     staleTime: 15_000,
     refetchInterval: 30_000,
     retry: 2,
+  });
+}
+
+function useMarketPrices() {
+  return useQuery({
+    queryKey: ["farmer-market-prices"],
+    queryFn: getMarketStats,
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+    retry: 1,
+  });
+}
+
+function useOpenOrders() {
+  return useQuery({
+    queryKey: ["farmer-open-orders"],
+    queryFn: () => axios.get("/orders/open").then(r => r.data),
+    staleTime: 15_000,
+    refetchInterval: 20_000,
+    retry: 1,
   });
 }
 
@@ -154,15 +173,16 @@ export default function FarmerDashboard() {
   const nav = useNavigate();
   const { user } = useAuth();
 
-  // Single aggregated dashboard call (DB-sourced, auto-refreshes every 30 s)
   const dashQ   = useDashboard();
-  // Recent batch list still needs its own paginated query
   const recentQ = useMyBatches({ limit: 8 });
+  const priceQ  = useMarketPrices();
+  const ordersQ = useOpenOrders();
 
   const tokenBals    = dashQ.data?.tokenBalances   || {};
-  const onChainBals  = dashQ.data?.onChainBalances;   // null when no wallet / RPC down
-  const dataSource   = dashQ.data?.dataSource || 'db'; // 'on-chain' | 'db'
+  const onChainBals  = dashQ.data?.onChainBalances;
+  const dataSource   = dashQ.data?.dataSource || 'db';
   const batchStats   = dashQ.data?.batchStats || {};
+  const vndWallet    = dashQ.data?.vndWallet  || {};
 
   const pending  = batchStats.PENDING_MINT_APPROVAL ?? 0;
   const minted   = batchStats.MINTED               ?? 0;
@@ -170,6 +190,29 @@ export default function FarmerDashboard() {
   const recent   = recentQ.data?.batches            || [];
 
   const isLoading = dashQ.isLoading;
+
+  // VND wallet
+  const vndAvailable = Number(vndWallet.available ?? vndWallet.balance ?? 0);
+
+  // Token quantities (on-chain preferred, DB fallback)
+  const useOnChainBase = dataSource === 'on-chain' && onChainBals;
+  const caro1 = useOnChainBase ? Number(onChainBals.caro1 ?? 0) : Number(tokenBals.caro1 ?? 0);
+  const caro2 = useOnChainBase ? Number(onChainBals.caro2 ?? 0) : Number(tokenBals.caro2 ?? 0);
+  const caro3 = useOnChainBase ? Number(onChainBals.caro3 ?? 0) : Number(tokenBals.caro3 ?? 0);
+
+  // Market prices (map token key to last_price)
+  const priceStats = priceQ.data?.stats || [];
+  const priceOf = (key) => Number(priceStats.find(s => s.token === key)?.last_price || 0);
+  const tokenValue = caro1 * priceOf('CR1') + caro2 * priceOf('CR2') + caro3 * priceOf('CR3');
+  const totalAssets = vndAvailable + tokenValue;
+
+  // Open orders breakdown
+  const openOrders   = ordersQ.data?.data || [];
+  const openCount    = openOrders.length;
+  const buyCount     = openOrders.filter(o => o.side === 'buy').length;
+  const sellCount    = openOrders.filter(o => o.side === 'sell').length;
+  const lockedVND    = openOrders.filter(o => o.side === 'buy').reduce((s, o) => s + Number(o.remaining ?? o.amount) * Number(o.price), 0);
+  const lockedTokens = openOrders.filter(o => o.side === 'sell').reduce((s, o) => s + Number(o.remaining ?? o.amount), 0);
 
   const gridStyles = `
     .farmer-grid-3 {
@@ -233,43 +276,57 @@ export default function FarmerDashboard() {
           </div>
         </div>
 
-        {/* Token balance cards — primary source: on-chain (new contracts).
-            Falls back to DB exchange balance when wallet not registered or RPC unavailable. */}
-        {(() => {
-          const useOnChain = dataSource === 'on-chain' && onChainBals;
+        {/* Token balance cards */}
+        <div className="farmer-grid-3">
+          <StatCard label="CaRo1 (Hạng A)" value={isLoading ? "…" : formatNumber(caro1)} sub="CR1 · Robusta Cao cấp"      accent={C.green}  icon="🥇" />
+          <StatCard label="CaRo2 (Hạng B)" value={isLoading ? "…" : formatNumber(caro2)} sub="CR2 · Robusta Tiêu chuẩn"   accent={C.accent} icon="🥈" />
+          <StatCard label="CaRo3 (Hạng C)" value={isLoading ? "…" : formatNumber(caro3)} sub="CR3 · Robusta Phổ thông"    accent={C.gold}   icon="🥉" />
+        </div>
 
-          const val = (key, cr) => {
-            if (isLoading) return "…";
-            const n = useOnChain ? (onChainBals[key] ?? 0) : Number(tokenBals[key] || 0);
-            return formatNumber(n);
-          };
-
-          return (
-            <div className="farmer-grid-3">
-              <StatCard
-                label="CaRo1 (Hạng A)"
-                value={val("caro1", "CR1")}
-                sub="CR1 · Robusta Cao cấp"
-                accent={C.green}
-                icon="🥇"
-              />
-              <StatCard
-                label="CaRo2 (Hạng B)"
-                value={val("caro2", "CR2")}
-                sub="CR2 · Robusta Tiêu chuẩn"
-                accent={C.accent}
-                icon="🥈"
-              />
-              <StatCard
-                label="CaRo3 (Hạng C)"
-                value={val("caro3", "CR3")}
-                sub="CR3 · Robusta Phổ thông"
-                accent={C.gold}
-                icon="🥉"
-              />
+        {/* VND + Value stat cards */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+          <StatCard
+            label="Số dư VND"
+            value={isLoading ? "…" : formatVND(vndAvailable)}
+            sub="Khả dụng trong ví"
+            accent={C.green}
+            icon="💵"
+          />
+          <StatCard
+            label="Giá trị Token"
+            value={isLoading || priceQ.isLoading ? "…" : (tokenValue > 0 ? formatVND(tokenValue) : "0 VND")}
+            sub="CaRo1 + CaRo2 + CaRo3"
+            accent={C.gold}
+            icon="🪙"
+          />
+          <StatCard
+            label="Tổng tài sản"
+            value={isLoading || priceQ.isLoading ? "…" : (totalAssets > 0 ? formatVND(totalAssets) : "0 VND")}
+            sub="VND + Token Assets"
+            accent="#e2e8f0"
+            icon="📊"
+          />
+          {/* Open orders — inline card for extra detail */}
+          <div style={{ background: "#172524", borderRadius: 10, padding: "18px 20px", border: "1px solid rgba(72,117,115,0.15)", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div style={{ fontSize: 12, color: C.muted, fontWeight: 500 }}>Lệnh đang mở</div>
+              <div style={{ fontSize: 18 }}>📈</div>
             </div>
-          );
-        })()}
+            <div style={{ fontSize: 22, fontWeight: 700, color: "#9b87f5", lineHeight: 1.2 }}>{openCount} lệnh</div>
+            <div style={{ fontSize: 11, color: "#6b7a99" }}>{buyCount} mua · {sellCount} bán</div>
+            {lockedVND > 0 && (
+              <div style={{ fontSize: 11, color: C.muted }}>
+                Khoá VND: <span style={{ color: "#e2e8f0", fontWeight: 600 }}>{formatVND(lockedVND)}</span>
+              </div>
+            )}
+            {lockedTokens > 0 && (
+              <div style={{ fontSize: 11, color: C.muted }}>
+                Khoá Token: <span style={{ color: "#e2e8f0", fontWeight: 600 }}>{formatNumber(lockedTokens, 4)} CaRo</span>
+              </div>
+            )}
+            {openCount === 0 && <div style={{ fontSize: 11, color: "#6b7a99" }}>Chờ khớp lệnh</div>}
+          </div>
+        </div>
 
         {/* Error banner when dashboard fails */}
         {dashQ.isError && (

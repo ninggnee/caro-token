@@ -191,7 +191,7 @@ export default function SupplementDocuments() {
   // ── Main form ───────────────────────────────────────────────────────────────
   return (
     <FarmerLayout title="Bổ sung giấy tờ">
-      <div style={{ maxWidth: 640, display: "grid", gap: 20 }}>
+      <div style={{ width: "100%", display: "grid", gap: 20 }}>
 
         {/* Batch info card */}
         <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "16px 20px" }}>

@@ -34,7 +34,12 @@ const I = {
 const MENU = [
   { id: "dash",   label: "Trang chủ",               icon: "home",   path: "/farmer/dashboard"        },
   { id: "status", label: "Trạng thái lô hàng",       icon: "box",    path: "/farmer/status"           },
-  { id: "wallet", label: "Ví tài khoản",            icon: "wallet", path: "/farmer/wallet"           },
+  { id: "wallet", label: "Ví tài khoản",            icon: "wallet",
+    children: [
+      { label: "Tổng quan", path: "/farmer/wallet"            },
+      { label: "Tài chính", path: "/farmer/wallet/financing"  },
+    ]
+  },
   { id: "market", label: "Thị trường",              icon: "shop",
     children: [
       { label: "Tổng quan", path: "/farmer/market/overview" },
@@ -76,10 +81,14 @@ export default function FarmerLayout({ children, title = "Farmer Portal" }) {
     }
   };
 
-  const isLeafActive = (path) =>
-    path === "/farmer/status"
-      ? loc.pathname === "/farmer/status" || loc.pathname.startsWith("/farmer/status/")
-      : loc.pathname === path || loc.pathname.startsWith(path + "/");
+  const isLeafActive = (path) => {
+    if (path === "/farmer/status")
+      return loc.pathname === "/farmer/status" || loc.pathname.startsWith("/farmer/status/");
+    if (path === "/farmer/wallet")
+      return loc.pathname === "/farmer/wallet" ||
+             (loc.pathname.startsWith("/farmer/wallet/") && !loc.pathname.startsWith("/farmer/wallet/financing"));
+    return loc.pathname === path || loc.pathname.startsWith(path + "/");
+  };
 
   const isParentActive = (m) => m.children?.some(c => isLeafActive(c.path));
 

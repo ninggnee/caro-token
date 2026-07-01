@@ -167,7 +167,7 @@ export default function SubmitBatchPage() {
 
   return (
     <FarmerLayout title="Gửi lô hàng mới">
-      <div style={{ maxWidth: 760, margin: "0 auto" }}>
+      <div style={{ width: "100%" }}>
 
         {/* Header */}
         <div style={{ marginBottom: 24 }}>

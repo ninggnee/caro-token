@@ -32,11 +32,16 @@ const I = {
 const MARKET_SUB = [
   { id: "overview",  label: "Tổng quan",     path: "/trader/market/overview"  },
   { id: "trading",   label: "Giao dịch",     path: "/trader/market/trading"   },
-  { id: "financing", label: "Tài chính",     path: "/trader/market/financing" },
   { id: "redeem",    label: "Đổi hàng hóa", path: "/trader/market/redeem"    },
 ];
 
+const WALLET_SUB = [
+  { id: "wallet-overview", label: "Tổng quan",  path: "/trader/wallet"           },
+  { id: "financing",       label: "Tài chính",  path: "/trader/wallet/financing" },
+];
+
 const MARKET_PATHS = MARKET_SUB.map(s => s.path);
+const WALLET_PATHS = WALLET_SUB.map(s => s.path);
 
 const TOP_MENU = [
   { id: "dash", label: "Dashboard", icon: "home", path: "/trader" },
@@ -44,7 +49,6 @@ const TOP_MENU = [
 
 const BOTTOM_MENU = [
   { id: "portfolio", label: "Danh mục đầu tư",   icon: "bar",    path: "/trader/portfolio" },
-  { id: "wallet",    label: "Ví tài khoản",       icon: "wallet", path: "/trader/wallet"    },
   { id: "history",   label: "Lịch sử giao dịch", icon: "list",   path: "/trader/trades"    },
   { id: "profile",   label: "Hồ sơ cá nhân",     icon: "user",   path: "/trader/profile"   },
 ];
@@ -56,11 +60,17 @@ export default function TraderLayout({ children, title = "Trader Portal" }) {
   const nav = useNavigate();
 
   const isOnMarket = MARKET_PATHS.some(p => loc.pathname === p || loc.pathname.startsWith(p + "/"));
+  const isOnWallet = WALLET_PATHS.some(p => loc.pathname === p || loc.pathname.startsWith(p + "/"));
   const [marketOpen, setMarketOpen] = useState(false);
+  const [walletOpen, setWalletOpen] = useState(false);
 
   useEffect(() => {
     if (isOnMarket) setMarketOpen(true);
   }, [isOnMarket]);
+
+  useEffect(() => {
+    if (isOnWallet) setWalletOpen(true);
+  }, [isOnWallet]);
 
   const isActive = (path) =>
     path === "/trader"
@@ -159,6 +169,50 @@ export default function TraderLayout({ children, title = "Trader Portal" }) {
             {marketOpen && (
               <div style={{ borderBottom: "1px solid rgba(72,117,115,0.08)" }}>
                 {MARKET_SUB.map(s => {
+                  const act = isActive(s.path);
+                  return (
+                    <Link key={s.id} to={s.path} style={subLinkStyle(act)}
+                      onMouseEnter={e => { if (!act) { e.currentTarget.style.color = "#c0ccd8"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; } }}
+                      onMouseLeave={e => { if (!act) { e.currentTarget.style.color = "#7a8898"; e.currentTarget.style.background = "transparent"; } }}
+                    >
+                      <span style={{ width: 4, height: 4, borderRadius: "50%", background: act ? "#7fe0c9" : "#4a5568", flexShrink: 0 }} />
+                      {s.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Wallet group */}
+          <div>
+            <button
+              onClick={() => setWalletOpen(o => !o)}
+              style={{
+                display: "flex", alignItems: "center", gap: 9,
+                padding: "9px 16px", width: "100%", textAlign: "left",
+                background: isOnWallet && !walletOpen ? ABG : "transparent",
+                border: "none",
+                borderLeft: isOnWallet ? `2px solid ${A}` : "2px solid transparent",
+                color: isOnWallet ? "#7fe0c9" : "#9aa5b4",
+                fontSize: 13, fontWeight: isOnWallet ? 600 : 400,
+                cursor: "pointer",
+                transition: "background 0.15s, color 0.15s",
+                boxSizing: "border-box",
+              }}
+              onMouseEnter={e => { if (!isOnWallet) { e.currentTarget.style.color = "#c0ccd8"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; } }}
+              onMouseLeave={e => { if (!isOnWallet) { e.currentTarget.style.color = "#9aa5b4"; e.currentTarget.style.background = "transparent"; } }}
+            >
+              <Ico d={I.wallet} />
+              <span style={{ flex: 1 }}>Ví tài khoản</span>
+              <span style={{ fontSize: 10, transition: "transform 0.2s", display: "block", transform: walletOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
+                <Ico d={I.chevron} size={12} />
+              </span>
+            </button>
+
+            {walletOpen && (
+              <div style={{ borderBottom: "1px solid rgba(72,117,115,0.08)" }}>
+                {WALLET_SUB.map(s => {
                   const act = isActive(s.path);
                   return (
                     <Link key={s.id} to={s.path} style={subLinkStyle(act)}

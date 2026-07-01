@@ -103,11 +103,10 @@ export default function TraderRedeemGoods() {
   const qc = useQueryClient();
 
   const [activeTab, setActiveTab]       = useState('create');
-  const [step, setStep]                 = useState(1);      // 1 = select token+batch+qty, 2 = L/C form
+  const [step, setStep]                 = useState(1);      // 1 = select token+qty, 2 = L/C form
 
   // Step 1
   const [selToken, setSelToken]         = useState('CR1');
-  const [selBatch, setSelBatch]         = useState('');
   const [qty, setQty]                   = useState('');
 
   // Step 2 — L/C form
@@ -119,11 +118,11 @@ export default function TraderRedeemGoods() {
     receiving_company: '',
     bank_name: '',
     lc_value: '',
+    transportation_cost: '',
     shipping_method: SHIPPING_METHODS[0],
     notes: '',
   });
 
-  const [batches,    setBatches]        = useState([]);
   const [history,    setHistory]        = useState([]);
   const [submitting, setSubmitting]     = useState(false);
   const [msg, setMsg]                   = useState(null);
@@ -135,11 +134,7 @@ export default function TraderRedeemGoods() {
   const stats     = pricesData?.stats || [];
 
   const load = useCallback(async () => {
-    const [bt, hist] = await Promise.all([
-      apiFetch('/asset-batches/available'),
-      apiFetch('/redeem'),
-    ]);
-    if (bt.success)   setBatches(bt.data || []);
+    const hist = await apiFetch('/redeem');
     if (hist.success) setHistory(hist.data || []);
   }, []);
 
@@ -149,11 +144,6 @@ export default function TraderRedeemGoods() {
   const price   = getPriceOf(stats, selToken);
   const qtyN    = Math.min(parseFloat(qty) || 0, avail);
   const value   = qtyN * price;
-
-  const tokenBatches = batches.filter(b => {
-    const grade = b.quality_grade || 'CR1';
-    return grade === selToken;
-  });
 
   const setLcField = (field, val) => setLc(prev => ({ ...prev, [field]: val }));
 
@@ -170,28 +160,30 @@ export default function TraderRedeemGoods() {
     }
     setSubmitting(true); setMsg(null);
     try {
+      const transportN   = Number(lc.transportation_cost) || 0;
+      const totalLcValue = value + transportN;
       const d = await apiFetch('/redeem', {
         method: 'POST',
         body: JSON.stringify({
           kg_amount: qtyN,
           token_type: selToken,
-          batch_id: selBatch || undefined,
           lc_warehouse_location: lc.warehouse_location,
           lc_receiving_date: lc.receiving_date,
           lc_pickup_location: lc.pickup_location,
           lc_destination_port: lc.destination_port,
           lc_receiving_company: lc.receiving_company,
           lc_bank_name: lc.bank_name,
-          lc_value: Number(lc.lc_value) || undefined,
+          lc_value: totalLcValue || undefined,
+          lc_transportation_cost: transportN || undefined,
           lc_shipping_method: lc.shipping_method,
           lc_notes: lc.notes,
         }),
       });
       if (d.success) {
         setMsg({ ok: true, text: `Tạo yêu cầu đổi hàng thành công (ID: #${d.id}). Đơn L/C đang chờ Admin xét duyệt.` });
-        setQty(''); setSelBatch('');
+        setQty('');
         setLc({ warehouse_location: '', receiving_date: '', pickup_location: '', destination_port: '',
-          receiving_company: '', bank_name: '', lc_value: '', shipping_method: SHIPPING_METHODS[0], notes: '' });
+          receiving_company: '', bank_name: '', lc_value: '', transportation_cost: '', shipping_method: SHIPPING_METHODS[0], notes: '' });
         setStep(1);
         qc.invalidateQueries({ queryKey: TRADER_KEYS.tokens });
         load();
@@ -225,7 +217,7 @@ export default function TraderRedeemGoods() {
             const sel = selToken === tk && activeTab === 'create';
             return (
               <div key={tk}
-                onClick={() => { setSelToken(tk); setSelBatch(''); setQty(''); setMsg(null); setStep(1); }}
+                onClick={() => { setSelToken(tk); setQty(''); setMsg(null); setStep(1); }}
                 style={{ background: C.card, border: `1.5px solid ${sel ? TOKEN_COLORS[tk] : C.border}`,
                   borderRadius: 8, padding: '14px 16px', cursor: 'pointer',
                   background: sel ? `${TOKEN_COLORS[tk]}0a` : C.card, transition: 'all 0.15s' }}>
@@ -264,74 +256,15 @@ export default function TraderRedeemGoods() {
 
         {/* ══════════════════ TAB: TẠO YÊU CẦU ══════════════════ */}
         {activeTab === 'create' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 16, alignItems: 'start' }}>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
 
-            {/* LEFT: Available warehouse batches */}
-            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, fontWeight: 700 }}>
-                Lô hàng khả dụng trong kho
-                <span style={{ fontSize: 11, color: C.muted, fontWeight: 400, marginLeft: 8 }}>
-                  ({batches.length} lô · lọc theo {TOKEN_LABELS[selToken]}: {tokenBatches.length})
-                </span>
-              </div>
-              <div style={{ overflowX: 'auto' }}>
-                {batches.length === 0 ? (
-                  <div style={{ padding: '32px 16px', textAlign: 'center', color: C.muted }}>Chưa có lô hàng nào trong kho</div>
-                ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                    <thead>
-                      <tr>
-                        {['Mã lô', 'Token', 'Kho/Địa điểm', 'Tồn kho', 'Giá trị', 'Ngày nhập'].map(h => (
-                          <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>{h}</th>
-                        ))}
-                        <th style={{ padding: '8px 12px' }} />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {batches.map((b, i) => {
-                        const grade  = b.quality_grade || 'CR1';
-                        const bPrice = getPriceOf(stats, grade);
-                        const bQty   = Number(b.minted_amount || b.quantity || 0);
-                        const isSel  = selBatch === b.batch_id;
-                        return (
-                          <tr key={i} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)`, background: isSel ? 'rgba(72,117,115,0.08)' : 'transparent' }}>
-                            <td style={{ padding: '10px 12px', fontFamily: 'monospace', color: C.accent, fontWeight: 600 }}>{b.batch_id}</td>
-                            <td style={{ padding: '10px 12px' }}>
-                              <span style={{ color: TOKEN_COLORS[grade], fontWeight: 700 }}>{TOKEN_LABELS[grade] || grade}</span>
-                            </td>
-                            <td style={{ padding: '10px 12px', color: C.muted }}>{b.storage_location || '—'}</td>
-                            <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontWeight: 600 }}>{formatKg(bQty)}</td>
-                            <td style={{ padding: '10px 12px', fontFamily: 'monospace', color: C.yellow }}>
-                              {bPrice > 0 ? formatVND(bQty * bPrice) : '—'}
-                            </td>
-                            <td style={{ padding: '10px 12px', color: C.muted, fontSize: 11 }}>
-                              {b.minted_at ? new Date(b.minted_at).toLocaleDateString('vi-VN') : '—'}
-                            </td>
-                            <td style={{ padding: '10px 12px' }}>
-                              <button onClick={() => { setSelToken(grade); setSelBatch(b.batch_id); setMsg(null); setStep(1); }}
-                                style={{ padding: '3px 10px', borderRadius: 4, cursor: 'pointer', fontSize: 11,
-                                  background: isSel ? 'rgba(72,117,115,0.2)' : 'rgba(255,255,255,0.05)',
-                                  color: isSel ? C.teal : C.muted,
-                                  border: `1px solid ${isSel ? C.accent : C.border}` }}>
-                                {isSel ? '✓ Đã chọn' : 'Chọn'}
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
-
-            {/* RIGHT: Form */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Form */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
 
               {/* Step indicator */}
               <div style={{ display: 'flex', gap: 0, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
                 {[
-                  { n: 1, label: 'Chọn lô & số lượng' },
+                  { n: 1, label: 'Chọn token & số lượng' },
                   { n: 2, label: 'Đơn L/C' },
                 ].map(s => (
                   <div key={s.n} style={{
@@ -347,7 +280,7 @@ export default function TraderRedeemGoods() {
                 ))}
               </div>
 
-              {/* ─── STEP 1: Token + batch + qty ─── */}
+              {/* ─── STEP 1: Token + qty ─── */}
               {step === 1 && (
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 16 }}>
                   <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>Chọn token & số lượng</div>
@@ -355,7 +288,7 @@ export default function TraderRedeemGoods() {
                   <SectionLabel>LOẠI TOKEN</SectionLabel>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 14 }}>
                     {TOKENS.map(t => (
-                      <button key={t} onClick={() => { setSelToken(t); setSelBatch(''); setMsg(null); }} style={{
+                      <button key={t} onClick={() => { setSelToken(t); setMsg(null); }} style={{
                         padding: '7px 0', borderRadius: 6, border: `1px solid ${selToken === t ? TOKEN_COLORS[t] : C.border}`,
                         background: selToken === t ? `${TOKEN_COLORS[t]}18` : 'transparent',
                         color: selToken === t ? TOKEN_COLORS[t] : C.muted,
@@ -363,19 +296,6 @@ export default function TraderRedeemGoods() {
                       }}>{TOKEN_LABELS[t]}</button>
                     ))}
                   </div>
-
-                  <SectionLabel>MÃ LÔ (tùy chọn)</SectionLabel>
-                  <select
-                    value={selBatch}
-                    onChange={e => setSelBatch(e.target.value)}
-                    style={{ ...inputStyle(), marginBottom: 14 }}>
-                    <option value="">— Chọn lô cụ thể (không bắt buộc) —</option>
-                    {tokenBatches.map(b => (
-                      <option key={b.batch_id} value={b.batch_id}>
-                        {b.batch_id} · {formatKg(b.minted_amount || b.quantity)} · {b.storage_location || 'N/A'}
-                      </option>
-                    ))}
-                  </select>
 
                   <SectionLabel>SỐ LƯỢNG ĐỔI (kg)</SectionLabel>
                   <input
@@ -398,12 +318,6 @@ export default function TraderRedeemGoods() {
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span style={{ color: C.muted }}>Giá trị ước tính</span>
                           <span style={{ fontWeight: 700, fontFamily: 'monospace', color: C.yellow }}>{formatVND(value)}</span>
-                        </div>
-                      )}
-                      {selBatch && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-                          <span style={{ color: C.muted }}>Lô hàng</span>
-                          <span style={{ fontWeight: 700, fontFamily: 'monospace', color: C.teal }}>{selBatch}</span>
                         </div>
                       )}
                     </div>
@@ -442,32 +356,51 @@ export default function TraderRedeemGoods() {
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 16 }}>
                   <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Đơn yêu cầu L/C</div>
                   <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>
-                    {TOKEN_LABELS[selToken]} · {selBatch || 'Tất cả lô khả dụng'} · {formatKg(qtyN)}
+                    {TOKEN_LABELS[selToken]} · {formatKg(qtyN)}
                   </div>
 
                   {/* Summary row */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14, padding: '10px 12px', background: 'rgba(72,117,115,0.08)', borderRadius: 6 }}>
-                    <div>
-                      <div style={{ fontSize: 10, color: C.muted }}>Loại token</div>
-                      <div style={{ fontWeight: 700, color: TOKEN_COLORS[selToken] }}>{TOKEN_LABELS[selToken]}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10, color: C.muted }}>Số lượng</div>
-                      <div style={{ fontWeight: 700 }}>{formatKg(qtyN)}</div>
-                    </div>
-                    {price > 0 && (
-                      <>
-                        <div>
-                          <div style={{ fontSize: 10, color: C.muted }}>Giá thị trường</div>
-                          <div style={{ fontWeight: 700, color: C.yellow }}>{formatVND(price)}/kg</div>
+                  {(() => {
+                    const transportN   = Number(lc.transportation_cost) || 0;
+                    const totalLcValue = value + transportN;
+                    return (
+                      <div style={{ marginBottom: 14, padding: '12px 14px', background: 'rgba(72,117,115,0.08)', borderRadius: 6 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: price > 0 ? 10 : 0 }}>
+                          <div>
+                            <div style={{ fontSize: 10, color: C.muted }}>Loại token</div>
+                            <div style={{ fontWeight: 700, color: TOKEN_COLORS[selToken] }}>{TOKEN_LABELS[selToken]}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, color: C.muted }}>Số lượng</div>
+                            <div style={{ fontWeight: 700 }}>{formatKg(qtyN)}</div>
+                          </div>
+                          {price > 0 && (
+                            <div>
+                              <div style={{ fontSize: 10, color: C.muted }}>Giá thị trường</div>
+                              <div style={{ fontWeight: 700, color: C.yellow }}>{formatVND(price)}/kg</div>
+                            </div>
+                          )}
                         </div>
-                        <div>
-                          <div style={{ fontSize: 10, color: C.muted }}>Tổng giá trị</div>
-                          <div style={{ fontWeight: 700, color: C.yellow }}>{formatVND(value)}</div>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                        {price > 0 && (
+                          <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 10, display: 'grid', gap: 5 }}>
+                            {[
+                              { label: 'Giá trị hàng hóa (Value)', val: formatVND(value), color: C.yellow },
+                              { label: 'Chi phí vận chuyển (Transportation Cost)', val: transportN > 0 ? `+ ${formatVND(transportN)}` : '+ 0 VND', color: C.muted },
+                            ].map(r => (
+                              <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                                <span style={{ color: C.muted }}>{r.label}</span>
+                                <span style={{ fontWeight: 600, color: r.color }}>{r.val}</span>
+                              </div>
+                            ))}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: 2 }}>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: C.teal }}>Tổng giá trị L/C</span>
+                              <span style={{ fontSize: 15, fontWeight: 800, color: C.teal, fontFamily: 'monospace' }}>{formatVND(totalLcValue)}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   <div style={{ display: 'grid', gap: 10 }}>
                     {/* Row: warehouse + receiving date */}
@@ -512,12 +445,18 @@ export default function TraderRedeemGoods() {
                       </div>
                     </div>
 
-                    {/* Row: LC value + shipping method */}
+                    {/* Row: transportation cost + shipping method */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                       <div>
-                        <SectionLabel>GIÁ TRỊ L/C (VND)</SectionLabel>
-                        <input type="number" value={lc.lc_value} onChange={e => setLcField('lc_value', e.target.value)}
-                          placeholder={value > 0 ? String(value) : '0'} style={inputStyle()} />
+                        <SectionLabel>CHI PHÍ VẬN CHUYỂN (VND)</SectionLabel>
+                        <input type="number" value={lc.transportation_cost}
+                          onChange={e => setLcField('transportation_cost', e.target.value)}
+                          placeholder="0" min="0" style={inputStyle()} />
+                        {lc.transportation_cost && Number(lc.transportation_cost) > 0 && (
+                          <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>
+                            = {formatVND(Number(lc.transportation_cost))}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <SectionLabel>PHƯƠNG THỨC VẬN CHUYỂN</SectionLabel>
@@ -593,7 +532,7 @@ export default function TraderRedeemGoods() {
                     {/* Summary row */}
                     <div
                       onClick={() => setExpandedPO(isExp ? null : r.id)}
-                      style={{ display: 'grid', gridTemplateColumns: '60px 80px 80px 1fr 140px 140px 28px',
+                      style={{ display: 'grid', gridTemplateColumns: '60px 100px 100px 140px 140px 28px',
                         gap: 0, padding: '12px 16px', cursor: 'pointer', alignItems: 'center',
                         background: isExp ? 'rgba(72,117,115,0.08)' : 'transparent', userSelect: 'none' }}>
                       <span style={{ fontSize: 11, color: C.muted, fontFamily: 'monospace' }}>#{r.id}</span>
@@ -601,9 +540,6 @@ export default function TraderRedeemGoods() {
                         {TOKEN_LABELS[r.token_type] || r.token_type || '—'}
                       </span>
                       <span style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: 12 }}>{formatKg(r.kg_amount)}</span>
-                      <span style={{ fontSize: 11, color: C.muted, fontFamily: 'monospace' }}>
-                        {r.batch_id || r.lc_batch_id || '—'}
-                      </span>
                       <div style={{ display: 'flex', justifyContent: 'center' }}>
                         <StatusBadge statusMap={LC_STATUS} value={lcStat} />
                       </div>
@@ -615,10 +551,10 @@ export default function TraderRedeemGoods() {
 
                     {/* Column headers (only first row) */}
                     {idx === 0 && !isExp && (
-                      <div style={{ display: 'grid', gridTemplateColumns: '60px 80px 80px 1fr 140px 140px 28px',
+                      <div style={{ display: 'grid', gridTemplateColumns: '60px 100px 100px 140px 140px 28px',
                         gap: 0, padding: '4px 16px 2px', background: 'rgba(255,255,255,0.02)',
                         borderTop: `1px solid ${C.border}` }}>
-                        {['#ID', 'Token', 'SL', 'Lô hàng', 'Trạng thái L/C', 'Trạng thái kho', ''].map((h, i) => (
+                        {['#ID', 'Token', 'SL', 'Trạng thái L/C', 'Trạng thái kho', ''].map((h, i) => (
                           <span key={i} style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: 'uppercase' }}>{h}</span>
                         ))}
                       </div>

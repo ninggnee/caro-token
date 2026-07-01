@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import { useMyBatches } from "../hooks/useBatches";
-import { getMyDeposits, getMyWithdraws } from "../services/walletApi";
+import { getMyWithdraws } from "../services/walletApi";
+import axios from "../utils/axiosClient";
 import { formatNumber } from '../utils/formatters';
 
 const C = { accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#7fe0c9" };
@@ -80,10 +81,14 @@ export default function FarmerTxHistory() {
   const [filter, setFilter] = useState("All");
 
   const { data: mintData, isLoading: mintLoading } = useMyBatches({ status: "MINTED", limit: 50 });
-  const { data: depData,  isLoading: depLoading  } = useQuery({ queryKey: ["my-deposits"],  queryFn: getMyDeposits  });
+  const { data: txData,   isLoading: txLoading   } = useQuery({
+    queryKey: ["wallet-transactions"],
+    queryFn: () => axios.get("/wallet/transactions?limit=100").then(r => r.data),
+    staleTime: 15_000,
+  });
   const { data: wdData,   isLoading: wdLoading   } = useQuery({ queryKey: ["my-withdraws"], queryFn: getMyWithdraws });
 
-  const isLoading = mintLoading || depLoading || wdLoading;
+  const isLoading = mintLoading || txLoading || wdLoading;
 
   const mintTxs = (mintData?.batches || [])
     .filter(b => b.minted_amount)
@@ -98,15 +103,28 @@ export default function FarmerTxHistory() {
       _ts:    new Date(b.minted_at || b.created_at).getTime(),
     }));
 
-  const depTxs = (depData?.data || []).map(d => ({
-    type:   "Deposit",
-    title:  `Nạp tiền VND`,
-    amount: formatNumber(Number(d.amount)),
-    token:  "VND",
-    date:   new Date(d.created_at).toLocaleString("vi-VN"),
-    status: d.status === "approved" ? "approved" : d.status === "rejected" ? "rejected" : "pending",
-    _ts:    new Date(d.created_at).getTime(),
-  }));
+  // Simulate-deposit records come from /wallet/transactions (type === 'deposit')
+  const PAYMENT_LABELS = {
+    vietqr: 'VietQR', bank_transfer: 'Chuyển khoản', vnpay: 'VNPay',
+    momo: 'MoMo', zalopay: 'ZaloPay', atm_card: 'Thẻ ATM',
+  };
+  const allWalletTxs = txData?.data || txData?.transactions || [];
+  const depTxs = allWalletTxs
+    .filter(t => t.type === 'deposit')
+    .map(d => {
+      const method = PAYMENT_LABELS[d.payment_method] || d.payment_method || '';
+      return {
+        type:   "Deposit",
+        title:  d.transaction_code
+          ? `${d.transaction_code}${method ? ' · ' + method : ''}`
+          : `Nạp tiền VND${method ? ' · ' + method : ''}`,
+        amount: formatNumber(Number(d.amount)),
+        token:  "VND",
+        date:   new Date(d.created_at).toLocaleString("vi-VN"),
+        status: ["approved", "success", "completed"].includes(d.status) ? "approved" : d.status === "rejected" ? "rejected" : "pending",
+        _ts:    new Date(d.created_at).getTime(),
+      };
+    });
 
   const wdTxs = (wdData?.data || []).map(w => ({
     type:   "Withdraw",
@@ -182,8 +200,7 @@ export default function FarmerTxHistory() {
         </div>
 
         <div style={{ padding: "10px 16px", background: "rgba(72,117,115,0.05)", border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.muted, lineHeight: 1.7 }}>
-          📋 Hiển thị tất cả Mint (từ lô hàng đã duyệt), Nạp tiền và Rút tiền của tài khoản bạn.
-          Giao dịch Nạp/Rút đang chờ duyệt sẽ được cập nhật khi admin xử lý.
+          📋 Hiển thị tất cả Mint (từ lô hàng đã duyệt), Nạp tiền VND mô phỏng và Rút tiền của tài khoản bạn.
         </div>
 
       </div>

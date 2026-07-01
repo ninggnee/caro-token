@@ -629,22 +629,18 @@ export default function TraderFinancing() {
 
   return (
     <TraderLayout title="Tài chính — Finance">
-      <div style={{ maxWidth: 1040, color: C.text, fontSize: 13 }}>
+      <div style={{ width: "100%", color: C.text, fontSize: 13 }}>
 
         {/* Header */}
         <div style={{ marginBottom: 20 }}>
-          <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700 }}>Dịch vụ tài chính</h2>
-          <p style={{ margin: 0, color: C.muted, fontSize: 13 }}>
-            Hai sản phẩm hoàn toàn độc lập: vay có bảo đảm giữ quyền sở hữu (Collateral Loan)
-            hoặc bán chiết khấu vĩnh viễn nhận tiền ngay (Token Discounting).
-          </p>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Dịch vụ tài chính</h2>
         </div>
 
         {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, marginBottom: 24 }}>
           {[
-            { key: 'collateral', label: 'Vay thế chấp', sub: 'Collateral Loan — giữ quyền sở hữu', color: C.green },
-            { key: 'discounting', label: 'Chiết khấu Token', sub: 'Token Discounting — bán vĩnh viễn', color: C.red },
+            { key: 'collateral', label: 'Vay thế chấp', color: C.green },
+            { key: 'discounting', label: 'Chiết khấu Token', color: C.red },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)} style={{
               padding: '12px 28px', border: 'none', background: 'transparent', cursor: 'pointer',
@@ -653,7 +649,6 @@ export default function TraderFinancing() {
               marginBottom: -1, transition: 'color 0.15s',
             }}>
               <div style={{ fontWeight: tab === t.key ? 700 : 400, fontSize: 14 }}>{t.label}</div>
-              <div style={{ fontSize: 11, color: tab === t.key ? t.color : C.muted, marginTop: 2 }}>{t.sub}</div>
             </button>
           ))}
         </div>
@@ -681,7 +676,7 @@ export default function TraderFinancing() {
                     <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4,
                       background: change >= 0 ? 'rgba(14,203,129,0.1)' : 'rgba(246,70,93,0.1)',
                       color: change >= 0 ? C.green : C.red, fontWeight: 700 }}>
-                      {change >= 0 ? '▲' : '▼'} {Math.abs(change).toFixed(2)}%
+                      {change >= 0 ? '▲' : '▼'} {formatNumber(Math.abs(change), 2)}%
                     </span>
                   </div>
                   <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'monospace', marginBottom: 2 }}>
