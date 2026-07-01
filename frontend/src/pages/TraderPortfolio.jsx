@@ -70,10 +70,10 @@ export default function TraderPortfolio() {
             <p className="caro-page-subtitle">Hiệu suất danh mục CaRo Token theo thời gian thực</p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => nav("/trader/marketplace")} className="caro-btn caro-btn-ghost">
+            <button onClick={() => nav("/trader/market/overview")} className="caro-btn caro-btn-ghost">
               Thị trường
             </button>
-            <button onClick={() => nav("/trader/trading")} className="caro-btn caro-btn-primary">
+            <button onClick={() => nav("/trader/market/trading")} className="caro-btn caro-btn-primary">
               Giao dịch →
             </button>
           </div>
@@ -209,9 +209,9 @@ export default function TraderPortfolio() {
         {/* Quick actions */}
         <div className="caro-grid-3">
           {[
-            { icon: "🏪", label: "Thị trường",        sub: "Xem giá và biểu đồ thời gian thực", path: "/trader/marketplace" },
-            { icon: "📈", label: "Giao dịch",          sub: "Đặt lệnh mua / bán CaRo Token",     path: "/trader/trading"     },
-            { icon: "📋", label: "Lịch sử giao dịch", sub: "Xem tất cả giao dịch đã thực hiện", path: "/trader/trades"      },
+            { icon: "🏪", label: "Thị trường",        sub: "Xem giá và biểu đồ thời gian thực", path: "/trader/market/overview" },
+            { icon: "📈", label: "Giao dịch",          sub: "Đặt lệnh mua / bán CaRo Token",     path: "/trader/market/trading"  },
+            { icon: "📋", label: "Lịch sử giao dịch", sub: "Xem tất cả giao dịch đã thực hiện", path: "/trader/trades"          },
           ].map(a => (
             <button key={a.path} onClick={() => nav(a.path)} className="caro-card caro-card-sm" style={{ border: "1px solid var(--border)", cursor: "pointer", textAlign: "left", background: "rgba(255,255,255,0.02)", width: "100%" }}
               onMouseEnter={e => { e.currentTarget.style.background = "rgba(176, 228, 204,0.05)"; e.currentTarget.style.borderColor = "rgba(176, 228, 204,0.3)"; }}

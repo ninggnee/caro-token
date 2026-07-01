@@ -236,8 +236,8 @@ export default function TraderHome() {
           <div style={{ padding: 16 }}>
             <div className="th-actions">
               {[
-                { icon: "🏪", label: "Thị trường",      sub: "Xem giá & biểu đồ",       path: "/trader/marketplace", accent: "#408A71" },
-                { icon: "📈", label: "Giao dịch",        sub: "Đặt lệnh mua / bán",       path: "/trader/trading",     accent: "#B0E4CC" },
+                { icon: "🏪", label: "Thị trường",      sub: "Xem giá & biểu đồ",       path: "/trader/market/overview", accent: "#408A71" },
+                { icon: "📈", label: "Giao dịch",        sub: "Đặt lệnh mua / bán",       path: "/trader/market/trading",  accent: "#B0E4CC" },
                 { icon: "💵", label: "Ví tài khoản",     sub: "Nạp / rút VND",            path: "/trader/wallet",      accent: "#f59e0b" },
                 { icon: "📊", label: "Danh mục đầu tư",  sub: "Xem hiệu suất token",      path: "/trader/portfolio",   accent: "#8b5cf6" },
               ].map(a => (

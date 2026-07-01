@@ -244,7 +244,7 @@ export default function FarmerDashboard() {
           <div style={{ display: "flex", gap: 12 }}>
             <button
               className="caro-btn caro-btn-ghost"
-              onClick={() => nav("/farmer/marketplace")}
+              onClick={() => nav("/farmer/market/overview")}
             >
               💹 Giao dịch
             </button>
@@ -347,8 +347,8 @@ export default function FarmerDashboard() {
         <div className="caro-grid-3">
           {[
             { icon: "📄", label: "Giấy tờ",       sub: "Liên kết với lô hàng",         path: "/farmer/warehouse-docs", accent: "#408A71"  },
-            { icon: "💹", label: "Thị trường",     sub: "Mua & bán trên sàn giao dịch", path: "/farmer/marketplace",    accent: "#f0b90b"    },
-            { icon: "👛", label: "Ví tài khoản",   sub: "Quản lý nạp rút số dư",        path: "/farmer/wallet",         accent: "#8b5cf6" },
+            { icon: "💹", label: "Thị trường",     sub: "Mua & bán trên sàn giao dịch", path: "/farmer/market/overview",    accent: "#f0b90b"    },
+            { icon: "👛", label: "Ví tài khoản",   sub: "Quản lý nạp rút số dư",        path: "/farmer/wallet",             accent: "#8b5cf6" },
           ].map(a => (
             <button key={a.path} onClick={() => nav(a.path)}
               style={{
