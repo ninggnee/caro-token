@@ -221,6 +221,78 @@ export const directDeposit = async (req, res) => {
   }
 };
 
+// ── Simulated deposit (immediately credits VND — no real bank transaction) ────
+
+const VALID_PAYMENT_METHODS = ['vietqr', 'bank_transfer', 'vnpay', 'momo', 'zalopay', 'atm_card'];
+
+export const simulateDeposit = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { amount, payment_method } = req.body;
+
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ message: 'amount must be > 0' });
+    }
+    if (!VALID_PAYMENT_METHODS.includes(payment_method)) {
+      return res.status(400).json({ message: `payment_method must be one of: ${VALID_PAYMENT_METHODS.join(', ')}` });
+    }
+
+    const numAmount = Number(amount);
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      await ensureWallet(userId, conn);
+
+      // Credit VND balance immediately
+      await conn.execute(
+        `UPDATE wallets SET vnd_balance = vnd_balance + ? WHERE user_id = ?`,
+        [numAmount, userId]
+      );
+
+      // Insert deposit record
+      const [r] = await conn.execute(
+        `INSERT INTO deposit_requests
+           (user_id, amount, status, payment_method, note, created_at, reviewed_at)
+         VALUES (?, ?, 'approved', ?, 'Nạp tiền mô phỏng', NOW(), NOW())`,
+        [userId, numAmount, payment_method]
+      );
+
+      // Generate unique transaction code: DEP-YYYY-NNNN
+      const year   = new Date().getFullYear();
+      const txCode = `DEP-${year}-${String(r.insertId).padStart(4, '0')}`;
+      await conn.execute(
+        `UPDATE deposit_requests SET transaction_code = ? WHERE id = ?`,
+        [txCode, r.insertId]
+      );
+
+      await conn.commit();
+
+      await logAction({
+        actorId: userId, action: 'deposit:simulate',
+        entityType: 'deposit', entityId: r.insertId,
+        newData: { amount: numAmount, payment_method, transaction_code: txCode },
+        ...auditMeta(req),
+      });
+
+      res.status(200).json({
+        success: true,
+        id:               r.insertId,
+        transaction_code: txCode,
+        amount:           numAmount,
+        payment_method,
+      });
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 // ── Combined transaction history ─────────────────────────────────────────────
 
 export const getTransactions = async (req, res) => {
@@ -229,13 +301,16 @@ export const getTransactions = async (req, res) => {
     const limit  = Math.min(Number(req.query.limit) || 20, 100);
 
     const [deposits] = await db.execute(
-      `SELECT id, 'deposit' AS type, amount, token_type, NULL AS destination_address, tx_hash, status, note, created_at
+      `SELECT id, 'deposit' AS type, amount, token_type, NULL AS destination_address, tx_hash, status, note, payment_method, transaction_code, created_at
        FROM deposit_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
       [userId, limit]
     );
 
     const [withdraws] = await db.execute(
-      `SELECT id, 'withdraw' AS type, amount, token_type, destination_address, tx_hash, status, note, created_at
+      `SELECT id, 'withdraw' AS type, amount, token_type, destination_address, tx_hash, status, note,
+              CASE WHEN note LIKE 'SIM:%' THEN SUBSTRING(note, 5) ELSE NULL END AS payment_method,
+              CONCAT('WDR-', YEAR(created_at), '-', LPAD(id, 4, '0')) AS transaction_code,
+              created_at
        FROM withdraw_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
       [userId, limit]
     );
@@ -326,6 +401,80 @@ export const reviewDeposit = async (req, res) => {
     });
 
     res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// ── Simulated withdraw (immediately deducts VND — no real bank transaction) ──
+
+export const simulateWithdraw = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { amount, payment_method } = req.body;
+
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ message: 'amount must be > 0' });
+    }
+    if (!VALID_PAYMENT_METHODS.includes(payment_method)) {
+      return res.status(400).json({ message: `payment_method must be one of: ${VALID_PAYMENT_METHODS.join(', ')}` });
+    }
+
+    const numAmount = Number(amount);
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      await ensureWallet(userId, conn);
+
+      const [[wallet]] = await conn.execute(
+        `SELECT vnd_balance, vnd_locked FROM wallets WHERE user_id = ? FOR UPDATE`, [userId]
+      );
+      const available = Number(wallet.vnd_balance) - Number(wallet.vnd_locked);
+      if (available < numAmount) {
+        await conn.rollback();
+        return res.status(422).json({ message: `Số dư không đủ. Khả dụng: ${available.toLocaleString('vi-VN')} VND` });
+      }
+
+      // Immediately deduct from balance
+      await conn.execute(
+        `UPDATE wallets SET vnd_balance = vnd_balance - ? WHERE user_id = ?`,
+        [numAmount, userId]
+      );
+
+      // Record as an approved withdrawal
+      const [r] = await conn.execute(
+        `INSERT INTO withdraw_requests
+           (user_id, amount, bank_name, account_number, account_name, status, note, created_at, reviewed_at)
+         VALUES (?, ?, 'Mô phỏng', 'SIM-AUTO', 'Hệ thống', 'approved', ?, NOW(), NOW())`,
+        [userId, numAmount, `SIM:${payment_method}`]
+      );
+
+      const year   = new Date().getFullYear();
+      const txCode = `WDR-${year}-${String(r.insertId).padStart(4, '0')}`;
+
+      await conn.commit();
+
+      await logAction({
+        actorId: userId, action: 'withdraw:simulate',
+        entityType: 'withdraw', entityId: r.insertId,
+        newData: { amount: numAmount, payment_method, transaction_code: txCode },
+        ...auditMeta(req),
+      });
+
+      res.status(200).json({
+        success: true,
+        id:               r.insertId,
+        transaction_code: txCode,
+        amount:           numAmount,
+        payment_method,
+      });
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Server error' });

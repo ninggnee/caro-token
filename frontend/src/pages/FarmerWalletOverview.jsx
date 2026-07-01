@@ -115,7 +115,7 @@ export default function FarmerWalletOverview() {
         </div>
 
         {/* ── Summary cards ── */}
-        <div className="caro-grid-2">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 24 }}>
 
           {/* Token_CaRo */}
           <BalCard
@@ -123,8 +123,19 @@ export default function FarmerWalletOverview() {
             value={formatToken(totalCaRo, "CaRo")}
             sub={`CaRo1: ${formatNumber(caro1)} · CaRo2: ${formatNumber(caro2)} · CaRo3: ${formatNumber(caro3)}`}
             accent="#408A71"
-            bgAccent="rgba(64, 138, 113,0.1)"
+            bgAccent="rgba(64, 138, 113, 0.1)"
             icon="🪙"
+            loading={isLoading}
+          />
+
+          {/* VND Balance */}
+          <BalCard
+            label="Số dư VND trong ví"
+            value={vndBalance > 0 ? formatVND(vndBalance) : "0 VND"}
+            sub={vndLocked > 0 ? `Khả dụng: ${formatVND(vndAvailable)} · Đang khoá: ${formatVND(vndLocked)}` : "Toàn bộ khả dụng"}
+            accent="#B0E4CC"
+            bgAccent="rgba(176, 228, 204, 0.1)"
+            icon="💵"
             loading={isLoading}
           />
 

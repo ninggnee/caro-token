@@ -6,6 +6,7 @@ import {
   getOrderbook,
   getRecentTrades,
   getCandlesHandler,
+  getTradingBandHandler,
 } from '../controllers/mockMarketController.js';
 
 const router = express.Router();
@@ -18,5 +19,6 @@ router.get('/chart',     getChartHandler);    // ?token=all|caro1|caro2|caro3  &
 router.get('/orderbook', getOrderbook);        // ?token=CR1|all  &depth=20
 router.get('/trades',    getRecentTrades);     // ?token=CR1|all  &limit=50
 router.get('/candles',   getCandlesHandler);   // ?token=CR1  &interval=1h  &limit=100
+router.get('/band',      getTradingBandHandler); // Rule 1 & 2: reference price + floor/ceiling for all tokens
 
 export default router;
