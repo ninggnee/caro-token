@@ -306,7 +306,7 @@ export default function Landing() {
       <section id="tech" className="landing-section" style={{ textAlign: "center" }}>
         <h2 className="section-title">Công nghệ cốt lõi</h2>
         <div style={{ display: 'flex', gap: 16, flexWrap: "wrap", justifyContent: "center", marginTop: 24 }}>
-          {["Blockchain (Ethereum L2)", "Hợp đồng Thông minh", "Chainlink Oracles", "Xác thực VNeID", "Lưu trữ IPFS", "Ví Web3 (MetaMask)"].map(tech => (
+          {["Blockchain (Ethereum L2)", "Hợp đồng Thông minh", "API3 Oracles", "Xác thực VNeID", "Lưu trữ IPFS", "Ví Web3 (MetaMask)"].map(tech => (
             <div key={tech} className="tech-badge">{tech}</div>
           ))}
         </div>
