@@ -30,8 +30,8 @@ const I = {
 };
 
 const MARKET_SUB = [
-  { id: "overview",  label: "Tổng quan",     path: "/trader/marketplace"      },
-  { id: "trading",   label: "Giao dịch",     path: "/trader/trading"          },
+  { id: "overview",  label: "Tổng quan",     path: "/trader/market/overview"  },
+  { id: "trading",   label: "Giao dịch",     path: "/trader/market/trading"   },
   { id: "financing", label: "Tài chính",     path: "/trader/market/financing" },
   { id: "redeem",    label: "Đổi hàng hóa", path: "/trader/market/redeem"    },
 ];

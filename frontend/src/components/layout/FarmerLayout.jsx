@@ -34,7 +34,15 @@ const MENU = [
   { id: "dash",   label: "Trang chủ",         icon: "home",   path: "/farmer/dashboard"      },
   { id: "status", label: "Trạng thái lô hàng", icon: "box",    path: "/farmer/status"         },
   { id: "wallet", label: "Ví tài khoản",       icon: "wallet", path: "/farmer/wallet"         },
-  { id: "market", label: "Thị trường",         icon: "shop",   path: "/farmer/marketplace"    },
+  {
+    id: "market",
+    label: "Thị trường",
+    icon: "shop",
+    children: [
+      { label: "Tổng quan", path: "/farmer/market/overview" },
+      { label: "Giao dịch", path: "/farmer/market/trading" },
+    ],
+  },
   { id: "wdocs",  label: "Giấy tờ",            icon: "file",   path: "/farmer/warehouse-docs" },
   { id: "prof",   label: "Hồ sơ cá nhân",      icon: "user",   path: "/farmer/profile"        },
 ];
