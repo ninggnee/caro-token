@@ -34,6 +34,7 @@ import FarmerWithdrawPage from '../pages/FarmerWithdrawPage';
 import FarmerTxHistory    from '../pages/FarmerTxHistory';
 import FarmerNotifications from '../pages/FarmerNotifications';
 import FarmerSettings     from '../pages/FarmerSettings';
+import FarmerFinancing    from '../pages/FarmerFinancing';
 // Farmer — existing pages (now wrapped in FarmerLayout)
 import FarmerMarketplace    from '../pages/FarmerMarketplace';
 import FarmerMarketOverview from '../pages/FarmerMarketOverview';
@@ -121,6 +122,7 @@ export default function AppRouter() {
         <Route path="/farmer/wallet/deposit"   element={<FarmerDepositPage />} />
         <Route path="/farmer/wallet/withdraw"  element={<FarmerWithdrawPage />} />
         <Route path="/farmer/wallet/history"    element={<FarmerTxHistory />} />
+        <Route path="/farmer/wallet/financing" element={<FarmerFinancing />} />
 
         {/* /farmer/token-holdings removed — wallet now shows all token data */}
         <Route path="/farmer/token-holdings"   element={<Navigate to="/farmer/wallet" replace />} />
