@@ -8,7 +8,7 @@ import { getTradingBand } from '../services/marketApi';
 import axios from "../utils/axiosClient";
 
 const PAIRS = ["CR1/VND", "CR2/VND", "CR3/VND"];
-const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#487573", muted: "#6b7a99", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#7fe0c9" };
+const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#408A71", muted: "#6b7a99", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#B0E4CC" };
 
 // ── Order Book Side ────────────────────────────────────────────────────────────
 function BookSide({ rows, side, maxAmt }) {

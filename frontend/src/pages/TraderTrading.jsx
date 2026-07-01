@@ -25,7 +25,7 @@ const C = {
   dim:    '#1e2d2f',
   input:  '#162020',
   gold:   '#f0b90b',
-  teal:   '#00d4aa',
+  teal:   '#B0E4CC',
 };
 
 function authHeader() {
