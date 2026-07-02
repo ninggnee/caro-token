@@ -19,15 +19,32 @@ const TOKENS = [
   { key: 'CR3', label: 'CaRo3', color: C.purple,  desc: 'Robusta Phổ thông' },
 ];
 
-const RISK_LEVELS = [
-  { key: 'low',    label: 'Thấp',   haircut: 0.10, ratio: 0.90, color: C.green  },
-  { key: 'medium', label: 'Trung bình', haircut: 0.20, ratio: 0.80, color: C.yellow },
-  { key: 'high',   label: 'Cao',    haircut: 0.30, ratio: 0.70, color: C.red    },
-];
-
 const LOAN_TERMS = [1, 3, 6, 12];
-const LTV = 0.70;
 const INTEREST_RATE = 0.08;  // 8% per year
+
+// Risk band purely for color-coding the dynamically fetched haircut/LTV — the
+// actual percentages always come from the backend risk profile, never fixed here.
+function riskBandFor(haircut) {
+  if (haircut <= 0.15) return { label: 'Thấp',        color: C.green  };
+  if (haircut <= 0.25) return { label: 'Trung bình',  color: C.yellow };
+  return                  { label: 'Cao',          color: C.red    };
+}
+
+function useRiskProfile(token) {
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    apiFetch(`/finance/trader/risk-profile/${token}`).then(r => {
+      if (!cancelled && r.success) setProfile(r.data);
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [token]);
+
+  return { profile, loading };
+}
 
 const STATUS_LABELS = {
   pending:         { label: 'Chờ duyệt',   color: C.yellow },
@@ -120,8 +137,11 @@ function CollateralLoanTab({ tokenBals, stats }) {
   const price  = getPriceOf(stats, token);
   const qtyN   = Math.min(parseFloat(qty) || 0, avail);
 
+  const { profile, loading: profileLoading } = useRiskProfile(token);
+  const ltv = profile?.ltv ?? 0;
+
   const collateralValue = qtyN * price;
-  const maxLoan         = collateralValue * LTV;
+  const maxLoan         = collateralValue * ltv;
   const annualInterest  = maxLoan * INTEREST_RATE;
   const termInterest    = annualInterest * (term / 12);
   const totalRepay      = maxLoan + termInterest;
@@ -141,11 +161,12 @@ function CollateralLoanTab({ tokenBals, stats }) {
   const handleSubmit = async () => {
     if (!qtyN || qtyN <= 0) return setMsg({ type: 'error', text: 'Vui lòng nhập số lượng hợp lệ' });
     if (price <= 0) return setMsg({ type: 'error', text: 'Không lấy được giá thị trường' });
+    if (!profile) return setMsg({ type: 'error', text: 'Chưa lấy được hồ sơ rủi ro (LTV) cho token này' });
 
     setSubmitting(true);
     setMsg(null);
     try {
-      const r = await apiFetch('/finance/collateral-loans', {
+      const r = await apiFetch('/finance/trader/collateral-loans', {
         method: 'POST',
         body: JSON.stringify({
           token_type: token,
@@ -238,11 +259,11 @@ function CollateralLoanTab({ tokenBals, stats }) {
             </div>
           )}
 
-          <button onClick={handleSubmit} disabled={submitting || qtyN <= 0 || price <= 0} style={{
+          <button onClick={handleSubmit} disabled={submitting || qtyN <= 0 || price <= 0 || !profile} style={{
             width: '100%', padding: 12, borderRadius: 6, border: 'none', fontWeight: 700, fontSize: 14,
-            background: qtyN > 0 && price > 0 ? C.green : '#2b3a3a',
-            color: qtyN > 0 && price > 0 ? '#000' : C.muted,
-            cursor: qtyN > 0 && price > 0 ? 'pointer' : 'not-allowed',
+            background: qtyN > 0 && price > 0 && profile ? C.green : '#2b3a3a',
+            color: qtyN > 0 && price > 0 && profile ? '#000' : C.muted,
+            cursor: qtyN > 0 && price > 0 && profile ? 'pointer' : 'not-allowed',
           }}>
             {submitting ? 'Đang gửi...' : 'Gửi đơn vay thế chấp'}
           </button>
@@ -250,8 +271,12 @@ function CollateralLoanTab({ tokenBals, stats }) {
 
         {/* Conditions */}
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 20 }}>
-          <SectionTitle>ĐIỀU KIỆN VAY</SectionTitle>
-          <InfoRow l="Tỉ lệ LTV" v="70% giá trị thế chấp" />
+          <SectionTitle>ĐIỀU KIỆN VAY (theo lô hàng {token})</SectionTitle>
+          <InfoRow l="Tỉ lệ LTV" v={profile ? `${(profile.ltv * 100).toFixed(0)}% giá trị thế chấp` : (profileLoading ? 'Đang tải...' : '—')} />
+          <InfoRow l="Điểm chất lượng" v={profile ? `${profile.qualityScore}/100` : '—'} />
+          <InfoRow l="Biến động giá 24h" v={profile ? `${profile.volatilityScore}%` : '—'} />
+          <InfoRow l="Thời gian lưu kho còn lại" v={profile ? `${profile.storageRemainingDays} ngày` : '—'} />
+          <InfoRow l="Bảo hiểm hàng hóa" v={profile ? (profile.insuranceStatus === 'insured' ? 'Có bảo hiểm' : 'Không bảo hiểm') : '—'} />
           <InfoRow l="Lãi suất" v={`${(INTEREST_RATE * 100).toFixed(0)}%/năm`} />
           <InfoRow l="Tính lãi" v="Tuyến tính theo kỳ hạn" />
           <InfoRow l="Bảo đảm tài sản" v="Ngân hàng giữ quyền bảo đảm" />
@@ -271,15 +296,15 @@ function CollateralLoanTab({ tokenBals, stats }) {
           <InfoRow l="Giá trị thế chấp" v={qtyN > 0 ? formatVND(collateralValue) : '—'} highlight={C.yellow} />
 
           <div style={{ margin: '12px 0' }} />
-          <SectionTitle>KHOẢN VAY (70% LTV)</SectionTitle>
-          <InfoRow l="Số tiền vay tối đa" v={qtyN > 0 ? formatVND(maxLoan) : '—'} highlight={C.green} />
+          <SectionTitle>{profile ? `KHOẢN VAY (LTV: ${(profile.ltv * 100).toFixed(0)}%)` : 'KHOẢN VAY (LTV theo lô hàng)'}</SectionTitle>
+          <InfoRow l="Số tiền vay tối đa" v={qtyN > 0 && profile ? formatVND(maxLoan) : '—'} highlight={C.green} />
           <InfoRow l="Kỳ hạn" v={`${term} tháng`} />
           <InfoRow l={`Lãi ${(INTEREST_RATE * 100).toFixed(0)}%/năm (${term} tháng)`}
             v={qtyN > 0 ? formatVND(termInterest) : '—'} highlight={C.red} />
           <InfoRow l="Tổng hoàn trả" v={qtyN > 0 ? formatVND(totalRepay) : '—'} highlight={C.orange} />
           <InfoRow l="Trả mỗi tháng (ước tính)" v={qtyN > 0 ? formatVND(monthlyPayment) : '—'} last />
 
-          {qtyN > 0 && price > 0 && (
+          {qtyN > 0 && price > 0 && profile && (
             <div style={{ marginTop: 16, padding: '12px 14px',
               background: 'rgba(14,203,129,0.06)', border: '1px solid rgba(14,203,129,0.2)',
               borderRadius: 8 }}>
@@ -361,7 +386,6 @@ function TokenDiscountingTab({ tokenBals, stats }) {
   const [token, setToken]         = useState('CR1');
   const [qty, setQty]             = useState('');
   const [bankName, setBankName]   = useState('');
-  const [riskLevel, setRiskLevel] = useState('medium');
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg]             = useState(null);
@@ -373,10 +397,12 @@ function TokenDiscountingTab({ tokenBals, stats }) {
   const price = getPriceOf(stats, token);
   const qtyN  = Math.min(parseFloat(qty) || 0, avail);
 
-  const risk         = RISK_LEVELS.find(r => r.key === riskLevel);
-  const nominalValue = qtyN * price;
-  const haircutAmt   = nominalValue * risk.haircut;
-  const paymentAmt   = nominalValue * risk.ratio;
+  const { profile, loading: profileLoading } = useRiskProfile(token);
+  const haircut       = profile?.haircut ?? 0;
+  const risk          = riskBandFor(haircut);
+  const nominalValue  = qtyN * price;
+  const haircutAmt    = nominalValue * haircut;
+  const paymentAmt    = nominalValue * (1 - haircut);
 
   const loadHistory = useCallback(async () => {
     setHistLoading(true);
@@ -394,18 +420,18 @@ function TokenDiscountingTab({ tokenBals, stats }) {
     if (price <= 0) return setMsg({ type: 'error', text: 'Không lấy được giá thị trường' });
     if (!bankName.trim()) return setMsg({ type: 'error', text: 'Vui lòng nhập tên ngân hàng' });
     if (!confirmed) return setMsg({ type: 'error', text: 'Vui lòng xác nhận điều khoản chuyển nhượng quyền sở hữu' });
+    if (!profile) return setMsg({ type: 'error', text: 'Chưa lấy được hồ sơ rủi ro (Haircut) cho token này' });
 
     setSubmitting(true);
     setMsg(null);
     try {
-      const r = await apiFetch('/finance/token-discounting', {
+      const r = await apiFetch('/finance/trader/token-discounting', {
         method: 'POST',
         body: JSON.stringify({
           token_type: token,
           quantity: qtyN,
           market_price: price,
           bank_name: bankName.trim(),
-          risk_level: riskLevel,
         }),
       });
       if (r.success) {
@@ -424,7 +450,7 @@ function TokenDiscountingTab({ tokenBals, stats }) {
   const inputStyle = { padding: '9px 12px', background: C.input, border: `1px solid ${C.border}`,
     borderRadius: 6, color: C.text, fontSize: 14, outline: 'none', width: '100%', boxSizing: 'border-box' };
 
-  const canSubmit = qtyN > 0 && price > 0 && bankName.trim() && confirmed;
+  const canSubmit = qtyN > 0 && price > 0 && bankName.trim() && confirmed && !!profile;
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
@@ -452,22 +478,28 @@ function TokenDiscountingTab({ tokenBals, stats }) {
             {price > 0 && <> · Giá: <b style={{ color: C.yellow }}>{formatVND(price)}/kg</b></>}
           </div>
 
-          <SectionTitle>MỨC RỦI RO (ảnh hưởng tỉ lệ chiết khấu)</SectionTitle>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            {RISK_LEVELS.map(r => (
-              <button key={r.key} onClick={() => setRiskLevel(r.key)} style={{
-                flex: 1, padding: '8px 0', borderRadius: 6, fontSize: 12,
-                border: `1px solid ${riskLevel === r.key ? r.color : C.border}`,
-                background: riskLevel === r.key ? `${r.color}18` : 'transparent',
-                color: riskLevel === r.key ? r.color : C.muted,
-                cursor: 'pointer', fontWeight: riskLevel === r.key ? 700 : 400,
-              }}>
-                <div>{r.label}</div>
-                <div style={{ fontSize: 10, marginTop: 2, opacity: 0.8 }}>
-                  Haircut {(r.haircut * 100).toFixed(0)}% · Nhận {(r.ratio * 100).toFixed(0)}%
+          <SectionTitle>MỨC RỦI RO (do hệ thống đánh giá theo lô hàng)</SectionTitle>
+          <div style={{ padding: '10px 12px', borderRadius: 6, marginBottom: 16, fontSize: 12,
+            border: `1px solid ${risk.color}30`, background: `${risk.color}0d` }}>
+            {profileLoading ? (
+              <div style={{ color: C.muted }}>Đang tải hồ sơ rủi ro...</div>
+            ) : profile ? (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontWeight: 700, color: risk.color }}>{risk.label}</span>
+                  <span style={{ color: risk.color, fontWeight: 700 }}>
+                    Haircut {(haircut * 100).toFixed(0)}% · Nhận {((1 - haircut) * 100).toFixed(0)}%
+                  </span>
                 </div>
-              </button>
-            ))}
+                <div style={{ color: C.muted, lineHeight: 1.6 }}>
+                  Điểm chất lượng {profile.qualityScore}/100 · Biến động 24h {profile.volatilityScore}% ·{' '}
+                  Lưu kho còn {profile.storageRemainingDays} ngày ·{' '}
+                  {profile.insuranceStatus === 'insured' ? 'Có bảo hiểm' : 'Không bảo hiểm'}
+                </div>
+              </>
+            ) : (
+              <div style={{ color: C.muted }}>Không lấy được hồ sơ rủi ro</div>
+            )}
           </div>
 
           <SectionTitle>NGÂN HÀNG NHẬN CHUYỂN NHƯỢNG</SectionTitle>
@@ -518,13 +550,13 @@ function TokenDiscountingTab({ tokenBals, stats }) {
           <InfoRow l="Giá trị danh nghĩa (Nominal)" v={qtyN > 0 ? formatVND(nominalValue) : '—'} highlight={C.yellow} />
 
           <div style={{ margin: '12px 0' }} />
-          <SectionTitle>CHIẾT KHẤU ({risk.label} — Haircut {(risk.haircut * 100).toFixed(0)}%)</SectionTitle>
+          <SectionTitle>{profile ? `CHIẾT KHẤU (${risk.label} — Haircut ${(haircut * 100).toFixed(0)}%)` : 'CHIẾT KHẤU (theo lô hàng)'}</SectionTitle>
           <InfoRow l="Giá trị danh nghĩa" v={qtyN > 0 ? formatVND(nominalValue) : '—'} />
-          <InfoRow l={`Haircut (${(risk.haircut * 100).toFixed(0)}%)`}
-            v={qtyN > 0 ? `− ${formatVND(haircutAmt)}` : '—'} highlight={C.red} />
+          <InfoRow l={`Haircut (${(haircut * 100).toFixed(0)}%)`}
+            v={qtyN > 0 && profile ? `− ${formatVND(haircutAmt)}` : '—'} highlight={C.red} />
           <InfoRow l="Ngân hàng" v={bankName.trim() || '—'} last />
 
-          {qtyN > 0 && price > 0 && (
+          {qtyN > 0 && price > 0 && profile && (
             <div style={{ marginTop: 16, padding: '12px 14px',
               background: `${risk.color}0d`, border: `1px solid ${risk.color}30`, borderRadius: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
@@ -534,7 +566,7 @@ function TokenDiscountingTab({ tokenBals, stats }) {
                 </span>
               </div>
               <div style={{ fontSize: 11, color: C.muted }}>
-                {(risk.ratio * 100).toFixed(0)}% giá trị danh nghĩa · Mất {formatVND(haircutAmt)} haircut
+                {((1 - haircut) * 100).toFixed(0)}% giá trị danh nghĩa · Mất {formatVND(haircutAmt)} haircut
               </div>
             </div>
           )}
@@ -565,7 +597,7 @@ function TokenDiscountingTab({ tokenBals, stats }) {
                 </thead>
                 <tbody>
                   {history.map(row => {
-                    const r = RISK_LEVELS.find(r => r.key === row.risk_level) || RISK_LEVELS[1];
+                    const r = riskBandFor(Number(row.haircut) || 0);
                     return (
                       <tr key={row.id} style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
                         <td style={{ padding: '6px 6px', color: C.muted }}>{formatDate(row.created_at)}</td>
