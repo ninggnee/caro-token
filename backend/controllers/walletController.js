@@ -568,8 +568,8 @@ export const createWithdraw = async (req, res) => {
         // Call Blockchain transfer from Treasury Wallet to user's wallet
         let txHash;
         try {
-          const withdrawFee = Number(amount) * 0.001; // 0.1% fee
-          const netAmount = Number(amount) - withdrawFee;
+          const withdrawFee = 0; // No withdrawal fee
+          const netAmount = Number(amount);
 
           const result = await transferToken({
             tokenType: token_type,
@@ -736,8 +736,8 @@ export const reviewWithdraw = async (req, res) => {
           // Call blockchain to transfer
           let txHash;
           try {
-            const withdrawFee = Number(wd.amount) * 0.001; // 0.1% fee
-            const netAmount = Number(wd.amount) - withdrawFee;
+            const withdrawFee = 0; // No withdrawal fee
+            const netAmount = Number(wd.amount);
 
             const result = await transferToken({
               tokenType: wd.token_type,

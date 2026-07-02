@@ -5,7 +5,7 @@ import { useTraderPrices, useTraderTokenBals, getPriceOf } from '../hooks/useTra
 
 const C = {
   card: '#0f1e20', border: 'rgba(255,255,255,0.08)',
-  green: '#0ecb81', red: '#f6465d', text: '#eaecef',
+  green: '#408A71', red: '#f6465d', text: '#eaecef',
   muted: '#848e9c', dim: '#1e2d2f', input: '#162020',
   accent: '#408A71', yellow: '#f0b90b', orange: '#f77f00',
 };

@@ -1,4 +1,4 @@
-:root{--bg:#091413;--panel:#122622;--accent:#1f6f64;--muted:#94a3b8}
+:root{--bg:radial-gradient(circle at top, #18332d 0%, #091413 70%);--panel:#122622;--accent:#1f6f64;--muted:#94a3b8}
 body{font-family:Inter,system-ui,Arial,sans-serif}
 .dashboard-container{display:flex;min-height:80vh}
 .sidebar{width:220px;background:var(--panel);color:#fff;padding:20px;box-sizing:border-box}

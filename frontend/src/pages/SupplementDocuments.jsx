@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import FarmerLayout from "../components/layout/FarmerLayout";
@@ -7,7 +7,7 @@ import axios from "../utils/axiosClient";
 import { formatKg } from '../utils/formatters';
 
 const C = {
-  accent: "#408A71", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
+  accent: "#408A71", muted: "#6b7a99", green: "#B0E4CC", red: "#f6465d",
   gold: "#f0b90b", card: "#172524", border: "rgba(72,117,115,0.15)", tealLight: "#B0E4CC",
 };
 

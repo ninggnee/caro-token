@@ -66,8 +66,8 @@ export async function matchOrder(conn, order) {
 
     const [tr] = await conn.execute(
       `INSERT INTO trades (pair, side, price, amount, buyer_id, seller_id, created_at)
-       VALUES (?, 'buy', ?, ?, ?, ?, NOW())`,
-      [pair, tradePrice, tradeAmount, buyerId, sellerId]
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [pair, side, tradePrice, tradeAmount, buyerId, sellerId]
     );
 
     trades.push({

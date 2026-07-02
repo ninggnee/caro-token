@@ -30,7 +30,7 @@ export default function Register() {
     if (!fullName.trim())                                    return "Họ tên không được để trống";
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Email không hợp lệ";
     if (!phone || !/^0[0-9]{8,9}$/.test(phone))             return "Số điện thoại không hợp lệ (VD: 0901234567)";
-    if (!password || password.length < 8)                    return "Mật khẩu tối thiểu 8 ký tự";
+    if (!password || password.length < 6)                    return "Mật khẩu tối thiểu 6 ký tự";
     if (password !== confirm)                                return "Mật khẩu xác nhận không khớp";
     if (!agree)                                              return "Bạn phải đồng ý với Điều khoản sử dụng";
     return null;
@@ -189,7 +189,7 @@ export default function Register() {
               <input
                 className="auth-input"
                 type={showPass ? "text" : "password"}
-                placeholder="Tối thiểu 8 ký tự"
+                placeholder="Tối thiểu 6 ký tự"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />

@@ -5,10 +5,13 @@ import { useMyBatches, useBatch } from "../hooks/useBatches";
 import { formatKg } from '../utils/formatters';
 
 const DOC_LABELS = {
-  harvest_certificate: { label: "Giấy chứng nhận thu hoạch", icon: "📜" },
-  quality_inspection:  { label: "Báo cáo kiểm tra chất lượng", icon: "🔬" },
-  coffee_photos:       { label: "Ảnh sản phẩm",               icon: "📷" },
-  additional_docs:     { label: "Tài liệu bổ sung",           icon: "📄" },
+  harvest_certificate:   { label: "Giấy chứng nhận thu hoạch", icon: "📜" },
+  quality_inspection:    { label: "Kiểm định chất lượng",        icon: "🔬" },
+  coffee_photos:         { label: "Ảnh sản phẩm",               icon: "📷" },
+  additional_docs:       { label: "Tài liệu bổ sung",           icon: "📄" },
+  warehouse_receipt:     { label: "Biên bản bàn giao và nhập kho", icon: "🏭" },
+  quality_audit:         { label: "Đánh giá chất lượng",        icon: "📋" },
+  coffee_storage_report: { label: "Báo cáo lưu trữ cà phê",   icon: "📊" },
 };
 
 const STATUS_MAP = {
@@ -61,7 +64,18 @@ function DocItem({ doc }) {
 // Fetches and renders documents for the selected batch
 function BatchDocsPanel({ batch, nav }) {
   const { data, isLoading } = useBatch(batch.id);
-  const docs = data?.batch?.documents || [];
+  const standardDocs = data?.batch?.documents || [];
+  const whDocs = data?.batch?.warehouse_documents || [];
+  const whMapped = whDocs.map(d => ({
+    id: `wh-${d.id}`,
+    batch_id: batch.batch_id,
+    document_type: d.document_type,
+    file_name: d.document_name,
+    file_path: null,
+    ipfs_cid: d.cid,
+    uploaded_at: d.created_at
+  }));
+  const docs = [...standardDocs, ...whMapped];
   const rejectionReason = data?.batch?.rejection_reason || batch.rejection_reason;
 
   const grouped = docs.reduce((acc, d) => {
@@ -69,6 +83,24 @@ function BatchDocsPanel({ batch, nav }) {
     acc[d.document_type].push(d);
     return acc;
   }, {});
+
+  const ORDERED_TYPES = [
+    "harvest_certificate",
+    "coffee_photos",
+    "warehouse_receipt",
+    "quality_inspection",
+    "quality_audit",
+    "coffee_storage_report",
+    "additional_docs"
+  ];
+
+  const sortedEntries = Object.entries(grouped).sort(([a], [b]) => {
+    let idxA = ORDERED_TYPES.indexOf(a);
+    let idxB = ORDERED_TYPES.indexOf(b);
+    if (idxA === -1) idxA = 999;
+    if (idxB === -1) idxB = 999;
+    return idxA - idxB;
+  });
 
   return (
     <div>
@@ -96,7 +128,7 @@ function BatchDocsPanel({ batch, nav }) {
         <div style={{ padding: "20px 0", color: "#64748b", fontSize: 14 }}>Lô hàng này chưa có giấy tờ nào.</div>
       )}
 
-      {Object.entries(grouped).map(([type, items]) => {
+      {sortedEntries.map(([type, items]) => {
         const meta = DOC_LABELS[type] || { label: type, icon: "📄" };
         return (
           <div key={type} style={{ marginBottom: 20 }}>

@@ -4,8 +4,7 @@
 
 /* ── Google Fonts fallback (already loaded via index.html CDN) ── */
 :root {
-  /* ── Color Palette ── */
-  --bg:           #091413;
+  --bg:           radial-gradient(circle at top, #18332d 0%, #091413 70%);
   --surface:      #122622;
   --card:         #18332d;
   --card-hover:   #22483f;

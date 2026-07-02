@@ -10,7 +10,7 @@ import { formatNumber, formatVND } from '../utils/formatters';
 import { TRADER_KEYS } from '../hooks/useTraderData';
 
 const C = {
-  accent: "#408A71", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
+  accent: "#408A71", muted: "#6b7a99", green: "#408A71", red: "#f6465d",
   card: "#172524", border: "rgba(72,117,115,0.15)", tealLight: "#B0E4CC",
   gold: "#f0b90b",
 };

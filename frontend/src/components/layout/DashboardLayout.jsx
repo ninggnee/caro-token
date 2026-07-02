@@ -279,7 +279,7 @@ export default function DashboardLayout({ title = "Admin", children }) {
   `;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#091413", color: "#f8fafc", fontFamily: "'Inter', -apple-system, sans-serif", display: "flex" }}>
+    <div style={{ minHeight: "100vh", background: "var(--bg)", color: "#f8fafc", fontFamily: "'Inter', -apple-system, sans-serif", display: "flex" }}>
       <style dangerouslySetInnerHTML={{ __html: css }} />
 
       {/* ─── Sidebar ─── */}
