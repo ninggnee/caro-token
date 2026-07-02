@@ -1,38 +1,26 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "../utils/axiosClient";
 import { useAuth } from "../context/AuthContext";
+import { useRegisterForm } from "../context/RegisterFormContext";
 import "../styles/login.css";
 
 export default function Register() {
   const navigate = useNavigate();
   const auth = useAuth();
+  const { formData, updateFormData, clearFormData } = useRegisterForm();
 
-  const [fullName, setFullName] = useState(() => sessionStorage.getItem("reg_fullName") || "");
-  const [email, setEmail]       = useState(() => sessionStorage.getItem("reg_email") || "");
-  const [phone, setPhone]       = useState(() => sessionStorage.getItem("reg_phone") || "");
-  const [password, setPassword] = useState(() => sessionStorage.getItem("reg_password") || "");
-  const [confirm, setConfirm]   = useState(() => sessionStorage.getItem("reg_confirm") || "");
-  const [role, setRole]         = useState(() => sessionStorage.getItem("reg_role") || "farmer");
-  const [agree, setAgree]       = useState(false);
   const [showPass, setShowPass] = useState(false);
-  const [error, setError]       = useState("");
-  const [loading, setLoading]   = useState(false);
-
-  useEffect(() => { sessionStorage.setItem("reg_fullName", fullName); }, [fullName]);
-  useEffect(() => { sessionStorage.setItem("reg_email", email); }, [email]);
-  useEffect(() => { sessionStorage.setItem("reg_phone", phone); }, [phone]);
-  useEffect(() => { sessionStorage.setItem("reg_password", password); }, [password]);
-  useEffect(() => { sessionStorage.setItem("reg_confirm", confirm); }, [confirm]);
-  useEffect(() => { sessionStorage.setItem("reg_role", role); }, [role]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const validate = () => {
-    if (!fullName.trim())                                    return "Họ tên không được để trống";
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Email không hợp lệ";
-    if (!phone || !/^0[0-9]{8,9}$/.test(phone))             return "Số điện thoại không hợp lệ (VD: 0901234567)";
-    if (!password || password.length < 6)                    return "Mật khẩu tối thiểu 6 ký tự";
-    if (password !== confirm)                                return "Mật khẩu xác nhận không khớp";
-    if (!agree)                                              return "Bạn phải đồng ý với Điều khoản sử dụng";
+    if (!formData.fullName.trim())                                    return "Họ tên không được để trống";
+    if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) return "Email không hợp lệ";
+    if (!formData.phone || !/^0[0-9]{8,9}$/.test(formData.phone))             return "Số điện thoại không hợp lệ (VD: 0901234567)";
+    if (!formData.password || formData.password.length < 6)                    return "Mật khẩu tối thiểu 6 ký tự";
+    if (formData.password !== formData.confirm)                                return "Mật khẩu xác nhận không khớp";
+    if (!formData.agree)                                              return "Bạn phải đồng ý với Điều khoản sử dụng";
     return null;
   };
 
@@ -44,23 +32,16 @@ export default function Register() {
     setLoading(true);
     try {
       const res = await axios.post("/auth/register", {
-        full_name: fullName,
-        email,
-        phone,
-        password,
-        role,
+        full_name: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+        role: formData.role,
       });
 
       if (res.data?.success && res.data?.token) {
         auth.login({ token: res.data.token, user: res.data.user });
-
-        sessionStorage.removeItem("reg_fullName");
-        sessionStorage.removeItem("reg_email");
-        sessionStorage.removeItem("reg_phone");
-        sessionStorage.removeItem("reg_password");
-        sessionStorage.removeItem("reg_confirm");
-        sessionStorage.removeItem("reg_role");
-
+        clearFormData();
         navigate("/kyc-cccd");
       } else {
         setError(res.data?.message || "Đăng ký thất bại");
@@ -153,8 +134,8 @@ export default function Register() {
             <input
               className="auth-input"
               placeholder="Nguyễn Văn A"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+              value={formData.fullName}
+              onChange={(e) => updateFormData({ fullName: e.target.value })}
             />
           </div>
 
@@ -165,8 +146,8 @@ export default function Register() {
               className="auth-input"
               type="email"
               placeholder="example@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={formData.email}
+              onChange={(e) => updateFormData({ email: e.target.value })}
             />
           </div>
 
@@ -177,8 +158,8 @@ export default function Register() {
               className="auth-input"
               type="tel"
               placeholder="0901234567"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              value={formData.phone}
+              onChange={(e) => updateFormData({ phone: e.target.value })}
             />
           </div>
 
@@ -190,8 +171,8 @@ export default function Register() {
                 className="auth-input"
                 type={showPass ? "text" : "password"}
                 placeholder="Tối thiểu 6 ký tự"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={formData.password}
+                onChange={(e) => updateFormData({ password: e.target.value })}
               />
               <button
                 type="button"
@@ -210,8 +191,8 @@ export default function Register() {
               className="auth-input"
               type={showPass ? "text" : "password"}
               placeholder="Nhập lại mật khẩu"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
+              value={formData.confirm}
+              onChange={(e) => updateFormData({ confirm: e.target.value })}
             />
           </div>
 
@@ -226,8 +207,8 @@ export default function Register() {
                     name="role"
                     value={r}
                     id={`role-${r}`}
-                    checked={role === r}
-                    onChange={() => setRole(r)}
+                    checked={formData.role === r}
+                    onChange={() => updateFormData({ role: r })}
                   />
                   <label htmlFor={`role-${r}`} className="auth-role-label">
                     {r === "farmer" ? "🌱 Farmer" : "📊 Trader"}
@@ -241,8 +222,8 @@ export default function Register() {
           <label className="auth-terms-label">
             <input
               type="checkbox"
-              checked={agree}
-              onChange={(e) => setAgree(e.target.checked)}
+              checked={formData.agree}
+              onChange={(e) => updateFormData({ agree: e.target.checked })}
             />
             <span>
               Tôi đồng ý với{" "}
