@@ -6,6 +6,7 @@ import "react-toastify/dist/ReactToastify.css";
 import AppRouter from "./routes/AppRouter";
 import { AuthProvider } from "./context/AuthContext";
 import { WalletProvider } from "./context/WalletContext";
+import { RegisterFormProvider } from "./context/RegisterFormContext";
 import "./index.css";
 import "./styles/theme.css";
 import "./styles/app.css";
@@ -23,15 +24,17 @@ const queryClient = new QueryClient({
 ReactDOM.createRoot(document.getElementById("root")).render(
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <WalletProvider>
-        <AppRouter />
-        <ToastContainer
-          position="top-right"
-          autoClose={4000}
-          theme="dark"
-          style={{ fontSize: 14 }}
-        />
-      </WalletProvider>
+      <RegisterFormProvider>
+        <WalletProvider>
+          <AppRouter />
+          <ToastContainer
+            position="top-right"
+            autoClose={4000}
+            theme="dark"
+            style={{ fontSize: 14 }}
+          />
+        </WalletProvider>
+      </RegisterFormProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
