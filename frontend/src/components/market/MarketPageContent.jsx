@@ -4,8 +4,8 @@ import { getMarketStats, getMockOrderbook, getMockTrades, getChart } from "../..
 import { formatNumber, formatVND } from '../../utils/formatters';
 
 const C = {
-  accent: "#00d4aa", muted: "#6b7a99",
-  green:  "#0ecb81", red:   "#f6465d",
+  accent: "#408A71", muted: "#6b7a99",
+  green:  "#B0E4CC", red:   "#f6465d",
   gold:   "#f0b90b", card:  "#141f2e",
 };
 const TOKEN_KEYS   = ["CR1", "CR2", "CR3"];
@@ -515,12 +515,6 @@ export default function MarketPageContent({ onPlaceOrder }) {
         </div>
       </div>
 
-      {/* ── Footer note ── */}
-      <div style={{ marginTop: 14, padding: "11px 16px", background: "rgba(0,212,170,0.04)", border: "1px solid rgba(0,212,170,0.1)", borderRadius: 8, fontSize: 12, color: C.muted }}>
-        📋 Dữ liệu được tạo tự động bởi <strong style={{ color: C.accent }}>Mock Market Engine</strong> (MARKET_MODE=MOCK).
-        Biểu đồ, sổ lệnh và giao dịch cập nhật real-time.
-        {onPlaceOrder && <> Để đặt lệnh thực, nhấn <strong style={{ color: C.accent }}>Đặt lệnh →</strong>.</>}
-      </div>
 
     </div>
   );

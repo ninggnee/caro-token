@@ -1,610 +1,662 @@
-import { useState, useCallback, useRef } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "react-toastify";
-import FarmerLayout from "../components/layout/FarmerLayout";
-import * as api from "../services/orderApi";
+import { useState, useEffect, useCallback } from 'react';
+import FarmerLayout from '../components/layout/FarmerLayout';
+import { API_URL } from '../config/api';
 import { formatNumber, formatVND, formatKg, formatToken } from '../utils/formatters';
 import { getTradingBand } from '../services/marketApi';
-import axios from "../utils/axiosClient";
 
-const PAIRS = ["CR1/VND", "CR2/VND", "CR3/VND"];
-const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#408A71", muted: "#6b7a99", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#B0E4CC" };
+const PAIRS = [
+  { key: 'CR1/VND', label: 'CaRo1/VND', token: 'CR1', tokenLabel: 'CaRo1', color: '#f0b90b' },
+  { key: 'CR2/VND', label: 'CaRo2/VND', token: 'CR2', tokenLabel: 'CaRo2', color: '#0ecb81' },
+  { key: 'CR3/VND', label: 'CaRo3/VND', token: 'CR3', tokenLabel: 'CaRo3', color: '#9b87f5' },
+];
 
-// ── Order Book Side ────────────────────────────────────────────────────────────
-function BookSide({ rows, side, maxAmt }) {
-  if (!rows.length) return <div style={{ color: C.muted, fontSize: 12, textAlign: "center", padding: "12px 0" }}>Trống</div>;
-  return (
-    <div style={{ display: "grid", gap: 2 }}>
-      {rows.slice(0, 8).map((r, i) => {
-        const pct = maxAmt > 0 ? (r.amount / maxAmt) * 100 : 0;
-        const color = side === "buy" ? C.green : C.red;
-        return (
-          <div key={i} style={{ position: "relative", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, padding: "3px 6px", borderRadius: 3 }}>
-            <div style={{ position: "absolute", inset: 0, borderRadius: 3, background: color, opacity: 0.07, width: `${pct}%`, right: side === "buy" ? 0 : "auto", left: side === "sell" ? 0 : "auto" }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color, position: "relative" }}>{formatNumber(r.price, 0)}</span>
-            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", position: "relative", textAlign: "right" }}>{formatNumber(r.amount)}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
+const ORDER_TYPES = [
+  { key: 'limit',  label: 'Limit'  },
+  { key: 'market', label: 'Market' },
+];
+
+const C = {
+  card:      '#0f1e20',
+  border:    'rgba(255,255,255,0.08)',
+  green:     '#B0E4CC',
+  greenRgb:  '176,228,204',
+  greenDark: '#408A71',
+  red:       '#f6465d',
+  text:      '#eaecef',
+  muted:     '#848e9c',
+  dim:       '#1e2d2f',
+  input:     '#162020',
+  gold:      '#f0b90b',
+  teal:      '#B0E4CC',
+};
+
+function authHeader() {
+  const t = localStorage.getItem('token');
+  return t ? { Authorization: `Bearer ${t}` } : {};
 }
 
-// ── Order Form ─────────────────────────────────────────────────────────────────
-function OrderForm({ pair, onPlace, isPlacing, prefill, band, vndAvail, tokAvail, tokenLabel, pairColor }) {
-  const [side,      setSide]      = useState(prefill?.side || "buy");
-  const [orderType, setOrderType] = useState(prefill?.type || "limit");
-  const [price,     setPrice]     = useState(prefill?.price  ? String(prefill.price)  : "");
-  const [amount,    setAmount]    = useState(prefill?.amount ? String(prefill.amount) : "");
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(`${API_URL}${path}`, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', ...authHeader(), ...(opts.headers || {}) },
+  });
+  return res.json();
+}
 
-  const isMarket = orderType === "market";
+export default function FarmerTrading() {
+  const [pairKey, setPairKey]       = useState('CR1/VND');
+  const [bids, setBids]             = useState([]);
+  const [asks, setAsks]             = useState([]);
+  const [openOrders, setOpenOrders] = useState([]);
+  const [tradeHist, setTradeHist]   = useState([]);
+  const [tickers, setTickers]       = useState({});
+  const [vndWallet, setVndWallet]   = useState({});
+  const [tokenBals, setTokenBals]   = useState({});
 
-  // Apply pre-fill when it changes (triggered by "Bán vào lệnh" button)
-  const prefillRef = useRef(null);
-  if (prefill && prefill !== prefillRef.current) {
-    prefillRef.current = prefill;
-    setSide(prefill.side);
-    setOrderType(prefill.type || "limit");
-    setPrice(String(prefill.price || ""));
-    setAmount(String(prefill.amount || ""));
-  }
+  const [orderType, setOrderType] = useState('limit');
+  const [side, setSide]           = useState('buy');
+  const [price, setPrice]         = useState('');
+  const [amount, setAmount]       = useState('');
+  const [placing, setPlacing]     = useState(false);
+  const [msg, setMsg]             = useState(null);
+  const [bottomTab, setBottomTab] = useState('open');
+  const [band, setBand]           = useState(null); // { ref, floor, ceiling, tickSize }
 
-  const priceN    = isMarket ? 0 : (parseFloat(price) || 0);
+  const pairInfo   = PAIRS.find(p => p.key === pairKey) || PAIRS[0];
+  const token      = pairInfo.token;
+  const tokenLabel = pairInfo.tokenLabel;
+  const isMarket   = orderType === 'market';
+
+  // ── data loaders ──────────────────────────────────────────────────────────
+
+  const loadOrderbook = useCallback(async () => {
+    const d = await apiFetch(`/orders/orderbook?pair=${encodeURIComponent(pairKey)}`);
+    if (d.success) { setBids(d.data.bids || []); setAsks(d.data.asks || []); }
+  }, [pairKey]);
+
+  const loadOpenOrders = useCallback(async () => {
+    const d = await apiFetch(`/orders/open?pair=${encodeURIComponent(pairKey)}`);
+    if (d.success) setOpenOrders(d.data || []);
+  }, [pairKey]);
+
+  const loadTradeHistory = useCallback(async () => {
+    const d = await apiFetch(`/orders/trades?pair=${encodeURIComponent(pairKey)}`);
+    if (d.success) setTradeHist(d.data || []);
+  }, [pairKey]);
+
+  const loadTickers = useCallback(async () => {
+    const d = await apiFetch('/orders/tickers');
+    if (d.success) {
+      const m = {};
+      d.data.forEach(t => { m[t.pair] = t; });
+      setTickers(m);
+    }
+  }, []);
+
+  const loadWallet = useCallback(async () => {
+    const d = await apiFetch('/wallet/balance');
+    if (d.success !== false) setVndWallet(d);
+  }, []);
+
+  const loadTokenBals = useCallback(async () => {
+    const d = await apiFetch('/orders/my-balances');
+    if (d.success) setTokenBals(d.data || {});
+  }, []);
+
+  const loadBand = useCallback(async () => {
+    try {
+      const d = await getTradingBand();
+      if (d.success) setBand(d.bands[token] || null);
+    } catch {}
+  }, [token]);
+
+  useEffect(() => {
+    loadOrderbook(); loadOpenOrders(); loadTradeHistory();
+    loadTickers(); loadWallet(); loadTokenBals(); loadBand();
+    const iv = setInterval(() => {
+      loadOrderbook(); loadTickers(); loadWallet(); loadTokenBals(); loadBand();
+    }, 10000);
+    return () => clearInterval(iv);
+  }, [pairKey, loadOrderbook, loadOpenOrders, loadTradeHistory, loadTickers, loadWallet, loadTokenBals, loadBand]);
+
+  // Clear price field when switching to market order type
+  useEffect(() => {
+    if (isMarket) setPrice('');
+  }, [isMarket]);
+
+  // ── derived ────────────────────────────────────────────────────────────────
+
+  const ticker    = tickers[pairKey] || {};
+  const lastPrice = Number(ticker.last_price || 0);
+  const chg24h    = Number(ticker.change_24h || 0);
+  const vndAvail  = Number(vndWallet.vnd_available || 0);
+  const tokAvail  = Number(tokenBals[token]?.available || 0);
+  const priceN    = isMarket ? (asks[0]?.price || bids[0]?.price || lastPrice) : (parseFloat(price) || 0);
+  const amtN      = parseFloat(amount) || 0;
+  const total     = isMarket ? 0 : priceN * amtN; // market orders: total shown as 0 (unknown until execution)
   const maxBuyQty = priceN > 0 ? vndAvail / priceN : 0;
-  const total     = isMarket ? 0 : priceN * (Number(amount) || 0);
-  const isBuy     = side === "buy";
-  const accentColor = isBuy ? C.green : C.red;
+
+  const maxBid   = Math.max(...bids.map(b => b.amount), 1);
+  const maxAsk   = Math.max(...asks.map(a => a.amount), 1);
+  const dispBids = bids.slice(0, 10);
+  const dispAsks = asks.slice(0, 10);
+
+  // ── actions ────────────────────────────────────────────────────────────────
+
+  const selectPrice = (p) => {
+    if (!isMarket) { setPrice(String(p)); }
+  };
 
   const applyPct = (pct) => {
-    if (isBuy) {
-      if (priceN <= 0) { toast.warn("Nhập giá trước khi dùng nút %"); return; }
+    if (side === 'buy') {
+      if (priceN <= 0) return;
       const qty = (vndAvail * pct / 100) / priceN;
-      setAmount(qty > 0 ? qty.toFixed(2) : "");
+      setAmount(qty > 0 ? String(Math.round(qty)) : '');
     } else {
       const qty = tokAvail * pct / 100;
-      setAmount(qty > 0 ? qty.toFixed(2) : "");
+      setAmount(qty > 0 ? String(Math.round(qty)) : '');
     }
   };
 
-  const submit = () => {
-    const a = Number(amount);
-    if (!a || a <= 0) { toast.error("Số lượng phải > 0"); return; }
-    if (!isBuy && a > tokAvail) {
-      toast.error(`Không đủ số dư ${tokenLabel}. Khả dụng: ${formatNumber(tokAvail)} kg`);
-      return;
+  const placeOrder = async () => {
+    if (!amount || amtN <= 0) {
+      return setMsg({ ok: false, text: 'Vui lòng nhập Số lượng hợp lệ' });
+    }
+    if (side === 'sell' && amtN > tokAvail) {
+      return setMsg({ ok: false, text: `Không đủ số dư ${tokenLabel}. Khả dụng: ${formatNumber(tokAvail)} kg` });
     }
     if (!isMarket) {
-      const p = Number(price);
-      if (!p || p <= 0) { toast.error("Giá phải > 0"); return; }
-      if (p % 100 !== 0) { toast.error("Giá phải là bội số của 100 VND (Tick Size). Ví dụ: 88.000, 88.100, ..."); return; }
-      if (band && (p < band.floor || p > band.ceiling)) {
-        toast.error(`Giá nằm ngoài biên độ hôm nay [${formatNumber(band.floor)} – ${formatNumber(band.ceiling)} VND/kg]`); return;
+      if (!price || priceN <= 0) {
+        return setMsg({ ok: false, text: 'Vui lòng nhập Giá hợp lệ' });
       }
-      onPlace({ pair, side, type: "limit", price: p, amount: a }, () => { setPrice(""); setAmount(""); });
-    } else {
-      onPlace({ pair, side, type: "market", amount: a }, () => { setAmount(""); });
+      // Rule 3: tick size = 100 VND
+      if (priceN % 100 !== 0) {
+        return setMsg({ ok: false, text: 'Giá phải là bội số của 100 VND (Tick Size). Ví dụ: 88.000, 88.100, ...' });
+      }
+      // Rule 2: floor/ceiling
+      if (band && (priceN < band.floor || priceN > band.ceiling)) {
+        return setMsg({ ok: false, text: `Giá nằm ngoài biên độ hôm nay [${formatNumber(band.floor)} – ${formatNumber(band.ceiling)} VND/kg]` });
+      }
     }
+    setPlacing(true); setMsg(null);
+    try {
+      const body = { pair: pairKey, side, amount: amtN, type: orderType };
+      if (!isMarket) body.price = priceN;
+      const d = await apiFetch('/orders', { method: 'POST', body: JSON.stringify(body) });
+      if (d.success) {
+        setMsg({ ok: true, text: `Đặt lệnh thành công · ${d.status} · Khớp: ${d.trades} lệnh` });
+        setAmount('');
+        if (!isMarket) setPrice('');
+        loadOpenOrders(); loadOrderbook(); loadTradeHistory(); loadWallet(); loadTokenBals();
+      } else {
+        setMsg({ ok: false, text: d.message || 'Lỗi đặt lệnh' });
+      }
+    } catch { setMsg({ ok: false, text: 'Lỗi kết nối server' }); }
+    setPlacing(false);
   };
 
-  const inputStyle = { width: "100%", padding: "9px 12px", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 6, color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box" };
+  const cancelOrder = async (id) => {
+    const d = await apiFetch(`/orders/${id}`, { method: 'DELETE' });
+    if (d.success) { loadOpenOrders(); loadOrderbook(); loadWallet(); loadTokenBals(); }
+    else alert(d.message);
+  };
+
+  const switchPair = (key) => {
+    setPairKey(key);
+    setPrice(''); setAmount(''); setMsg(null);
+  };
+
+  const switchSide = (s) => {
+    setSide(s); setMsg(null);
+  };
+
+  // ── shared styles ─────────────────────────────────────────────────────────
+
+  const inputStyle = {
+    width: '100%', padding: '10px 12px', boxSizing: 'border-box',
+    border: `1px solid ${C.border}`, borderRadius: 6,
+    color: C.text, fontSize: 14, outline: 'none',
+  };
+
+  const accentColor = side === 'buy' ? C.green : C.red;
 
   return (
-    <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}` }}>
-      {/* Side toggle */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", marginBottom: 10, background: "rgba(255,255,255,0.04)", borderRadius: 7, padding: 3 }}>
-        {["buy", "sell"].map(s => (
-          <button key={s} onClick={() => setSide(s)}
-            style={{ padding: "8px 0", borderRadius: 5, border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer",
-              background: side === s ? (s === "buy" ? C.green : C.red) : "transparent",
-              color: side === s ? "#fff" : C.muted }}>
-            {s === "buy" ? "Mua" : "Bán"}
-          </button>
-        ))}
-      </div>
+    <FarmerLayout title={`Giao dịch — ${pairInfo.label}`}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, color: C.text, fontSize: 13 }}>
 
-      {/* Order type toggle */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 12, borderBottom: `1px solid ${C.border}`, paddingBottom: 10 }}>
-        {["limit", "market"].map(t => (
-          <button key={t} onClick={() => { setOrderType(t); if (t === "market") setPrice(""); }}
-            style={{ flex: 1, padding: "5px 0", border: "none", borderRadius: 5, cursor: "pointer", fontSize: 12,
-              fontWeight: orderType === t ? 700 : 400,
-              background: orderType === t ? (isBuy ? "rgba(14,203,129,0.15)" : "rgba(246,70,93,0.15)") : "rgba(255,255,255,0.04)",
-              color: orderType === t ? accentColor : C.muted }}>
-            {t === "limit" ? "Limit" : "Market"}
-          </button>
-        ))}
-      </div>
+        {/* ── PAIR TABS ── */}
+        <div style={{ display: 'flex', gap: 6 }}>
+          {PAIRS.map(p => (
+            <button key={p.key} onClick={() => switchPair(p.key)} style={{
+              padding: '7px 18px', borderRadius: 6, cursor: 'pointer',
+              fontWeight: 700, fontSize: 13,
+              background: p.key === pairKey ? `${p.color}18` : 'rgba(255,255,255,0.04)',
+              color: p.key === pairKey ? p.color : C.muted,
+              border: p.key === pairKey ? `1px solid ${p.color}55` : `1px solid ${C.border}`,
+              transition: 'all 0.15s',
+            }}>{p.label}</button>
+          ))}
+        </div>
 
-      {/* Balance box */}
-      <div style={{ marginBottom: 12, padding: "9px 12px", borderRadius: 7,
-        background: isBuy ? "rgba(14,203,129,0.05)" : "rgba(246,70,93,0.05)",
-        border: `1px solid ${isBuy ? "rgba(14,203,129,0.15)" : "rgba(246,70,93,0.15)"}` }}>
-        {isBuy ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 11, color: C.muted }}>Số dư VND</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: C.green, fontFamily: "monospace" }}>{formatVND(vndAvail)}</span>
+        {/* ── TICKER BAR ── */}
+        <div style={{ display: 'flex', gap: 24, padding: '10px 18px', background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'monospace', lineHeight: 1, color: chg24h >= 0 ? C.green : C.red }}>
+              {lastPrice ? formatVND(lastPrice) : '—'}
             </div>
-            {priceN > 0 && (
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 11, color: C.muted }}>Có thể mua tối đa</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: C.tealLight, fontFamily: "monospace" }}>{formatKg(maxBuyQty)}</span>
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>VND/kg</div>
+          </div>
+          <div style={{ width: 1, height: 36, background: C.border, flexShrink: 0 }} />
+          <div>
+            <div style={{ fontSize: 11, color: C.muted }}>Thay đổi 24H</div>
+            <div style={{ fontWeight: 700, color: chg24h >= 0 ? C.green : C.red, fontFamily: 'monospace' }}>
+              {chg24h >= 0 ? '+' : ''}{formatNumber(Math.abs(chg24h), 2)}%
+            </div>
+          </div>
+          {[
+            { l: 'Cao nhất 24H',  v: ticker.high   ? formatVND(ticker.high)                  : '—', c: C.green },
+            { l: 'Thấp nhất 24H', v: ticker.low    ? formatVND(ticker.low)                   : '—', c: C.red   },
+            { l: 'KL 24H',        v: ticker.volume ? `${formatNumber(ticker.volume)} kg`      : '—', c: C.text  },
+          ].map(x => (
+            <div key={x.l}>
+              <div style={{ fontSize: 11, color: C.muted }}>{x.l}</div>
+              <div style={{ fontWeight: 600, color: x.c, fontFamily: 'monospace', fontSize: 12 }}>{x.v}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── MAIN: ORDER BOOK LEFT + ORDER PANEL RIGHT ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 12, alignItems: 'start' }}>
+
+          {/* ORDER BOOK */}
+          <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+            <div style={{ padding: '10px 12px 8px', borderBottom: `1px solid ${C.border}`, fontWeight: 700, fontSize: 13 }}>
+              Sổ lệnh
+            </div>
+
+            {/* Column headers */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: '4px 10px', color: C.muted, fontSize: 10, fontWeight: 600, borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+              <span>Giá (VND/kg)</span>
+              <span style={{ textAlign: 'right' }}>SL (kg)</span>
+            </div>
+
+            {/* ASK rows — reversed so lowest ask is near the mid price */}
+            <div style={{ padding: '3px 0 0' }}>
+              {[...dispAsks].reverse().map((ask, i) => {
+                const pct = (ask.amount / maxAsk) * 65;
+                return (
+                  <div key={i} onClick={() => selectPrice(ask.price)}
+                    style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', height: 24, alignItems: 'center', padding: '0 10px', cursor: isMarket ? 'default' : 'pointer' }}>
+                    <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${pct}%`, background: 'rgba(246,70,93,0.08)' }} />
+                    <span style={{ color: C.red, fontSize: 11, fontFamily: 'monospace', fontWeight: 600, position: 'relative' }}>{formatNumber(ask.price)}</span>
+                    <span style={{ color: C.muted, fontSize: 11, fontFamily: 'monospace', textAlign: 'right', position: 'relative' }}>{formatNumber(ask.amount, 1)}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Last price mid */}
+            <div style={{ textAlign: 'center', padding: '6px 0', borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: 'rgba(255,255,255,0.02)' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: chg24h >= 0 ? C.green : C.red }}>
+                {lastPrice ? formatVND(lastPrice) : '—'}
+              </span>
+              <span style={{ fontSize: 10, color: C.muted, marginLeft: 4 }}>VND/kg</span>
+            </div>
+
+            {/* BID rows */}
+            <div style={{ padding: '0 0 3px' }}>
+              {dispBids.map((bid, i) => {
+                const pct = (bid.amount / maxBid) * 65;
+                return (
+                  <div key={i} onClick={() => selectPrice(bid.price)}
+                    style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', height: 24, alignItems: 'center', padding: '0 10px', cursor: isMarket ? 'default' : 'pointer' }}>
+                    <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${pct}%`, background: `rgba(${C.greenRgb},0.08)` }} />
+                    <span style={{ color: C.green, fontSize: 11, fontFamily: 'monospace', fontWeight: 600, position: 'relative' }}>{formatNumber(bid.price)}</span>
+                    <span style={{ color: C.muted, fontSize: 11, fontFamily: 'monospace', textAlign: 'right', position: 'relative' }}>{formatNumber(bid.amount, 1)}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {!isMarket && (
+              <div style={{ padding: '5px 10px', fontSize: 10, color: C.muted, textAlign: 'center', borderTop: `1px solid ${C.border}` }}>
+                Nhấn vào giá để điền nhanh
               </div>
             )}
           </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 11, color: C.muted }}>Số dư {tokenLabel}</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: pairColor || C.tealLight, fontFamily: "monospace" }}>{formatToken(tokAvail, tokenLabel)}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 11, color: C.muted }}>Có thể bán tối đa</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: C.red, fontFamily: "monospace" }}>{formatKg(tokAvail)}</span>
-            </div>
-          </div>
-        )}
-      </div>
 
-      {/* Trading band info */}
-      {band && (
-        <div style={{ marginBottom: 10, padding: "7px 10px", background: "rgba(240,185,11,0.06)", borderRadius: 6, border: "1px solid rgba(240,185,11,0.2)", fontSize: 11 }}>
-          <div style={{ color: C.gold, fontWeight: 700, marginBottom: 3 }}>Biên độ hôm nay (±7%)</div>
-          <div style={{ display: "flex", justifyContent: "space-between", color: C.muted, gap: 4 }}>
-            <span>Tham chiếu: <b style={{ color: "#e2e8f0" }}>{formatNumber(band.ref)}</b></span>
-            <span>Sàn: <b style={{ color: C.red }}>{formatNumber(band.floor)}</b></span>
-            <span>Trần: <b style={{ color: C.green }}>{formatNumber(band.ceiling)}</b></span>
-          </div>
-          {!isMarket && <div style={{ marginTop: 2, color: C.muted }}>Bước giá: <b style={{ color: "#e2e8f0" }}>100 VND</b></div>}
-        </div>
-      )}
+          {/* ── ORDER PANEL (Binance-style single column) ── */}
+          <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
 
-      <div style={{ display: "grid", gap: 10 }}>
-        {/* Price input */}
-        {!isMarket ? (
-          <div>
-            <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>Giá (VND/kg)</label>
-            <input type="number" min="0" step="100" value={price} onChange={e => setPrice(e.target.value)}
-              placeholder="88.000, 88.100, ..."
-              style={inputStyle} />
-          </div>
-        ) : (
-          <div style={{ padding: "9px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12, color: C.muted, textAlign: "center" }}>
-            Khớp tự động tại giá tốt nhất trong sổ lệnh
-          </div>
-        )}
-
-        {/* Amount input */}
-        <div>
-          <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>Số lượng (kg)</label>
-          <input type="number" min="0" value={amount} onChange={e => setAmount(e.target.value)}
-            placeholder={
-              !isBuy && tokAvail > 0
-                ? `Nhập SL (Khả dụng: ${formatNumber(tokAvail)} kg)`
-                : isBuy && priceN > 0
-                ? `Nhập SL (Tối đa: ${formatNumber(maxBuyQty)} kg)`
-                : "0"
-            }
-            style={inputStyle} />
-          {/* Hint below input */}
-          {!isBuy ? (
-            <div style={{ marginTop: 5, display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 11, color: C.muted }}>Khả dụng:</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: pairColor || C.tealLight, fontFamily: "monospace" }}>
-                {formatToken(tokAvail, tokenLabel)} ({formatKg(tokAvail)})
-              </span>
-            </div>
-          ) : priceN > 0 ? (
-            <div style={{ marginTop: 5, display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 11, color: C.muted }}>Có thể mua tối đa:</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: C.green, fontFamily: "monospace" }}>
-                {formatKg(maxBuyQty)}
-              </span>
-            </div>
-          ) : null}
-        </div>
-
-        {/* 25% / 50% / 75% / MAX buttons */}
-        <div style={{ display: "flex", gap: 5 }}>
-          {[25, 50, 75, 100].map(pct => (
-            <button key={pct} onClick={() => applyPct(pct)}
-              style={{ flex: 1, padding: "5px 0", borderRadius: 5, border: `1px solid ${C.border}`,
-                background: "rgba(255,255,255,0.03)", color: C.muted, fontSize: 11, cursor: "pointer",
-                transition: "all 0.12s" }}
-              onMouseEnter={e => { e.currentTarget.style.color = accentColor; e.currentTarget.style.borderColor = isBuy ? "rgba(14,203,129,0.4)" : "rgba(246,70,93,0.4)"; e.currentTarget.style.background = isBuy ? "rgba(14,203,129,0.08)" : "rgba(246,70,93,0.08)"; }}
-              onMouseLeave={e => { e.currentTarget.style.color = C.muted; e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}>
-              {pct === 100 ? "MAX" : `${pct}%`}
-            </button>
-          ))}
-        </div>
-
-        {!isMarket && total > 0 && (
-          <div style={{ padding: "8px 12px", background: isBuy ? "rgba(14,203,129,0.06)" : "rgba(246,70,93,0.06)", borderRadius: 6, fontSize: 12, color: C.muted }}>
-            Tổng giá trị: <strong style={{ color: accentColor }}>{formatVND(total)}</strong>
-          </div>
-        )}
-
-        <button onClick={submit} disabled={isPlacing}
-          style={{ padding: "10px 0", background: isPlacing ? "#555" : accentColor,
-            border: "none", borderRadius: 7, color: "#fff", fontWeight: 700, fontSize: 14,
-            cursor: isPlacing ? "not-allowed" : "pointer" }}>
-          {isPlacing ? "Đang đặt lệnh..." : (isBuy ? `Mua ${pair.split("/")[0]}` : `Bán ${pair.split("/")[0]}`)}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Open Orders Table ──────────────────────────────────────────────────────────
-function OpenOrdersTable({ pair, onCancel, isCancelling }) {
-  const { data, isLoading } = useQuery({
-    queryKey: ["open-orders", pair],
-    queryFn: () => api.getOpenOrders(pair),
-    refetchInterval: 5000,
-  });
-  const orders = data?.data || [];
-
-  if (isLoading) return <div style={{ color: C.muted, fontSize: 13, padding: 12 }}>Đang tải...</div>;
-  if (!orders.length) return <div style={{ color: C.muted, fontSize: 13, padding: "20px 12px", textAlign: "center" }}>Không có lệnh mở</div>;
-
-  return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-        <thead>
-          <tr style={{ background: "rgba(255,255,255,0.03)" }}>
-            {["Cặp", "Loại", "Giá", "SL", "Khớp", "Còn lại", "Trạng thái", ""].map(h => (
-              <th key={h} style={{ padding: "8px 10px", color: C.muted, fontWeight: 600, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {orders.map(o => (
-            <tr key={o.id} style={{ borderBottom: `1px solid ${C.border}` }}>
-              <td style={{ padding: "9px 10px", fontWeight: 600 }}>{o.pair}</td>
-              <td style={{ padding: "9px 10px", color: o.side === "buy" ? C.green : C.red, fontWeight: 700 }}>
-                {o.side === "buy" ? "MUA" : "BÁN"}
-              </td>
-              <td style={{ padding: "9px 10px" }}>{formatNumber(o.price)}</td>
-              <td style={{ padding: "9px 10px" }}>{formatNumber(o.amount)}</td>
-              <td style={{ padding: "9px 10px", color: C.green }}>{formatNumber(o.filled)}</td>
-              <td style={{ padding: "9px 10px" }}>{formatNumber(o.remaining)}</td>
-              <td style={{ padding: "9px 10px" }}>
-                <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4,
-                  background: o.status === "partial" || o.status === "partially_filled" ? "rgba(240,185,11,0.12)" : "rgba(72,117,115,0.12)",
-                  color: o.status === "partial" || o.status === "partially_filled" ? C.gold : C.tealLight, fontWeight: 600 }}>
-                  {o.status === "partial" || o.status === "partially_filled" ? "Khớp một phần" : "Mở"}
-                </span>
-              </td>
-              <td style={{ padding: "9px 10px" }}>
-                <button onClick={() => onCancel(o.id)} disabled={isCancelling}
-                  style={{ padding: "3px 10px", background: "rgba(246,70,93,0.12)", border: "1px solid rgba(246,70,93,0.25)", color: C.red, borderRadius: 5, cursor: "pointer", fontSize: 11, fontWeight: 600 }}>
-                  Hủy
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// ── Recent Trades ─────────────────────────────────────────────────────────────
-function RecentTrades({ pair }) {
-  const { data } = useQuery({
-    queryKey: ["recent-trades", pair],
-    queryFn: () => api.getRecentTrades(pair),
-    refetchInterval: 5000,
-  });
-  const trades = (data?.data || []).filter(t => t.pair === pair).slice(0, 12);
-
-  if (!trades.length) return <div style={{ color: C.muted, fontSize: 12, textAlign: "center", padding: "14px 0" }}>Chưa có giao dịch</div>;
-
-  return (
-    <div style={{ display: "grid", gap: 0 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", padding: "4px 6px", borderBottom: `1px solid ${C.border}`, marginBottom: 4 }}>
-        {["Giá", "SL (kg)", "Thời gian"].map(h => (
-          <span key={h} style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>{h}</span>
-        ))}
-      </div>
-      {trades.map((t, i) => (
-        <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", padding: "3px 6px" }}>
-          <span style={{ fontSize: 12, color: C.green, fontWeight: 600 }}>{formatNumber(t.price)}</span>
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{formatNumber(t.amount)}</span>
-          <span style={{ fontSize: 11, color: C.muted }}>{new Date(t.created_at).toLocaleTimeString("vi-VN")}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Trader Buy Orders Table ───────────────────────────────────────────────────
-function TraderBuyOrdersTable({ pair, onSellInto }) {
-  const { data, isLoading } = useQuery({
-    queryKey: ["trader-buy-orders", pair],
-    queryFn: () => api.getAllBuyOrders(pair),
-    refetchInterval: 5000,
-  });
-  const orders = data?.data || [];
-
-  if (isLoading) return <div style={{ color: C.muted, fontSize: 13, padding: 12 }}>Đang tải...</div>;
-  if (!orders.length) return <div style={{ color: C.muted, fontSize: 13, padding: "20px 12px", textAlign: "center" }}>Không có lệnh mua nào từ trader</div>;
-
-  return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-        <thead>
-          <tr style={{ background: "rgba(255,255,255,0.03)" }}>
-            {["Trader", "Cặp", "Giá (VND/kg)", "Còn lại (kg)", "Tổng giá trị", "Trạng thái", "Thời gian", ""].map(h => (
-              <th key={h} style={{ padding: "8px 10px", color: C.muted, fontWeight: 600, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {orders.map(o => {
-            const totalVal = Number(o.price) * Number(o.remaining);
-            return (
-              <tr key={o.id} style={{ borderBottom: `1px solid ${C.border}` }}>
-                <td style={{ padding: "9px 10px", fontWeight: 600, color: C.tealLight }}>{o.trader_name || o.trader_email}</td>
-                <td style={{ padding: "9px 10px", fontWeight: 600 }}>{o.pair}</td>
-                <td style={{ padding: "9px 10px", color: C.green, fontWeight: 700 }}>{formatNumber(o.price)}</td>
-                <td style={{ padding: "9px 10px" }}>{formatNumber(o.remaining)}</td>
-                <td style={{ padding: "9px 10px", color: C.gold }}>{formatVND(totalVal)}</td>
-                <td style={{ padding: "9px 10px" }}>
-                  <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4,
-                    background: o.status === "partial" || o.status === "partially_filled" ? "rgba(240,185,11,0.12)" : "rgba(72,117,115,0.12)",
-                    color: o.status === "partial" || o.status === "partially_filled" ? C.gold : C.tealLight, fontWeight: 600 }}>
-                    {o.status === "partial" || o.status === "partially_filled" ? "Khớp một phần" : "Mở"}
-                  </span>
-                </td>
-                <td style={{ padding: "9px 10px", color: C.muted }}>{new Date(o.created_at).toLocaleString("vi-VN")}</td>
-                <td style={{ padding: "9px 10px" }}>
-                  <button onClick={() => onSellInto(o)}
-                    style={{ padding: "4px 12px", background: "rgba(14,203,129,0.12)", border: "1px solid rgba(14,203,129,0.3)", color: C.green, borderRadius: 5, cursor: "pointer", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
-                    Bán vào lệnh này
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// ── Main Page ──────────────────────────────────────────────────────────────────
-export default function FarmerTrading() {
-  const qc = useQueryClient();
-  const [pair, setPair] = useState("CR1/VND");
-  const [activeTab, setActiveTab] = useState("openOrders");
-  const [prefillOrder, setPrefillOrder] = useState(null);
-
-  const token = pair.split("/")[0]; // CR1, CR2, or CR3
-  const PAIR_COLORS = { CR1: "#f0b90b", CR2: "#0ecb81", CR3: "#9b87f5" };
-  const pairColor  = PAIR_COLORS[token] || C.tealLight;
-  const tokenLabel = token;
-
-  // Trading band (Rule 1 & 2) — refresh every 30s
-  const { data: bandData } = useQuery({
-    queryKey: ["trading-band"],
-    queryFn: getTradingBand,
-    refetchInterval: 30000,
-  });
-  const band = bandData?.bands?.[token] || null;
-
-  // Order book (auto-refresh every 3s)
-  const { data: bookData } = useQuery({
-    queryKey: ["orderbook", pair],
-    queryFn: () => api.getOrderbook(pair),
-    refetchInterval: 3000,
-  });
-
-  // Wallet VND balance (refresh every 10s)
-  const { data: walletData } = useQuery({
-    queryKey: ["farmer-trading-wallet"],
-    queryFn: () => axios.get("/wallet/balance").then(r => r.data),
-    refetchInterval: 10000,
-  });
-
-  // Token balances (refresh every 10s)
-  const { data: tokenBalsData } = useQuery({
-    queryKey: ["farmer-trading-token-bals"],
-    queryFn: () => axios.get("/orders/my-balances").then(r => r.data),
-    refetchInterval: 10000,
-  });
-
-  const vndAvail = Number(walletData?.vnd_available ?? walletData?.vnd_balance ?? 0);
-  const tokAvail = Number(tokenBalsData?.data?.[token]?.available ?? 0);
-
-  const bids = bookData?.data?.bids || [];
-  const asks = bookData?.data?.asks || [];
-  const maxAmt = Math.max(...[...bids, ...asks].map(r => r.amount), 1);
-
-  const spread = bids[0] && asks[0] ? Math.abs(asks[0].price - bids[0].price) : null;
-
-  // Place order
-  const placeMut = useMutation({
-    mutationFn: (body) => api.placeOrder(body),
-    onSuccess: (data) => {
-      const msg = data.trades > 0
-        ? `Đặt lệnh thành công! Khớp ${data.trades} giao dịch.`
-        : "Lệnh đã vào sổ, chờ khớp.";
-      toast.success(msg);
-      qc.invalidateQueries({ queryKey: ["open-orders"] });
-      qc.invalidateQueries({ queryKey: ["orderbook"] });
-      qc.invalidateQueries({ queryKey: ["recent-trades"] });
-      qc.invalidateQueries({ queryKey: ["farmer-trading-wallet"] });
-      qc.invalidateQueries({ queryKey: ["farmer-trading-token-bals"] });
-    },
-    onError: (e) => toast.error(e?.response?.data?.message || "Đặt lệnh thất bại"),
-  });
-
-  // Cancel order
-  const cancelMut = useMutation({
-    mutationFn: (id) => api.cancelOrder(id),
-    onSuccess: () => {
-      toast.info("Đã hủy lệnh");
-      qc.invalidateQueries({ queryKey: ["open-orders"] });
-      qc.invalidateQueries({ queryKey: ["orderbook"] });
-      qc.invalidateQueries({ queryKey: ["farmer-trading-wallet"] });
-      qc.invalidateQueries({ queryKey: ["farmer-trading-token-bals"] });
-    },
-    onError: (e) => toast.error(e?.response?.data?.message || "Hủy lệnh thất bại"),
-  });
-
-  const handlePlace = useCallback((body, reset) => {
-    placeMut.mutate(body, {
-      onSuccess: () => reset?.(),
-      onError: (e) => toast.error(e?.response?.data?.message || "Đặt lệnh thất bại"),
-    });
-  }, [placeMut]);
-
-  const handleSellInto = useCallback((order) => {
-    setPair(order.pair);
-    setPrefillOrder({ side: "sell", type: "limit", price: Number(order.price), amount: Number(order.remaining) });
-    setActiveTab("openOrders");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
-
-  return (
-    <FarmerLayout title="Giao dịch">
-      <div style={{ width: "100%" }}>
-
-        {/* Header + Pair Selector */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>📈 Sàn Giao Dịch</h2>
-            <p style={{ margin: "3px 0 0", color: C.muted, fontSize: 13 }}>Đặt lệnh limit mua/bán token cà phê Robusta</p>
-          </div>
-          <div style={{ display: "flex", gap: 6 }}>
-            {PAIRS.map(p => (
-              <button key={p} onClick={() => setPair(p)}
-                style={{ padding: "7px 16px", borderRadius: 7, border: "1px solid", cursor: "pointer", fontSize: 13, fontWeight: 700,
-                  background: pair === p ? "rgba(72,117,115,0.15)" : "rgba(255,255,255,0.04)",
-                  borderColor: pair === p ? C.tealLight : C.border,
-                  color: pair === p ? C.tealLight : C.muted }}>
-                {p}
+            {/* Buy / Sell tab switch */}
+            <div style={{ display: 'flex' }}>
+              <button onClick={() => switchSide('buy')} style={{
+                flex: 1, padding: '13px 0', border: 'none', cursor: 'pointer',
+                fontWeight: 700, fontSize: 14, letterSpacing: '0.3px',
+                background: side === 'buy' ? `rgba(${C.greenRgb},0.1)` : C.dim,
+                color: side === 'buy' ? C.green : C.muted,
+                borderBottom: side === 'buy' ? `2px solid ${C.green}` : `2px solid transparent`,
+                transition: 'all 0.15s',
+              }}>
+                Mua {tokenLabel}
               </button>
-            ))}
-          </div>
-        </div>
+              <button onClick={() => switchSide('sell')} style={{
+                flex: 1, padding: '13px 0', border: 'none', cursor: 'pointer',
+                fontWeight: 700, fontSize: 14, letterSpacing: '0.3px',
+                background: side === 'sell' ? 'rgba(246,70,93,0.1)' : C.dim,
+                color: side === 'sell' ? C.red : C.muted,
+                borderBottom: side === 'sell' ? `2px solid ${C.red}` : `2px solid transparent`,
+                transition: 'all 0.15s',
+              }}>
+                Bán {tokenLabel}
+              </button>
+            </div>
 
-        {/* Main grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: 12 }}>
+            <div style={{ padding: '16px 20px 20px' }}>
 
-          {/* Left: Order form */}
-          <div>
-            <OrderForm
-              pair={pair} onPlace={handlePlace} isPlacing={placeMut.isPending}
-              prefill={prefillOrder} band={band}
-              vndAvail={vndAvail} tokAvail={tokAvail}
-              tokenLabel={tokenLabel} pairColor={pairColor}
-            />
+              {/* Order type sub-tabs */}
+              <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, marginBottom: 16 }}>
+                {ORDER_TYPES.map(ot => (
+                  <button key={ot.key} onClick={() => setOrderType(ot.key)} style={{
+                    padding: '7px 14px', background: 'transparent', border: 'none',
+                    cursor: 'pointer',
+                    color: orderType === ot.key ? C.text : C.muted,
+                    fontWeight: orderType === ot.key ? 700 : 400, fontSize: 13,
+                    borderBottom: orderType === ot.key ? `2px solid ${accentColor}` : '2px solid transparent',
+                    marginBottom: -1, transition: 'color 0.15s',
+                  }}>{ot.label}</button>
+                ))}
+                {isMarket && (
+                  <span style={{ marginLeft: 'auto', fontSize: 11, color: C.muted, alignSelf: 'center' }}>
+                    Khớp theo giá tốt nhất
+                  </span>
+                )}
+              </div>
 
-            {/* Spread info */}
-            <div style={{ marginTop: 10, padding: "10px 14px", background: C.card, borderRadius: 8, border: `1px solid ${C.border}` }}>
-              <div style={{ display: "grid", gap: 6 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                  <span style={{ color: C.muted }}>Mua tốt nhất</span>
-                  <span style={{ color: C.green, fontWeight: 700 }}>{bids[0] ? formatNumber(bids[0].price) : "—"}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                  <span style={{ color: C.muted }}>Bán tốt nhất</span>
-                  <span style={{ color: C.red, fontWeight: 700 }}>{asks[0] ? formatNumber(asks[0].price) : "—"}</span>
-                </div>
-                {spread !== null && (
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                    <span style={{ color: C.muted }}>Chênh lệch</span>
-                    <span style={{ color: C.gold }}>{formatNumber(spread)}</span>
+              {/* Available balance */}
+              <div style={{
+                marginBottom: 14, padding: '10px 12px', borderRadius: 6,
+                background: side === 'buy' ? `rgba(${C.greenRgb},0.05)` : 'rgba(246,70,93,0.05)',
+                border: `1px solid ${side === 'buy' ? `rgba(${C.greenRgb},0.15)` : 'rgba(246,70,93,0.15)'}`,
+              }}>
+                {side === 'buy' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 11, color: C.muted }}>Số dư VND</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: C.green, fontFamily: 'monospace' }}>{formatVND(vndAvail)}</span>
+                    </div>
+                    {priceN > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, color: C.muted }}>Có thể mua tối đa</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: C.teal, fontFamily: 'monospace' }}>{formatKg(maxBuyQty)}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 11, color: C.muted }}>Số dư {tokenLabel}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: pairInfo.color, fontFamily: 'monospace' }}>{formatToken(tokAvail, tokenLabel)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 11, color: C.muted }}>Có thể bán tối đa</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: C.red, fontFamily: 'monospace' }}>{formatKg(tokAvail)}</span>
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
-          </div>
 
-          {/* Right: Order book + recent trades */}
-          <div style={{ display: "grid", gap: 12 }}>
-
-            {/* Order book */}
-            <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-              <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, fontSize: 13, fontWeight: 700 }}>
-                📖 Sổ Lệnh — {pair}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
-                <div style={{ padding: "10px 12px", borderRight: `1px solid ${C.border}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}>Giá (VND)</span>
-                    <span style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}>Khối lượng (kg)</span>
+              {/* Trading band info (Rule 1 & 2) */}
+              {band && (
+                <div style={{ marginBottom: 12, padding: '8px 10px', background: 'rgba(240,185,11,0.06)', borderRadius: 6, border: '1px solid rgba(240,185,11,0.2)', fontSize: 11 }}>
+                  <div style={{ color: C.gold, fontWeight: 700, marginBottom: 4 }}>Biên độ giao dịch hôm nay (±7%)</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: C.muted }}>
+                    <span>Tham chiếu: <b style={{ color: C.text }}>{formatNumber(band.ref)}</b></span>
+                    <span>Sàn: <b style={{ color: C.red }}>{formatNumber(band.floor)}</b></span>
+                    <span>Trần: <b style={{ color: C.green }}>{formatNumber(band.ceiling)}</b></span>
                   </div>
-                  <div style={{ fontSize: 11, color: C.green, fontWeight: 700, marginBottom: 6 }}>BID (MUA)</div>
-                  <BookSide rows={bids} side="buy" maxAmt={maxAmt} />
+                  {!isMarket && <div style={{ marginTop: 3, color: C.muted }}>Bước giá: <b style={{ color: C.text }}>100 VND</b></div>}
                 </div>
-                <div style={{ padding: "10px 12px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}>Giá (VND)</span>
-                    <span style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}>Khối lượng (kg)</span>
-                  </div>
-                  <div style={{ fontSize: 11, color: C.red, fontWeight: 700, marginBottom: 6 }}>ASK (BÁN)</div>
-                  <BookSide rows={asks} side="sell" maxAmt={maxAmt} />
-                </div>
-              </div>
-            </div>
+              )}
 
-            {/* Recent trades */}
-            <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-              <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, fontSize: 13, fontWeight: 700 }}>
-                🔄 Giao Dịch Gần Đây
+              {/* Price input — hidden for market orders */}
+              {!isMarket && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 5, fontWeight: 600 }}>
+                    GIÁ (VND/kg)
+                  </div>
+                  <input
+                    type="number"
+                    value={price}
+                    onChange={e => setPrice(e.target.value)}
+                    placeholder="0"
+                    step="100"
+                    style={{ ...inputStyle, background: C.input }}
+                  />
+                </div>
+              )}
+              {isMarket && (
+                <div style={{ marginBottom: 12, padding: '10px 12px', background: C.dim, borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12, color: C.muted, textAlign: 'center' }}>
+                  Khớp tự động tại giá tốt nhất trong sổ lệnh
+                </div>
+              )}
+
+              {/* Amount input */}
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 5, fontWeight: 600 }}>
+                  SỐ LƯỢNG (kg)
+                </div>
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={e => setAmount(e.target.value)}
+                  placeholder={
+                    side === 'sell' && tokAvail > 0
+                      ? `Nhập số lượng (Khả dụng: ${formatNumber(tokAvail)} kg)`
+                      : side === 'buy' && priceN > 0
+                      ? `Nhập số lượng (Tối đa: ${formatNumber(maxBuyQty)} kg)`
+                      : '0'
+                  }
+                  style={{ ...inputStyle, background: C.input }}
+                />
+                {/* Balance info below input */}
+                {side === 'sell' ? (
+                  <div style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, color: C.muted }}>Khả dụng:</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: pairInfo.color, fontFamily: 'monospace' }}>
+                      {formatToken(tokAvail, tokenLabel)} ({formatKg(tokAvail)})
+                    </span>
+                  </div>
+                ) : priceN > 0 ? (
+                  <div style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, color: C.muted }}>Có thể mua tối đa:</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: C.green, fontFamily: 'monospace' }}>
+                      {formatKg(maxBuyQty)}
+                    </span>
+                  </div>
+                ) : null}
               </div>
-              <div style={{ padding: "8px 12px" }}>
-                <RecentTrades pair={pair} />
+
+              {/* Percentage quick-fill buttons */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+                {[25, 50, 75, 100].map(pct => (
+                  <button key={pct} onClick={() => applyPct(pct)}
+                    style={{
+                      flex: 1, padding: '5px 0', borderRadius: 4,
+                      border: `1px solid ${C.border}`,
+                      background: 'rgba(255,255,255,0.03)',
+                      color: C.muted, fontSize: 11, cursor: 'pointer',
+                      transition: 'all 0.12s',
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.color = accentColor;
+                      e.currentTarget.style.borderColor = side === 'buy' ? `rgba(${C.greenRgb},0.4)` : 'rgba(246,70,93,0.4)';
+                      e.currentTarget.style.background = side === 'buy' ? `rgba(${C.greenRgb},0.06)` : 'rgba(246,70,93,0.06)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.color = C.muted;
+                      e.currentTarget.style.borderColor = C.border;
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                    }}
+                  >
+                    {pct === 100 ? 'MAX' : `${pct}%`}
+                  </button>
+                ))}
+              </div>
+
+              {/* Total */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, marginBottom: 16 }}>
+                <span style={{ color: C.muted, fontSize: 12 }}>Tổng giá trị</span>
+                <span style={{ color: C.text, fontWeight: 700, fontFamily: 'monospace', fontSize: 14 }}>
+                  {isMarket ? <span style={{ color: C.muted, fontSize: 12 }}>Theo giá khớp lệnh</span> : (total > 0 ? formatVND(total) : '—')}
+                </span>
+              </div>
+
+              {/* Submit button */}
+              <button
+                onClick={placeOrder}
+                disabled={placing}
+                style={{
+                  width: '100%', padding: '13px 0', borderRadius: 6, border: 'none',
+                  background: placing
+                    ? (side === 'buy' ? C.greenDark : '#6b1a2a')
+                    : accentColor,
+                  color: '#fff', fontWeight: 800, fontSize: 15,
+                  cursor: placing ? 'not-allowed' : 'pointer',
+                  letterSpacing: '0.5px', transition: 'background 0.15s',
+                }}>
+                {placing ? 'Đang đặt…' : (side === 'buy' ? `Mua ${tokenLabel}` : `Bán ${tokenLabel}`)}
+              </button>
+
+              {/* Status message */}
+              {msg && (
+                <div style={{
+                  marginTop: 12, padding: '9px 12px', borderRadius: 6, fontSize: 12,
+                  background: msg.ok ? `rgba(${C.greenRgb},0.07)` : 'rgba(246,70,93,0.07)',
+                  border: `1px solid ${msg.ok ? `rgba(${C.greenRgb},0.25)` : 'rgba(246,70,93,0.25)'}`,
+                  color: msg.ok ? C.green : C.red,
+                }}>{msg.text}</div>
+              )}
+
+              {/* Engine note */}
+              <div style={{ marginTop: 14, padding: '8px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 4, fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
+                Khớp lệnh theo <b style={{ color: C.teal }}>Price-Time Priority</b>.
+                Lệnh Limit được thêm vào sổ lệnh nếu chưa khớp ngay.
+                Lệnh Market khớp theo giá tốt nhất hiện tại.
               </div>
             </div>
           </div>
         </div>
 
-        {/* Bottom: open orders + tabs */}
-        <div style={{ marginTop: 12, background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-          <div style={{ display: "flex", borderBottom: `1px solid ${C.border}` }}>
+        {/* ── BOTTOM TABS: open orders + trade history ── */}
+        <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}` }}>
+          <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, padding: '0 16px' }}>
             {[
-              { key: "openOrders",      label: "Lệnh Mở" },
-              { key: "traderBuyOrders", label: "Lệnh Mua Trader" },
-              { key: "info",            label: "Hướng dẫn" },
+              { key: 'open',    label: `Lệnh đang mở (${openOrders.length})` },
+              { key: 'history', label: 'Lịch sử khớp lệnh' },
             ].map(t => (
-              <button key={t.key} onClick={() => setActiveTab(t.key)}
-                style={{ padding: "11px 20px", background: "none", border: "none", cursor: "pointer", fontSize: 13,
-                  fontWeight: activeTab === t.key ? 700 : 400,
-                  color: activeTab === t.key ? C.tealLight : C.muted,
-                  borderBottom: activeTab === t.key ? `2px solid ${C.tealLight}` : "2px solid transparent" }}>
-                {t.label}
-              </button>
+              <button key={t.key} onClick={() => setBottomTab(t.key)} style={{
+                padding: '11px 16px', border: 'none', background: 'transparent', cursor: 'pointer',
+                color: bottomTab === t.key ? C.text : C.muted,
+                fontWeight: bottomTab === t.key ? 700 : 400, fontSize: 13,
+                borderBottom: bottomTab === t.key ? `2px solid ${C.green}` : '2px solid transparent',
+                marginBottom: -1, transition: 'color 0.15s',
+              }}>{t.label}</button>
             ))}
           </div>
 
-          {activeTab === "openOrders" && (
-            <OpenOrdersTable pair={pair} onCancel={id => cancelMut.mutate(id)} isCancelling={cancelMut.isPending} />
-          )}
+          <div style={{ padding: 16 }}>
 
-          {activeTab === "traderBuyOrders" && (
-            <div>
-              <div style={{ padding: "8px 14px 4px", fontSize: 12, color: C.muted }}>
-                Các lệnh mua đang mở từ trader — nhấn <strong style={{ color: C.green }}>Bán vào lệnh này</strong> để điền sẵn form bán với giá và số lượng phù hợp.
-              </div>
-              <TraderBuyOrdersTable pair={pair} onSellInto={handleSellInto} />
-            </div>
-          )}
+            {bottomTab === 'open' && (
+              openOrders.length === 0
+                ? <div style={{ color: C.muted, textAlign: 'center', padding: '24px 0' }}>Không có lệnh đang mở</div>
+                : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr>
+                        {['#ID', 'Cặp', 'Loại', 'Giá (VND/kg)', 'SL (kg)', 'Còn lại (kg)', 'Trạng thái', ''].map(h => (
+                          <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {openOrders.map(o => (
+                        <tr key={o.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                          <td style={{ padding: '10px', color: C.muted }}>#{o.id}</td>
+                          <td style={{ padding: '10px', fontWeight: 700 }}>{o.pair}</td>
+                          <td style={{ padding: '10px', fontWeight: 700, color: o.side === 'buy' ? C.green : C.red }}>
+                            {o.side.toUpperCase()}
+                          </td>
+                          <td style={{ padding: '10px', fontFamily: 'monospace' }}>
+                            {o.price > 0 ? formatVND(o.price) : 'Market'}
+                          </td>
+                          <td style={{ padding: '10px', fontFamily: 'monospace' }}>{formatKg(o.amount)}</td>
+                          <td style={{ padding: '10px', fontFamily: 'monospace', color: o.remaining > 0 ? C.text : C.muted }}>
+                            {formatKg(o.remaining)}
+                          </td>
+                          <td style={{ padding: '10px' }}>
+                            <span style={{
+                              padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700,
+                              background: o.status === 'open' ? `rgba(${C.greenRgb},0.1)` : 'rgba(240,185,11,0.1)',
+                              color: o.status === 'open' ? C.green : C.gold,
+                            }}>{o.status.toUpperCase()}</span>
+                          </td>
+                          <td style={{ padding: '10px', textAlign: 'right' }}>
+                            <button onClick={() => cancelOrder(o.id)} style={{
+                              padding: '4px 10px', borderRadius: 4, border: 'none',
+                              background: 'rgba(246,70,93,0.1)', color: C.red,
+                              fontWeight: 700, cursor: 'pointer', transition: 'all 0.12s'
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = C.red; e.currentTarget.style.color = '#fff'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(246,70,93,0.1)'; e.currentTarget.style.color = C.red; }}
+                            >Hủy</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
 
-          {activeTab === "info" && (
-            <div style={{ padding: 20, fontSize: 13, color: C.muted, lineHeight: 1.8 }}>
-              <div style={{ fontWeight: 700, color: "#e2e8f0", marginBottom: 8 }}>Cách đặt lệnh</div>
-              <ul style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}>
-                <li><strong style={{ color: "#e2e8f0" }}>Lệnh Mua:</strong> Bạn cần có VND trong ví nội bộ. Lệnh sẽ khóa VND = Giá × Số lượng.</li>
-                <li><strong style={{ color: "#e2e8f0" }}>Lệnh Bán:</strong> Bạn cần có token CR1/CR2/CR3 đã được mint. Lệnh sẽ khóa token.</li>
-                <li><strong style={{ color: "#e2e8f0" }}>Khớp lệnh:</strong> Hệ thống tự động khớp theo Price-Time Priority (giá tốt nhất → thời gian sớm nhất).</li>
-                <li><strong style={{ color: "#e2e8f0" }}>Hủy lệnh:</strong> Chỉ hủy được lệnh đang mở hoặc khớp một phần. Số tiền/token bị khóa sẽ được hoàn trả.</li>
-              </ul>
-            </div>
-          )}
+            {bottomTab === 'history' && (
+              tradeHist.length === 0
+                ? <div style={{ color: C.muted, textAlign: 'center', padding: '24px 0' }}>Chưa có lịch sử giao dịch</div>
+                : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>Thời gian</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 600, color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>Giá (VND)</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 600, color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>Số lượng (kg)</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>Tổng (VND)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tradeHist.slice(0, 30).map(t => (
+                        <tr key={t.id} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)` }}>
+                          <td style={{ padding: '10px 12px', textAlign: 'left', color: '#94a3b8', fontFamily: 'monospace' }}>
+                            {new Date(t.created_at).toLocaleTimeString('vi-VN', { hour12: false })}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700, color: t.side === 'buy' ? C.green : C.red }}>
+                            {formatVND(t.price)}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center', fontFamily: 'monospace', color: C.text }}>
+                            {formatKg(t.amount)}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: C.text }}>
+                            {formatVND(t.price * t.amount)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
+          </div>
         </div>
 
       </div>

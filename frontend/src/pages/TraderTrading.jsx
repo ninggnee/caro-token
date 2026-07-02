@@ -16,16 +16,18 @@ const ORDER_TYPES = [
 ];
 
 const C = {
-  card:   '#0f1e20',
-  border: 'rgba(255,255,255,0.08)',
-  green:  '#0ecb81',
-  red:    '#f6465d',
-  text:   '#eaecef',
-  muted:  '#848e9c',
-  dim:    '#1e2d2f',
-  input:  '#162020',
-  gold:   '#f0b90b',
-  teal:   '#B0E4CC',
+  card:      '#0f1e20',
+  border:    'rgba(255,255,255,0.08)',
+  green:     '#408A71',
+  greenRgb:  '64,138,113',
+  greenDark: '#285A48',
+  red:       '#f6465d',
+  text:      '#eaecef',
+  muted:     '#848e9c',
+  dim:       '#1e2d2f',
+  input:     '#162020',
+  gold:      '#f0b90b',
+  teal:      '#B0E4CC',
 };
 
 function authHeader() {
@@ -308,7 +310,7 @@ export default function TraderTrading() {
                 return (
                   <div key={i} onClick={() => selectPrice(bid.price)}
                     style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', height: 24, alignItems: 'center', padding: '0 10px', cursor: isMarket ? 'default' : 'pointer' }}>
-                    <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${pct}%`, background: 'rgba(14,203,129,0.08)' }} />
+                    <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${pct}%`, background: `rgba(${C.greenRgb},0.08)` }} />
                     <span style={{ color: C.green, fontSize: 11, fontFamily: 'monospace', fontWeight: 600, position: 'relative' }}>{formatNumber(bid.price)}</span>
                     <span style={{ color: C.muted, fontSize: 11, fontFamily: 'monospace', textAlign: 'right', position: 'relative' }}>{formatNumber(bid.amount, 1)}</span>
                   </div>
@@ -331,7 +333,7 @@ export default function TraderTrading() {
               <button onClick={() => switchSide('buy')} style={{
                 flex: 1, padding: '13px 0', border: 'none', cursor: 'pointer',
                 fontWeight: 700, fontSize: 14, letterSpacing: '0.3px',
-                background: side === 'buy' ? 'rgba(14,203,129,0.1)' : C.dim,
+                background: side === 'buy' ? `rgba(${C.greenRgb},0.1)` : C.dim,
                 color: side === 'buy' ? C.green : C.muted,
                 borderBottom: side === 'buy' ? `2px solid ${C.green}` : `2px solid transparent`,
                 transition: 'all 0.15s',
@@ -374,8 +376,8 @@ export default function TraderTrading() {
               {/* Available balance */}
               <div style={{
                 marginBottom: 14, padding: '10px 12px', borderRadius: 6,
-                background: side === 'buy' ? 'rgba(14,203,129,0.05)' : 'rgba(246,70,93,0.05)',
-                border: `1px solid ${side === 'buy' ? 'rgba(14,203,129,0.15)' : 'rgba(246,70,93,0.15)'}`,
+                background: side === 'buy' ? `rgba(${C.greenRgb},0.05)` : 'rgba(246,70,93,0.05)',
+                border: `1px solid ${side === 'buy' ? `rgba(${C.greenRgb},0.15)` : 'rgba(246,70,93,0.15)'}`,
               }}>
                 {side === 'buy' ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -488,8 +490,8 @@ export default function TraderTrading() {
                     }}
                     onMouseEnter={e => {
                       e.currentTarget.style.color = accentColor;
-                      e.currentTarget.style.borderColor = side === 'buy' ? 'rgba(14,203,129,0.4)' : 'rgba(246,70,93,0.4)';
-                      e.currentTarget.style.background = side === 'buy' ? 'rgba(14,203,129,0.06)' : 'rgba(246,70,93,0.06)';
+                      e.currentTarget.style.borderColor = side === 'buy' ? `rgba(${C.greenRgb},0.4)` : 'rgba(246,70,93,0.4)';
+                      e.currentTarget.style.background = side === 'buy' ? `rgba(${C.greenRgb},0.06)` : 'rgba(246,70,93,0.06)';
                     }}
                     onMouseLeave={e => {
                       e.currentTarget.style.color = C.muted;
@@ -517,7 +519,7 @@ export default function TraderTrading() {
                 style={{
                   width: '100%', padding: '13px 0', borderRadius: 6, border: 'none',
                   background: placing
-                    ? (side === 'buy' ? '#1a5c3c' : '#6b1a2a')
+                    ? (side === 'buy' ? C.greenDark : '#6b1a2a')
                     : accentColor,
                   color: '#fff', fontWeight: 800, fontSize: 15,
                   cursor: placing ? 'not-allowed' : 'pointer',
@@ -530,8 +532,8 @@ export default function TraderTrading() {
               {msg && (
                 <div style={{
                   marginTop: 12, padding: '9px 12px', borderRadius: 6, fontSize: 12,
-                  background: msg.ok ? 'rgba(14,203,129,0.07)' : 'rgba(246,70,93,0.07)',
-                  border: `1px solid ${msg.ok ? 'rgba(14,203,129,0.25)' : 'rgba(246,70,93,0.25)'}`,
+                  background: msg.ok ? `rgba(${C.greenRgb},0.07)` : 'rgba(246,70,93,0.07)',
+                  border: `1px solid ${msg.ok ? `rgba(${C.greenRgb},0.25)` : 'rgba(246,70,93,0.25)'}`,
                   color: msg.ok ? C.green : C.red,
                 }}>{msg.text}</div>
               )}
@@ -580,29 +582,35 @@ export default function TraderTrading() {
                     </thead>
                     <tbody>
                       {openOrders.map(o => (
-                        <tr key={o.id} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)` }}>
-                          <td style={{ padding: '8px 10px', color: C.muted }}>#{o.id}</td>
-                          <td style={{ padding: '8px 10px' }}>{o.pair}</td>
-                          <td style={{ padding: '8px 10px', fontWeight: 700, color: o.side === 'buy' ? C.green : C.red }}>
-                            {o.side === 'buy' ? 'MUA' : 'BÁN'}
+                        <tr key={o.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                          <td style={{ padding: '10px', color: C.muted }}>#{o.id}</td>
+                          <td style={{ padding: '10px', fontWeight: 700 }}>{o.pair}</td>
+                          <td style={{ padding: '10px', fontWeight: 700, color: o.side === 'buy' ? C.green : C.red }}>
+                            {o.side.toUpperCase()}
                           </td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatVND(o.price)}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatKg(o.amount)}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatKg(o.remaining)}</td>
-                          <td style={{ padding: '8px 10px' }}>
+                          <td style={{ padding: '10px', fontFamily: 'monospace' }}>
+                            {o.price > 0 ? formatVND(o.price) : 'Market'}
+                          </td>
+                          <td style={{ padding: '10px', fontFamily: 'monospace' }}>{formatKg(o.amount)}</td>
+                          <td style={{ padding: '10px', fontFamily: 'monospace', color: o.remaining > 0 ? C.text : C.muted }}>
+                            {formatKg(o.remaining)}
+                          </td>
+                          <td style={{ padding: '10px' }}>
                             <span style={{
-                              fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600,
-                              background: o.status === 'partial' || o.status === 'partially_filled' ? 'rgba(240,185,11,0.12)' : 'rgba(0,212,170,0.1)',
-                              color: o.status === 'partial' || o.status === 'partially_filled' ? C.gold : C.teal,
-                            }}>
-                              {o.status === 'partial' || o.status === 'partially_filled' ? 'Khớp 1 phần' : 'Đang mở'}
-                            </span>
+                              padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700,
+                              background: o.status === 'open' ? `rgba(${C.greenRgb},0.1)` : 'rgba(240,185,11,0.1)',
+                              color: o.status === 'open' ? C.green : C.gold,
+                            }}>{o.status.toUpperCase()}</span>
                           </td>
-                          <td style={{ padding: '8px 10px' }}>
+                          <td style={{ padding: '10px', textAlign: 'right' }}>
                             <button onClick={() => cancelOrder(o.id)} style={{
-                              padding: '3px 10px', background: 'rgba(246,70,93,0.1)', color: C.red,
-                              border: '1px solid rgba(246,70,93,0.3)', borderRadius: 4, cursor: 'pointer', fontSize: 11,
-                            }}>Hủy</button>
+                              padding: '4px 10px', borderRadius: 4, border: 'none',
+                              background: 'rgba(246,70,93,0.1)', color: C.red,
+                              fontWeight: 700, cursor: 'pointer', transition: 'all 0.12s'
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = C.red; e.currentTarget.style.color = '#fff'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(246,70,93,0.1)'; e.currentTarget.style.color = C.red; }}
+                            >Hủy</button>
                           </td>
                         </tr>
                       ))}
@@ -620,20 +628,26 @@ export default function TraderTrading() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
                       <tr>
-                        {['#ID', 'Giá (VND/kg)', 'SL (kg)', 'Tổng (VND)', 'Thời gian'].map(h => (
-                          <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>{h}</th>
-                        ))}
+                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>Thời gian</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 600, color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>Giá (VND)</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 600, color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>Số lượng (kg)</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>Tổng (VND)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {tradeHist.slice(0, 30).map(t => (
                         <tr key={t.id} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)` }}>
-                          <td style={{ padding: '8px 10px', color: C.muted }}>#{t.id}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatVND(t.price)}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatKg(t.amount)}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatVND(t.price * t.amount)}</td>
-                          <td style={{ padding: '8px 10px', color: C.muted, fontSize: 11 }}>
-                            {new Date(t.created_at).toLocaleString('vi-VN')}
+                          <td style={{ padding: '10px 12px', textAlign: 'left', color: '#94a3b8', fontFamily: 'monospace' }}>
+                            {new Date(t.created_at).toLocaleTimeString('vi-VN', { hour12: false })}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700, color: t.side === 'buy' ? C.green : C.red }}>
+                            {formatVND(t.price)}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center', fontFamily: 'monospace', color: C.text }}>
+                            {formatKg(t.amount)}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: C.text }}>
+                            {formatVND(t.price * t.amount)}
                           </td>
                         </tr>
                       ))}

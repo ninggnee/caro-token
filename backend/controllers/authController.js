@@ -85,6 +85,9 @@ export const register = async (req, res) => {
     if (!email || !password || !full_name) {
       return res.status(400).json({ message: 'email, password, and full_name are required' });
     }
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Mật khẩu phải có tối thiểu 6 ký tự' });
+    }
 
     const [existing] = await db.execute(`SELECT id FROM users WHERE email = ?`, [email]);
     if (existing.length > 0) {

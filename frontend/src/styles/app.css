@@ -1,5 +1,5 @@
-:root{
-  --bg: #091413;
+:root {
+  --bg: radial-gradient(circle at top, #18332d 0%, #091413 70%);
   --panel: #122622;
   --card: rgba(255,255,255,0.03);
   --muted: #94a3b8;

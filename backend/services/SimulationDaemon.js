@@ -90,12 +90,13 @@ async function processBatches() {
       if (nextStatus === 'STORED') {
         const fakeCid = "Qm" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         await db.execute(`
-          INSERT INTO warehouse_documents (uploaded_by, document_type, document_name, file_size, cid, status)
-          VALUES (?, 'warehouse_receipt', ?, 102400, ?, 'active')
+          INSERT INTO warehouse_documents (uploaded_by, document_type, document_name, file_size, cid, status, batch_id)
+          VALUES (?, 'warehouse_receipt', ?, 102400, ?, 'active', ?)
         `, [
           batch.farmer_id,
           `Biên bản bàn giao và nhập kho - ${batch.batch_id}.pdf`,
-          fakeCid
+          fakeCid,
+          batch.batch_id
         ]);
       }
 
@@ -115,12 +116,13 @@ async function processBatches() {
         // Generate fake warehouse document
         const fakeCid = "Qm" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         await db.execute(`
-          INSERT INTO warehouse_documents (uploaded_by, document_type, document_name, file_size, cid, status)
-          VALUES (?, 'quality_inspection', ?, 102400, ?, 'active')
+          INSERT INTO warehouse_documents (uploaded_by, document_type, document_name, file_size, cid, status, batch_id)
+          VALUES (?, 'quality_inspection', ?, 102400, ?, 'active', ?)
         `, [
           batch.farmer_id,
           `Báo cáo kiểm định chất lượng - ${ins.gradeCode}.pdf`,
-          fakeCid
+          fakeCid,
+          batch.batch_id
         ]);
       }
 

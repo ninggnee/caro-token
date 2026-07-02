@@ -132,7 +132,7 @@ export const getFarmerBatches = async (req, res) => {
       params
     );
 
-    // Attach document counts per batch
+    // Attach document counts per batch (standard + warehouse documents)
     if (rows.length > 0) {
       const batchIds = rows.map(r => r.batch_id);
       const [docCounts] = await db.execute(
@@ -141,8 +141,17 @@ export const getFarmerBatches = async (req, res) => {
          GROUP BY batch_id`,
         batchIds
       );
+      const [whCounts] = await db.execute(
+        `SELECT batch_id, COUNT(*) as wh_count FROM warehouse_documents
+         WHERE status = 'active' AND batch_id IN (${batchIds.map(() => '?').join(',')})
+         GROUP BY batch_id`,
+        batchIds
+      );
       const countMap = Object.fromEntries(docCounts.map(d => [d.batch_id, d.doc_count]));
-      for (const r of rows) r.doc_count = countMap[r.batch_id] || 0;
+      const whMap = Object.fromEntries(whCounts.map(d => [d.batch_id, d.wh_count]));
+      for (const r of rows) {
+        r.doc_count = (countMap[r.batch_id] || 0) + (whMap[r.batch_id] || 0);
+      }
     }
 
     res.json({ success: true, batches: rows, total, page: pg, pages: Math.ceil(total / lim) });
@@ -181,14 +190,14 @@ export const getBatchById = async (req, res) => {
     );
     batch.documents = docs;
 
-    // Attach farmer's warehouse documents
+    // Attach farmer's warehouse documents specific to this batch
     try {
       const [warehouseDocs] = await db.execute(
         `SELECT id, document_type, document_name, cid, file_size, mime_type, created_at
          FROM warehouse_documents
-         WHERE uploaded_by = ? AND status = 'active'
+         WHERE uploaded_by = ? AND status = 'active' AND batch_id = ?
          ORDER BY document_type, created_at DESC`,
-        [batch.farmer_id]
+        [batch.farmer_id, batch.batch_id]
       );
       batch.warehouse_documents = warehouseDocs;
     } catch (_) {
@@ -236,7 +245,7 @@ export const getAllBatches = async (req, res) => {
       params
     );
 
-    // Attach document counts
+    // Attach document counts (standard + warehouse documents)
     if (rows.length > 0) {
       const batchIds = rows.map(r => r.batch_id);
       const [docCounts] = await db.execute(
@@ -245,8 +254,17 @@ export const getAllBatches = async (req, res) => {
          GROUP BY batch_id`,
         batchIds
       );
+      const [whCounts] = await db.execute(
+        `SELECT batch_id, COUNT(*) as wh_count FROM warehouse_documents
+         WHERE status = 'active' AND batch_id IN (${batchIds.map(() => '?').join(',')})
+         GROUP BY batch_id`,
+        batchIds
+      );
       const countMap = Object.fromEntries(docCounts.map(d => [d.batch_id, d.doc_count]));
-      for (const r of rows) r.doc_count = countMap[r.batch_id] || 0;
+      const whMap = Object.fromEntries(whCounts.map(d => [d.batch_id, d.wh_count]));
+      for (const r of rows) {
+        r.doc_count = (countMap[r.batch_id] || 0) + (whMap[r.batch_id] || 0);
+      }
     }
 
     res.json({ success: true, batches: rows, total, page: pg, pages: Math.ceil(total / lim) });

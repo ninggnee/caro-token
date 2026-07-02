@@ -2,7 +2,7 @@ import React from "react";
 import { formatNumber, formatVND } from '../../utils/formatters';
 
 const C = {
-  green:  "#0ecb81",
+  green:  "#B0E4CC",
   red:    "#f6465d",
   muted:  "#848e9c",
   border: "rgba(255,255,255,0.08)",

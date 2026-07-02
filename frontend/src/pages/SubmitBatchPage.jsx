@@ -14,7 +14,7 @@ function MapUpdater({ center, zoom }) {
   return null;
 }
 
-const C = { green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", accent: "#408A71", muted: "#6b7a99", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#B0E4CC" };
+const C = { green: "#B0E4CC", red: "#f6465d", gold: "#f0b90b", accent: "#408A71", muted: "#6b7a99", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#B0E4CC" };
 
 const DOC_CATEGORIES = [
   { key: "harvest_certificate", label: "① Phiếu thu hoạch", required: true,  multiple: false, accept: ".pdf,.jpg,.jpeg,.png" },

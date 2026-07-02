@@ -32,14 +32,13 @@ const I = {
 const MARKET_SUB = [
   { id: "overview",  label: "Tổng quan",     path: "/trader/market/overview"  },
   { id: "trading",   label: "Giao dịch",     path: "/trader/market/trading"   },
-  { id: "financing", label: "Tài chính",     path: "/trader/market/financing" },
   { id: "redeem",    label: "Đổi hàng hóa", path: "/trader/market/redeem"    },
 ];
 
 const MARKET_PATHS = MARKET_SUB.map(s => s.path);
 
 const TOP_MENU = [
-  { id: "dash", label: "Bảng điều khiển", icon: "home", path: "/trader" },
+  { id: "dash", label: "Trang chủ", icon: "home", path: "/trader" },
 ];
 
 const WALLET_SUB = [
@@ -348,7 +347,7 @@ export default function TraderLayout({ children, title = "Trader Portal" }) {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#091413", color: "#f8fafc", fontFamily: "'Inter', -apple-system, sans-serif", display: "flex" }}>
+    <div style={{ minHeight: "100vh", background: "var(--bg)", color: "#f8fafc", fontFamily: "'Inter', -apple-system, sans-serif", display: "flex" }}>
       <style dangerouslySetInnerHTML={{ __html: css }} />
 
       {/* ── Sidebar ── */}
@@ -365,10 +364,8 @@ export default function TraderLayout({ children, title = "Trader Portal" }) {
 
         {/* Nav */}
         <nav className="trader-nav">
-          <div className="trader-nav-label">Tổng quan</div>
           {TOP_MENU.map(renderNavItem)}
 
-          <div className="trader-nav-label" style={{ marginTop: 8 }}>Thị trường</div>
           {/* Market group */}
           <button
             onClick={() => setMarketOpen(o => !o)}
@@ -399,7 +396,6 @@ export default function TraderLayout({ children, title = "Trader Portal" }) {
             </div>
           )}
 
-          <div className="trader-nav-label" style={{ marginTop: 8 }}>Tài khoản</div>
           {/* Wallet group */}
           <button
             onClick={() => setWalletOpen(o => !o)}

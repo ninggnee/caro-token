@@ -7,13 +7,13 @@ import { formatVND, formatToken, formatNumber } from '../utils/formatters';
 import { useWallet } from "../context/WalletContext";
 
 const PRICE = { CR1: 100_000, CR2: 85_000, CR3: 70_000 };
-const FEE_RATE = 0.001; // 0.1%
+const FEE_RATE = 0; // 0% fee
 
 const STATUS_COLOR = { pending: "caro-badge-warning", approved: "caro-badge-success", rejected: "caro-badge-danger" };
 const STATUS_LABEL = { pending: "⏳ Chờ duyệt", approved: "✓ Đã duyệt", rejected: "✗ Từ chối" };
 
 const C = {
-  accent: "#408A71", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
+  accent: "#408A71", muted: "#6b7a99", green: "#B0E4CC", red: "#f6465d",
   card: "#172524", border: "rgba(72,117,115,0.15)", tealLight: "#B0E4CC",
   gold: "#f0b90b",
 };
@@ -382,7 +382,7 @@ export default function FarmerWithdrawPage() {
                     <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 12, padding: "16px 20px", border: "1px solid var(--border)" }}>
                       {[
                         { label: "Số lượng rút",        value: formatToken(amt, token) },
-                        { label: "Phí rút (0.1%)",      value: `-${fee.toFixed(4)} ${token}`, color: "#ef4444" },
+                        { label: "Phí rút",             value: "Miễn phí", color: "#B0E4CC" },
                         { label: "Thực nhận",           value: formatToken(netAmt, token), color: "#B0E4CC", bold: true },
                         { label: "Giá trị ước tính",    value: `≈ ${formatVND(estVnd)}`, color: "#94a3b8" },
                       ].map(r => (
@@ -595,7 +595,7 @@ export default function FarmerWithdrawPage() {
                 {[
                   { n: "1", icon: "🪙", title: "Chọn Token & Số lượng", desc: "Chọn loại token CR1, CR2 hoặc CR3 muốn rút và nhập số lượng (tối đa số dư khả dụng)." },
                   { n: "2", icon: "🦊", title: "Kết nối ví nhận MetaMask", desc: "Đảm bảo bạn đã kết nối ví MetaMask cá nhân của mình để hệ thống tự động điền địa chỉ nhận." },
-                  { n: "3", icon: "📤", title: "Gửi yêu cầu rút token", desc: "Kiểm tra kỹ các thông tin, phí rút (0.1%) và nhấn nút Gửi yêu cầu rút để hoàn tất." },
+                  { n: "3", icon: "📤", title: "Gửi yêu cầu rút token", desc: "Kiểm tra kỹ các thông tin (miễn phí rút token) và nhấn nút Gửi yêu cầu rút để hoàn tất." },
                   { n: "4", icon: "✅", title: "Xác nhận & Nhận Token", desc: "Hệ thống kiểm tra và thực hiện chuyển on-chain từ ví tổng sang ví cá nhân của bạn trong vòng vài phút." },
                 ].map(s => (
                   <div key={s.n} style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>

@@ -1,10 +1,10 @@
 :root {
   --primary: #408A71;
-  --bg: #091413;
+  --bg: radial-gradient(circle at top, #18332d 0%, #091413 70%);
   --panel: #11161c;
   --text: #f8fafc;
   --muted: #94a3b8;
-  --green: #0ecb81;
+  --green: #B0E4CC;
   --red: #f6465d;
   --border: rgba(255,255,255,0.06);
 }

@@ -85,7 +85,7 @@ export default function TraderHome() {
   `;
 
   return (
-    <TraderLayout title="Bảng điều khiển">
+    <TraderLayout title="Trang chủ">
       <style dangerouslySetInnerHTML={{ __html: gridCss }} />
       <div className="caro-page">
 
