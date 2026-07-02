@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { API_URL } from '../config/api';
 import { formatNumber, formatVND } from '../utils/formatters';
+import { sanitizeNonNegative } from '../utils/validation';
 
 function authHeader() {
   const t = localStorage.getItem('token');
@@ -77,7 +78,7 @@ export default function DepositPage() {
             <label style={{ display: 'block', marginBottom: 4, fontSize: 13 }}>Số tiền (VNĐ)</label>
             <input
               type="number" min="10000" step="1000"
-              value={amount} onChange={e => setAmount(e.target.value)}
+              value={amount} onChange={e => setAmount(sanitizeNonNegative(e.target.value))}
               placeholder="VD: 1000000"
               style={{ width: '100%', padding: '8px 12px', borderRadius: 6,
                 border: '1px solid #555', background: '#1a1a2e', color: '#fff', boxSizing: 'border-box' }}

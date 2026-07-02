@@ -15,6 +15,7 @@
 import db from '../config/db.js';
 import { lockBalance, unlockBalance, deductAvailable } from '../services/BalanceService.js';
 import { logAction, auditMeta } from '../services/AuditService.js';
+import { getRiskProfile } from '../services/RiskProfileService.js';
 
 const VALID_TOKENS = ['CR1', 'CR2', 'CR3'];
 
@@ -368,6 +369,194 @@ export const reviewTokenDiscounting = async (req, res) => {
     res.status(400).json({ success: false, message: 'action must be approve | reject | complete' });
   } catch (err) {
     console.error('reviewTokenDiscounting error', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// ══════════════════════════════════════════════════════════════
+//  TRADER-ONLY — dynamic LTV / Haircut (RiskProfileService)
+//
+//  Farmer keeps using the fixed-constant functions above untouched.
+//  These endpoints serve TraderFinancing.jsx exclusively (see
+//  financeRoutes.js — requireRole('trader')).
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/finance/trader/risk-profile/:tokenType
+ */
+export const getTraderRiskProfile = async (req, res) => {
+  try {
+    const tokenType = req.params.tokenType;
+    if (!VALID_TOKENS.includes(tokenType)) {
+      return res.status(400).json({ success: false, message: 'token_type must be CR1, CR2, or CR3' });
+    }
+    const profile = await getRiskProfile(tokenType);
+    res.json({ success: true, data: profile });
+  } catch (err) {
+    console.error('getTraderRiskProfile error', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+/**
+ * POST /api/finance/trader/collateral-loans
+ * Same product/state-machine as createCollateralLoan, but LTV comes from
+ * RiskProfileService instead of a fixed 0.70 constant.
+ */
+export const createTraderCollateralLoan = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const {
+      token_type,
+      batch_id,
+      quantity,
+      market_price,
+      requested_amount,
+      loan_term_months = 3,
+    } = req.body;
+
+    if (!VALID_TOKENS.includes(token_type))
+      return res.status(400).json({ success: false, message: 'token_type must be CR1, CR2, or CR3' });
+    if (!quantity || Number(quantity) <= 0)
+      return res.status(400).json({ success: false, message: 'quantity must be > 0' });
+    if (!market_price || Number(market_price) <= 0)
+      return res.status(400).json({ success: false, message: 'market_price must be > 0' });
+    if (!requested_amount || Number(requested_amount) <= 0)
+      return res.status(400).json({ success: false, message: 'requested_amount must be > 0' });
+
+    const qty           = Number(quantity);
+    const price          = Number(market_price);
+    const reqAmt         = Number(requested_amount);
+    const INTEREST_RATE  = 0.08;
+
+    const profile          = await getRiskProfile(token_type);
+    const collateralValue  = qty * price;
+    const maxLoan          = collateralValue * profile.ltv;
+
+    if (reqAmt > maxLoan) {
+      return res.status(422).json({
+        success: false,
+        message: `Requested amount (${reqAmt.toLocaleString('vi-VN')} VND) exceeds maximum loan (${maxLoan.toLocaleString('vi-VN')} VND) at current LTV ${(profile.ltv * 100).toFixed(0)}%`,
+      });
+    }
+
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      await lockBalance(userId, token_type, qty, conn);
+
+      const [result] = await conn.execute(
+        `INSERT INTO collateral_loans
+           (user_id, batch_id, token_type, quantity, market_price, collateral_value,
+            ltv, max_loan_amount, requested_amount, interest_rate, loan_term_months, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+        [userId, batch_id || null, token_type, qty, price, collateralValue,
+         profile.ltv, maxLoan, reqAmt, INTEREST_RATE, Number(loan_term_months)]
+      );
+
+      await conn.commit();
+
+      await logAction({
+        actorId: userId, action: 'finance:collateral_loan:create:dynamic',
+        entityType: 'collateral_loan', entityId: result.insertId,
+        newData: { token_type, quantity: qty, requested_amount: reqAmt, ltv: profile.ltv },
+        ...auditMeta(req),
+      });
+
+      res.status(201).json({ success: true, id: result.insertId, risk_profile: profile });
+    } catch (err) {
+      await conn.rollback();
+      if (err.message?.includes('Insufficient')) {
+        return res.status(422).json({ success: false, message: err.message });
+      }
+      throw err;
+    } finally {
+      conn.release();
+    }
+  } catch (err) {
+    console.error('createTraderCollateralLoan error', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+/**
+ * POST /api/finance/trader/token-discounting
+ * Same product/state-machine as createTokenDiscounting, but haircut comes from
+ * RiskProfileService instead of a manually chosen low/medium/high risk_level.
+ */
+export const createTraderTokenDiscounting = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const {
+      token_type,
+      batch_id,
+      quantity,
+      market_price,
+      bank_name,
+    } = req.body;
+
+    if (!VALID_TOKENS.includes(token_type))
+      return res.status(400).json({ success: false, message: 'token_type must be CR1, CR2, or CR3' });
+    if (!quantity || Number(quantity) <= 0)
+      return res.status(400).json({ success: false, message: 'quantity must be > 0' });
+    if (!market_price || Number(market_price) <= 0)
+      return res.status(400).json({ success: false, message: 'market_price must be > 0' });
+    if (!bank_name?.trim())
+      return res.status(400).json({ success: false, message: 'bank_name is required' });
+
+    const qty   = Number(quantity);
+    const price = Number(market_price);
+
+    const profile        = await getRiskProfile(token_type);
+    const discountRatio  = 1 - profile.haircut;
+    const nominalValue   = qty * price;
+    const paymentAmount  = nominalValue * discountRatio;
+    // Bucket the computed haircut into the existing low/medium/high column so
+    // history views (shared with the farmer flow) can still render a label.
+    const riskLevel = profile.haircut <= 0.15 ? 'low' : profile.haircut <= 0.25 ? 'medium' : 'high';
+
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // Permanently deduct tokens — true sale, ownership transfers to bank
+      await deductAvailable(userId, token_type, qty, conn);
+
+      const [result] = await conn.execute(
+        `INSERT INTO token_discounting
+           (user_id, bank_name, batch_id, token_type, quantity, market_price,
+            nominal_value, haircut, discount_ratio, payment_amount, risk_level, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+        [userId, bank_name.trim(), batch_id || null, token_type, qty, price,
+         nominalValue, profile.haircut, discountRatio, paymentAmount, riskLevel]
+      );
+
+      await conn.commit();
+
+      await logAction({
+        actorId: userId, action: 'finance:token_discounting:create:dynamic',
+        entityType: 'token_discounting', entityId: result.insertId,
+        newData: { token_type, quantity: qty, bank_name, payment_amount: paymentAmount, haircut: profile.haircut },
+        ...auditMeta(req),
+      });
+
+      res.status(201).json({ success: true, id: result.insertId, payment_amount: paymentAmount, risk_profile: profile });
+    } catch (err) {
+      await conn.rollback();
+      if (err.message?.includes('Insufficient')) {
+        return res.status(422).json({ success: false, message: err.message });
+      }
+      throw err;
+    } finally {
+      conn.release();
+    }
+  } catch (err) {
+    console.error('createTraderTokenDiscounting error', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };

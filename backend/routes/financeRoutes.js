@@ -8,6 +8,9 @@ import {
   createTokenDiscounting,
   listTokenDiscountings,
   reviewTokenDiscounting,
+  getTraderRiskProfile,
+  createTraderCollateralLoan,
+  createTraderTokenDiscounting,
 } from '../controllers/financeController.js';
 
 const router = Router();
@@ -27,5 +30,11 @@ router.post('/token-discounting',      requireRole('trader', 'farmer'), createTo
 // ── Admin endpoints ──────────────────────────────────────────
 router.patch('/admin/collateral-loans/:id', requireRole('admin'), reviewCollateralLoan);
 router.patch('/admin/token-discounting/:id', requireRole('admin'), reviewTokenDiscounting);
+
+// ── Trader-only: dynamic LTV/Haircut risk profile (see RiskProfileService) ──
+// Farmer keeps using the fixed-constant routes above, untouched.
+router.get('/trader/risk-profile/:tokenType', requireRole('trader'), getTraderRiskProfile);
+router.post('/trader/collateral-loans',       requireRole('trader'), createTraderCollateralLoan);
+router.post('/trader/token-discounting',      requireRole('trader'), createTraderTokenDiscounting);
 
 export default router;
