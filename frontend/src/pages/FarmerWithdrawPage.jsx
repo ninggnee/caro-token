@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import axios from "../utils/axiosClient";
 import { formatNumber, formatVND, formatKg, formatToken } from '../utils/formatters';
+import { sanitizeNonNegative } from '../utils/validation';
 
 const C = { accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d", gold: "#f0b90b", card: "#172524", border: "rgba(72, 117, 115, 0.15)", tealLight: "#7fe0c9" };
 const PRICE = { CR1: 100_000, CR2: 85_000, CR3: 70_000 };
@@ -107,7 +108,7 @@ export default function FarmerWithdrawPage() {
             </div>
             <div style={{ position: "relative" }}>
               <input
-                type="number" value={amount} onChange={e => setAmount(e.target.value)}
+                type="number" value={amount} onChange={e => setAmount(sanitizeNonNegative(e.target.value))}
                 min="0" max={avail} step="0.01"
                 placeholder="0.00"
                 style={{ width: "100%", padding: "12px 70px 12px 14px", background: "rgba(255,255,255,0.03)", border: `1px solid ${amt > avail ? "rgba(246,70,93,0.4)" : C.border}`, borderRadius: 8, color: "#e2e8f0", fontSize: 16, outline: "none", boxSizing: "border-box", fontWeight: 600 }}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import { API_URL } from '../config/api';
 import { formatNumber, formatVND } from '../utils/formatters';
+import { sanitizeNonNegative } from '../utils/validation';
 
 function authHeader() {
   const t = localStorage.getItem('token');
@@ -84,8 +85,10 @@ export default function WithdrawPage() {
             <div key={f.label}>
               <label style={{ display: 'block', marginBottom: 4, fontSize: 13 }}>{f.label}</label>
               <input
-                type={f.type} value={f.value} onChange={e => f.set(e.target.value)}
+                type={f.type} value={f.value}
+                onChange={e => f.set(f.type === 'number' ? sanitizeNonNegative(e.target.value) : e.target.value)}
                 placeholder={f.placeholder}
+                {...(f.type === 'number' ? { min: '0' } : {})}
                 style={{ width: '100%', padding: '8px 12px', borderRadius: 6,
                   border: '1px solid #555', background: '#1a1a2e', color: '#fff', boxSizing: 'border-box' }}
               />

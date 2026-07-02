@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import TraderLayout from "../components/layout/TraderLayout";
 import axios from "../utils/axiosClient";
+import { useAuth } from "../context/AuthContext";
 import { formatNumber, formatVND } from '../utils/formatters';
 
 const C = {
@@ -12,22 +13,38 @@ const C = {
 const PAIRS = ["Tất cả", "CR1/VND", "CR2/VND", "CR3/VND"];
 const SIDES = ["Tất cả", "buy", "sell"];
 
-
-function Badge({ side }) {
+function OwnershipBadge({ side, isMe }) {
   const isBuy = side === "buy";
   return (
-    <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 5, background: isBuy ? "rgba(14,203,129,0.15)" : "rgba(246,70,93,0.15)", color: isBuy ? C.green : C.red }}>
-      {isBuy ? "MUA" : "BÁN"}
-    </span>
+    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <span style={{
+        fontSize: 11, fontWeight: 700, padding: "3px 7px", borderRadius: 5,
+        background: isBuy ? "rgba(14,203,129,0.15)" : "rgba(246,70,93,0.15)",
+        color: isBuy ? C.green : C.red,
+      }}>
+        {isBuy ? "MUA" : "BÁN"}
+      </span>
+      <span style={{
+        fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4,
+        background: isMe ? "rgba(127,224,201,0.12)" : "rgba(255,255,255,0.05)",
+        color: isMe ? C.tealLight : C.muted,
+        border: isMe ? "1px solid rgba(127,224,201,0.25)" : "1px solid rgba(255,255,255,0.07)",
+      }}>
+        {isMe ? "TÔI" : "Bên khác"}
+      </span>
+    </div>
   );
 }
 
 export default function TradeHistory() {
-  const [pair,    setPair]    = useState("Tất cả");
-  const [side,    setSide]    = useState("Tất cả");
+  const { user }  = useAuth();
+  const myId      = user?.id;
+
+  const [pair,     setPair]     = useState("Tất cả");
+  const [side,     setSide]     = useState("Tất cả");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo,   setDateTo]   = useState("");
-  const [page,    setPage]    = useState(1);
+  const [page,     setPage]     = useState(1);
   const pageSize = 20;
 
   const qPair = pair !== "Tất cả" ? pair : undefined;
@@ -35,12 +52,13 @@ export default function TradeHistory() {
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ["trader-trades", qPair, qSide, dateFrom, dateTo, page],
-    queryFn:  () => {
+    queryFn: () => {
       const params = new URLSearchParams();
-      if (qPair) params.append("pair", qPair);
-      if (qSide) params.append("side", qSide);
-      if (dateFrom) params.append("from", dateFrom);
-      if (dateTo)   params.append("to",   dateTo);
+      params.append("mine", "true");           // only current user's trades
+      if (qPair)   params.append("pair",   qPair);
+      if (qSide)   params.append("side",   qSide);
+      if (dateFrom) params.append("from",  dateFrom);
+      if (dateTo)   params.append("to",    dateTo);
       params.append("limit",  String(pageSize));
       params.append("offset", String((page - 1) * pageSize));
       return axios.get(`/orders/trades?${params.toString()}`).then(r => r.data);
@@ -48,9 +66,17 @@ export default function TradeHistory() {
     staleTime: 20_000,
   });
 
-  const rows  = data?.data || [];
-  const total = data?.total ?? rows.length;
+  const rows       = data?.data  || [];
+  const total      = data?.total ?? rows.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  // Totals from user's perspective using buyer_id / seller_id
+  const totalBuy  = rows
+    .filter(r => r.buyer_id  === myId)
+    .reduce((s, r) => s + Number(r.price || 0) * Number(r.amount || 0), 0);
+  const totalSell = rows
+    .filter(r => r.seller_id === myId)
+    .reduce((s, r) => s + Number(r.price || 0) * Number(r.amount || 0), 0);
 
   const filterBtnStyle = (active) => ({
     padding: "5px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer",
@@ -64,9 +90,6 @@ export default function TradeHistory() {
     borderRadius: 7, color: "#e2e8f0", fontSize: 12, outline: "none",
   };
 
-  const totalBuy  = rows.filter(r => r.side === "buy").reduce((s, r)  => s + Number(r.price || 0) * Number(r.amount || r.quantity || 0), 0);
-  const totalSell = rows.filter(r => r.side === "sell").reduce((s, r) => s + Number(r.price || 0) * Number(r.amount || r.quantity || 0), 0);
-
   return (
     <TraderLayout title="Lịch sử giao dịch">
       <div style={{ display: "grid", gap: 18, width: "100%" }}>
@@ -74,9 +97,9 @@ export default function TradeHistory() {
         {/* Summary cards */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
           {[
-            { label: "Tổng giao dịch",     value: String(total),         color: "#e2e8f0", icon: "📋" },
-            { label: "Tổng mua",           value: formatVND(totalBuy),  color: C.green,   icon: "📈" },
-            { label: "Tổng bán",           value: formatVND(totalSell), color: C.red,     icon: "📉" },
+            { label: "Tổng giao dịch", value: String(total),        color: "#e2e8f0", icon: "📋" },
+            { label: "Tổng đã mua",    value: formatVND(totalBuy),  color: C.green,   icon: "📈" },
+            { label: "Tổng đã bán",    value: formatVND(totalSell), color: C.red,     icon: "📉" },
           ].map(c => (
             <div key={c.label} style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
               <span style={{ fontSize: 24 }}>{c.icon}</span>
@@ -102,11 +125,11 @@ export default function TradeHistory() {
             </div>
 
             <div>
-              <div style={{ fontSize: 11, color: C.muted, marginBottom: 6, fontWeight: 600 }}>Loại lệnh</div>
+              <div style={{ fontSize: 11, color: C.muted, marginBottom: 6, fontWeight: 600 }}>Vai trò của tôi</div>
               <div style={{ display: "flex", gap: 6 }}>
                 {SIDES.map(s => (
                   <button key={s} onClick={() => { setSide(s); setPage(1); }} style={filterBtnStyle(side === s)}>
-                    {s === "buy" ? "Mua" : s === "sell" ? "Bán" : s}
+                    {s === "buy" ? "Tôi mua" : s === "sell" ? "Tôi bán" : "Tất cả"}
                   </button>
                 ))}
               </div>
@@ -135,7 +158,7 @@ export default function TradeHistory() {
         <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
           <div style={{ padding: "12px 18px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: 13, fontWeight: 700 }}>
-              {isFetching ? "Đang tải..." : `${total} giao dịch`}
+              {isFetching ? "Đang tải..." : `${total} giao dịch của tôi`}
             </span>
             {totalPages > 1 && (
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: C.muted }}>
@@ -161,10 +184,10 @@ export default function TradeHistory() {
             </div>
           ) : (
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 780 }}>
                 <thead>
                   <tr style={{ background: "rgba(255,255,255,0.02)" }}>
-                    {["#", "Cặp GD", "Loại", "Giá (VND)", "Số lượng", "Thành tiền (VND)", "Phí", "Thời gian"].map(h => (
+                    {["#", "Cặp GD", "Loại / Vai trò", "Giá (VND/kg)", "Số lượng (kg)", "Thành tiền (VND)", "Phí", "Thời gian"].map(h => (
                       <th key={h} style={{ padding: "9px 14px", fontSize: 11, color: C.muted, fontWeight: 600, textAlign: "left", textTransform: "uppercase", whiteSpace: "nowrap" }}>{h}</th>
                     ))}
                   </tr>
@@ -172,19 +195,28 @@ export default function TradeHistory() {
                 <tbody>
                   {rows.map((t, i) => {
                     const qty    = Number(t.amount || t.quantity || 0);
-                    const price  = Number(t.price || 0);
-                    const total_ = qty * price;
-                    const fee    = Number(t.fee || 0);
+                    const price  = Number(t.price  || 0);
+                    const val    = qty * price;
+                    const fee    = Number(t.fee    || 0);
+                    const isMyBuy  = t.buyer_id  === myId;
+                    const isMySell = t.seller_id === myId;
+                    const mySide   = isMyBuy ? "buy" : isMySell ? "sell" : "buy";
+                    const isMe     = isMyBuy || isMySell;
+
+                    const underline = isMyBuy ? `2px solid ${C.green}` : isMySell ? `2px solid ${C.red}` : `1px solid ${C.border}`;
+
                     return (
-                      <tr key={t.id || i} style={{ borderBottom: `1px solid ${C.border}` }}
+                      <tr key={t.id || i} style={{ borderBottom: underline }}
                         onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                         <td style={{ padding: "10px 14px", fontSize: 11, color: C.muted }}>{(page - 1) * pageSize + i + 1}</td>
                         <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{t.pair || "—"}</td>
-                        <td style={{ padding: "10px 14px" }}><Badge side={t.side} /></td>
+                        <td style={{ padding: "10px 14px" }}>
+                          <OwnershipBadge side={mySide} isMe={isMe} />
+                        </td>
                         <td style={{ padding: "10px 14px", fontSize: 13, fontFamily: "monospace", color: "#e2e8f0", fontWeight: 600 }}>{formatNumber(price)}</td>
                         <td style={{ padding: "10px 14px", fontSize: 13, fontFamily: "monospace", color: "#e2e8f0" }}>{formatNumber(Math.round(qty))}</td>
-                        <td style={{ padding: "10px 14px", fontSize: 13, fontFamily: "monospace", color: t.side === "buy" ? C.green : C.red, fontWeight: 700 }}>{formatVND(total_)}</td>
+                        <td style={{ padding: "10px 14px", fontSize: 13, fontFamily: "monospace", color: mySide === "buy" ? C.green : C.red, fontWeight: 700 }}>{formatVND(val)}</td>
                         <td style={{ padding: "10px 14px", fontSize: 12, color: C.muted }}>{fee ? formatVND(fee) : "—"}</td>
                         <td style={{ padding: "10px 14px", fontSize: 11, color: C.muted, whiteSpace: "nowrap" }}>
                           {t.created_at ? new Date(t.created_at).toLocaleString("vi-VN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import axios from "../utils/axiosClient";
 import { formatVND, formatNumber } from '../utils/formatters';
+import { sanitizeNonNegative } from '../utils/validation';
 
 const C = {
   accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
@@ -222,7 +223,7 @@ function AmountInput({ value, onChange, label }) {
       <div style={{ position: 'relative' }}>
         <input
           type="number" min="0" step="1000" value={value}
-          onChange={e => onChange(e.target.value)}
+          onChange={e => onChange(sanitizeNonNegative(e.target.value))}
           placeholder="Nhập số tiền..."
           style={{ width: '100%', padding: '12px 60px 12px 14px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, borderRadius: 8, color: '#e2e8f0', fontSize: 16, boxSizing: 'border-box', outline: 'none', fontWeight: 600 }}
         />
@@ -525,7 +526,7 @@ export default function FarmerWallet() {
                     <div style={{ position: 'relative' }}>
                       <input
                         type="number" min="0" step="1000" value={wdAmount}
-                        onChange={e => setWdAmount(e.target.value)}
+                        onChange={e => setWdAmount(sanitizeNonNegative(e.target.value))}
                         placeholder="Nhập số tiền..."
                         style={{ width: '100%', padding: '12px 60px 12px 14px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, borderRadius: 8, color: '#e2e8f0', fontSize: 16, boxSizing: 'border-box', outline: 'none', fontWeight: 600 }}
                       />

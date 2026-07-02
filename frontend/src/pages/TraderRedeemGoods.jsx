@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import TraderLayout from '../components/layout/TraderLayout';
 import { API_URL } from '../config/api';
 import { formatVND, formatKg, formatNumber } from '../utils/formatters';
+import { sanitizeNonNegative } from '../utils/validation';
 import { useTraderPrices, useTraderTokenBals, getPriceOf, TRADER_KEYS } from '../hooks/useTraderData';
 
 const C = {
@@ -299,7 +300,7 @@ export default function TraderRedeemGoods() {
 
                   <SectionLabel>SỐ LƯỢNG ĐỔI (kg)</SectionLabel>
                   <input
-                    type="number" value={qty} onChange={e => setQty(e.target.value)}
+                    type="number" value={qty} onChange={e => setQty(sanitizeNonNegative(e.target.value))}
                     placeholder="0" min="0"
                     style={{ ...inputStyle(), marginBottom: 4 }}
                   />
@@ -450,7 +451,7 @@ export default function TraderRedeemGoods() {
                       <div>
                         <SectionLabel>CHI PHÍ VẬN CHUYỂN (VND)</SectionLabel>
                         <input type="number" value={lc.transportation_cost}
-                          onChange={e => setLcField('transportation_cost', e.target.value)}
+                          onChange={e => setLcField('transportation_cost', sanitizeNonNegative(e.target.value))}
                           placeholder="0" min="0" style={inputStyle()} />
                         {lc.transportation_cost && Number(lc.transportation_cost) > 0 && (
                           <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>

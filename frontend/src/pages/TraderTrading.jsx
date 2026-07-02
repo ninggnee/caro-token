@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import TraderLayout from '../components/layout/TraderLayout';
 import { API_URL } from '../config/api';
 import { formatNumber, formatVND, formatKg, formatToken } from '../utils/formatters';
+import { sanitizeNonNegative } from '../utils/validation';
 import { getTradingBand } from '../services/marketApi';
+import { useAuth } from '../context/AuthContext';
 
 const PAIRS = [
   { key: 'CR1/VND', label: 'CaRo1/VND', token: 'CR1', tokenLabel: 'CaRo1', color: '#f0b90b' },
@@ -42,6 +44,9 @@ async function apiFetch(path, opts = {}) {
 }
 
 export default function TraderTrading() {
+  const { user } = useAuth();
+  const myId     = user?.id;
+
   const [pairKey, setPairKey]       = useState('CR1/VND');
   const [bids, setBids]             = useState([]);
   const [asks, setAsks]             = useState([]);
@@ -78,7 +83,7 @@ export default function TraderTrading() {
   }, [pairKey]);
 
   const loadTradeHistory = useCallback(async () => {
-    const d = await apiFetch(`/orders/trades?pair=${encodeURIComponent(pairKey)}`);
+    const d = await apiFetch(`/orders/trades?pair=${encodeURIComponent(pairKey)}&mine=true`);
     if (d.success) setTradeHist(d.data || []);
   }, [pairKey]);
 
@@ -426,8 +431,9 @@ export default function TraderTrading() {
                   <input
                     type="number"
                     value={price}
-                    onChange={e => setPrice(e.target.value)}
+                    onChange={e => setPrice(sanitizeNonNegative(e.target.value))}
                     placeholder="0"
+                    min="0"
                     step="100"
                     style={{ ...inputStyle, background: C.input }}
                   />
@@ -447,7 +453,8 @@ export default function TraderTrading() {
                 <input
                   type="number"
                   value={amount}
-                  onChange={e => setAmount(e.target.value)}
+                  onChange={e => setAmount(sanitizeNonNegative(e.target.value))}
+                  min="0"
                   placeholder={
                     side === 'sell' && tokAvail > 0
                       ? `Nhập số lượng (Khả dụng: ${formatNumber(tokAvail)} kg)`
@@ -535,13 +542,6 @@ export default function TraderTrading() {
                   color: msg.ok ? C.green : C.red,
                 }}>{msg.text}</div>
               )}
-
-              {/* Engine note */}
-              <div style={{ marginTop: 14, padding: '8px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 4, fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
-                Khớp lệnh theo <b style={{ color: C.teal }}>Price-Time Priority</b>.
-                Lệnh Limit được thêm vào sổ lệnh nếu chưa khớp ngay.
-                Lệnh Market khớp theo giá tốt nhất hiện tại.
-              </div>
             </div>
           </div>
         </div>
@@ -569,43 +569,58 @@ export default function TraderTrading() {
               openOrders.length === 0
                 ? <div style={{ color: C.muted, textAlign: 'center', padding: '24px 0' }}>Không có lệnh đang mở</div>
                 : (
-                <div style={{ overflowX: 'auto' }}>
+                <div style={{ overflowX: 'auto', borderRadius: 4 }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
                       <tr>
-                        {['#ID', 'Cặp', 'Loại', 'Giá (VND/kg)', 'SL (kg)', 'Còn lại (kg)', 'Trạng thái', ''].map(h => (
-                          <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>{h}</th>
+                        {[
+                          { l: 'Cặp',          align: 'left'  },
+                          { l: 'Loại',         align: 'left'  },
+                          { l: 'Giá (VND)',    align: 'right' },
+                          { l: 'Số lượng (kg)', align: 'right' },
+                          { l: 'Còn lại (kg)', align: 'right' },
+                          { l: 'Trạng thái',   align: 'right' },
+                          { l: '',             align: 'right' },
+                        ].map(h => (
+                          <th key={h.l} style={{
+                            padding: '6px 12px', textAlign: h.align, fontWeight: 400, fontSize: 11,
+                            color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap',
+                          }}>{h.l}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {openOrders.map(o => (
-                        <tr key={o.id} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)` }}>
-                          <td style={{ padding: '8px 10px', color: C.muted }}>#{o.id}</td>
-                          <td style={{ padding: '8px 10px' }}>{o.pair}</td>
-                          <td style={{ padding: '8px 10px', fontWeight: 700, color: o.side === 'buy' ? C.green : C.red }}>
-                            {o.side === 'buy' ? 'MUA' : 'BÁN'}
-                          </td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatVND(o.price)}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatKg(o.amount)}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatKg(o.remaining)}</td>
-                          <td style={{ padding: '8px 10px' }}>
-                            <span style={{
-                              fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600,
-                              background: o.status === 'partial' || o.status === 'partially_filled' ? 'rgba(240,185,11,0.12)' : 'rgba(0,212,170,0.1)',
-                              color: o.status === 'partial' || o.status === 'partially_filled' ? C.gold : C.teal,
-                            }}>
-                              {o.status === 'partial' || o.status === 'partially_filled' ? 'Khớp 1 phần' : 'Đang mở'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '8px 10px' }}>
-                            <button onClick={() => cancelOrder(o.id)} style={{
-                              padding: '3px 10px', background: 'rgba(246,70,93,0.1)', color: C.red,
-                              border: '1px solid rgba(246,70,93,0.3)', borderRadius: 4, cursor: 'pointer', fontSize: 11,
-                            }}>Hủy</button>
-                          </td>
-                        </tr>
-                      ))}
+                      {openOrders.map((o, i) => {
+                        const isPartial = o.status === 'partial' || o.status === 'partially_filled';
+                        const isLast    = i === openOrders.length - 1;
+                        return (
+                          <tr key={o.id}
+                            style={{ borderBottom: isLast ? 'none' : '1px solid rgba(255,255,255,0.04)' }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.035)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                          >
+                            <td style={{ padding: '7px 12px', color: C.text, whiteSpace: 'nowrap' }}>{o.pair}</td>
+                            <td style={{ padding: '7px 12px', fontWeight: 600, color: o.side === 'buy' ? C.green : C.red }}>
+                              {o.side === 'buy' ? 'Mua' : 'Bán'}
+                            </td>
+                            <td style={{ padding: '7px 12px', fontFamily: 'monospace', color: C.text, textAlign: 'right' }}>{formatVND(o.price)}</td>
+                            <td style={{ padding: '7px 12px', fontFamily: 'monospace', color: C.text, textAlign: 'right' }}>{formatKg(o.amount)}</td>
+                            <td style={{ padding: '7px 12px', fontFamily: 'monospace', color: C.muted, textAlign: 'right' }}>{formatKg(o.remaining)}</td>
+                            <td style={{ padding: '7px 12px', textAlign: 'right', fontSize: 11.5, color: isPartial ? C.gold : C.muted, whiteSpace: 'nowrap' }}>
+                              {isPartial ? 'Khớp một phần' : 'Đang mở'}
+                            </td>
+                            <td style={{ padding: '7px 12px', textAlign: 'right' }}>
+                              <button onClick={() => cancelOrder(o.id)} style={{
+                                padding: '3px 10px', background: 'transparent', color: C.muted,
+                                border: `1px solid ${C.border}`, borderRadius: 4, cursor: 'pointer', fontSize: 11,
+                              }}
+                                onMouseEnter={e => { e.currentTarget.style.color = C.red; e.currentTarget.style.borderColor = 'rgba(246,70,93,0.4)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.color = C.muted; e.currentTarget.style.borderColor = C.border; }}
+                              >Hủy</button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -616,27 +631,52 @@ export default function TraderTrading() {
               tradeHist.length === 0
                 ? <div style={{ color: C.muted, textAlign: 'center', padding: '24px 0' }}>Chưa có lịch sử giao dịch</div>
                 : (
-                <div style={{ overflowX: 'auto' }}>
+                <div style={{ overflowX: 'auto', borderRadius: 4 }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
                       <tr>
-                        {['#ID', 'Giá (VND/kg)', 'SL (kg)', 'Tổng (VND)', 'Thời gian'].map(h => (
-                          <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>{h}</th>
+                        {[
+                          { l: 'Thời gian',    align: 'left'  },
+                          { l: 'Giá (VND)',    align: 'right' },
+                          { l: 'Số lượng (kg)', align: 'right' },
+                          { l: 'Tổng (VND)',   align: 'right' },
+                        ].map(h => (
+                          <th key={h.l} style={{
+                            padding: '6px 12px', textAlign: h.align, fontWeight: 400, fontSize: 11,
+                            color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap',
+                          }}>{h.l}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {tradeHist.slice(0, 30).map(t => (
-                        <tr key={t.id} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)` }}>
-                          <td style={{ padding: '8px 10px', color: C.muted }}>#{t.id}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatVND(t.price)}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatKg(t.amount)}</td>
-                          <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{formatVND(t.price * t.amount)}</td>
-                          <td style={{ padding: '8px 10px', color: C.muted, fontSize: 11 }}>
-                            {new Date(t.created_at).toLocaleString('vi-VN')}
-                          </td>
-                        </tr>
-                      ))}
+                      {tradeHist.slice(0, 30).map((t, i) => {
+                        const isMyBuy = myId && t.buyer_id === myId;
+                        const rowSide = isMyBuy ? 'buy' : 'sell';
+                        const isLast  = i === Math.min(tradeHist.length, 30) - 1;
+                        return (
+                          <tr key={t.id}
+                            style={{ borderBottom: isLast ? 'none' : '1px solid rgba(255,255,255,0.04)' }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.035)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                          >
+                            <td style={{ padding: '6px 12px', color: C.muted, fontFamily: 'monospace', fontSize: 11.5, whiteSpace: 'nowrap' }}>
+                              {new Date(t.created_at).toLocaleTimeString('vi-VN')}
+                            </td>
+                            <td style={{
+                              padding: '6px 12px', fontFamily: 'monospace', fontWeight: 600, textAlign: 'right',
+                              color: rowSide === 'buy' ? C.green : C.red,
+                            }}>
+                              {formatVND(t.price)}
+                            </td>
+                            <td style={{ padding: '6px 12px', fontFamily: 'monospace', color: C.text, textAlign: 'right' }}>
+                              {formatKg(t.amount)}
+                            </td>
+                            <td style={{ padding: '6px 12px', fontFamily: 'monospace', color: C.text, textAlign: 'right' }}>
+                              {formatVND(t.price * t.amount)}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

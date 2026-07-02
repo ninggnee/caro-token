@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import axios from "../utils/axiosClient";
 import { formatVND } from '../utils/formatters';
+import { sanitizeNonNegative } from '../utils/validation';
 
 const C = {
   accent: "#487573", muted: "#6b7a99", green: "#0ecb81", red: "#f6465d",
@@ -243,7 +244,7 @@ export default function FarmerDepositPage() {
                 <div style={{ position: 'relative' }}>
                   <input
                     type="number" min="1000" step="1000" value={amount}
-                    onChange={e => setAmount(e.target.value)}
+                    onChange={e => setAmount(sanitizeNonNegative(e.target.value))}
                     placeholder="Nhập số tiền..."
                     style={{ width: '100%', padding: '13px 60px 13px 14px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, borderRadius: 8, color: '#e2e8f0', fontSize: 17, boxSizing: 'border-box', outline: 'none', fontWeight: 700 }}
                   />

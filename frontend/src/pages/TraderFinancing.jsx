@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import TraderLayout from '../components/layout/TraderLayout';
 import { API_URL } from '../config/api';
 import { formatVND, formatKg, formatNumber } from '../utils/formatters';
+import { sanitizeNonNegative } from '../utils/validation';
 import { useTraderPrices, useTraderTokenBals, getPriceOf } from '../hooks/useTraderData';
 
 const C = {
@@ -192,7 +193,7 @@ function CollateralLoanTab({ tokenBals, stats }) {
 
           <SectionTitle>SỐ LƯỢNG THẾ CHẤP</SectionTitle>
           <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-            <input type="number" value={qty} onChange={e => setQty(e.target.value)}
+            <input type="number" value={qty} onChange={e => setQty(sanitizeNonNegative(e.target.value))}
               placeholder="0" min="0" max={avail} style={inputStyle} />
             <button onClick={() => setQty(String(avail))} style={{
               padding: '9px 12px', borderRadius: 6, border: `1px solid ${C.border}`,
@@ -431,21 +432,6 @@ function TokenDiscountingTab({ tokenBals, stats }) {
       {/* Left: Form */}
       <div style={{ display: 'grid', gap: 14 }}>
 
-        {/* True-sale warning */}
-        <div style={{ padding: '14px 16px', background: 'rgba(246,70,93,0.08)',
-          border: '1px solid rgba(246,70,93,0.35)', borderRadius: 10 }}>
-          <div style={{ fontWeight: 700, fontSize: 13, color: C.red, marginBottom: 8 }}>
-            CHUYỂN NHƯỢNG SỞ HỮU VĨNH VIỄN (TRUE SALE)
-          </div>
-          <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7 }}>
-            Đây <b style={{ color: C.text }}>không phải khoản vay</b>. Bạn <b style={{ color: C.red }}>bán hẳn</b> token
-            cho ngân hàng với giá chiết khấu. Sau khi giao dịch hoàn tất, bạn{' '}
-            <b style={{ color: C.red }}>không còn quyền sở hữu</b>, không thể mua lại, và token sẽ ở trạng thái{' '}
-            <span style={{ fontFamily: 'monospace', color: C.orange }}>DISCOUNTED</span>.<br />
-            Ngân hàng có toàn quyền giữ, giao dịch, đổi hàng hóa, hoặc hủy token.
-          </div>
-        </div>
-
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 20 }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>Chiết khấu token</div>
 
@@ -453,7 +439,7 @@ function TokenDiscountingTab({ tokenBals, stats }) {
 
           <SectionTitle>SỐ LƯỢNG BÁN CHIẾT KHẤU</SectionTitle>
           <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-            <input type="number" value={qty} onChange={e => setQty(e.target.value)}
+            <input type="number" value={qty} onChange={e => setQty(sanitizeNonNegative(e.target.value))}
               placeholder="0" min="0" max={avail} style={inputStyle} />
             <button onClick={() => setQty(String(avail))} style={{
               padding: '9px 12px', borderRadius: 6, border: `1px solid ${C.border}`,
@@ -553,15 +539,6 @@ function TokenDiscountingTab({ tokenBals, stats }) {
             </div>
           )}
 
-          <div style={{ marginTop: 16, fontSize: 11, color: C.muted, lineHeight: 1.6,
-            padding: '10px 12px', background: 'rgba(247,127,0,0.06)',
-            border: '1px solid rgba(247,127,0,0.2)', borderRadius: 6 }}>
-            <b style={{ color: C.orange }}>Trạng thái token:</b>{' '}
-            <span style={{ fontFamily: 'monospace', color: C.green }}>AVAILABLE</span>
-            {' → '}
-            <span style={{ fontFamily: 'monospace', color: C.orange }}>DISCOUNTED</span>
-            {' — '}Bị xóa khỏi số dư ngay khi gửi. Quyền sở hữu chuyển cho ngân hàng vĩnh viễn.
-          </div>
         </div>
 
         {/* History */}

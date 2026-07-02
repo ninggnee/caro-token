@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import * as api from "../services/orderApi";
 import { formatNumber, formatVND, formatKg, formatToken } from '../utils/formatters';
+import { sanitizeNonNegative } from '../utils/validation';
 import { getTradingBand } from '../services/marketApi';
 import axios from "../utils/axiosClient";
 
@@ -164,7 +165,7 @@ function OrderForm({ pair, onPlace, isPlacing, prefill, band, vndAvail, tokAvail
         {!isMarket ? (
           <div>
             <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>Giá (VND/kg)</label>
-            <input type="number" min="0" step="100" value={price} onChange={e => setPrice(e.target.value)}
+            <input type="number" min="0" step="100" value={price} onChange={e => setPrice(sanitizeNonNegative(e.target.value))}
               placeholder="88.000, 88.100, ..."
               style={inputStyle} />
           </div>
@@ -177,7 +178,7 @@ function OrderForm({ pair, onPlace, isPlacing, prefill, band, vndAvail, tokAvail
         {/* Amount input */}
         <div>
           <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>Số lượng (kg)</label>
-          <input type="number" min="0" value={amount} onChange={e => setAmount(e.target.value)}
+          <input type="number" min="0" value={amount} onChange={e => setAmount(sanitizeNonNegative(e.target.value))}
             placeholder={
               !isBuy && tokAvail > 0
                 ? `Nhập SL (Khả dụng: ${formatNumber(tokAvail)} kg)`
@@ -259,7 +260,7 @@ function OpenOrdersTable({ pair, onCancel, isCancelling }) {
         </thead>
         <tbody>
           {orders.map(o => (
-            <tr key={o.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+            <tr key={o.id} style={{ borderBottom: o.side === "buy" ? `2px solid ${C.green}` : `2px solid ${C.red}` }}>
               <td style={{ padding: "9px 10px", fontWeight: 600 }}>{o.pair}</td>
               <td style={{ padding: "9px 10px", color: o.side === "buy" ? C.green : C.red, fontWeight: 700 }}>
                 {o.side === "buy" ? "MUA" : "BÁN"}

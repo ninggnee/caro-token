@@ -7,6 +7,7 @@ import { ethers } from "ethers";
 import { CA_RO_CONTRACTS, ABI } from "../config/config";
 import axios from "../utils/axiosClient";
 import { formatNumber, formatVND } from '../utils/formatters';
+import { sanitizeNonNegative } from '../utils/validation';
 import { TRADER_KEYS } from '../hooks/useTraderData';
 
 const C = {
@@ -242,7 +243,7 @@ function AmountInput({ value, onChange, max }) {
       <div style={{ position: 'relative' }}>
         <input
           type="number" min="0" step="1000" value={value}
-          onChange={e => onChange(e.target.value)}
+          onChange={e => onChange(sanitizeNonNegative(e.target.value))}
           placeholder="Nhập số tiền..."
           style={{ width: '100%', padding: '12px 60px 12px 14px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, borderRadius: 8, color: '#e2e8f0', fontSize: 16, boxSizing: 'border-box', outline: 'none', fontWeight: 600 }}
         />
@@ -594,7 +595,7 @@ export default function TraderWallet() {
                     <div>
                       <label style={{ display: 'block', fontSize: 12, color: C.muted, marginBottom: 6, fontWeight: 600 }}>Số tiền rút (VND)</label>
                       <div style={{ position: 'relative' }}>
-                        <input type="number" min="0" step="1000" value={wdAmount} onChange={e => setWdAmount(e.target.value)}
+                        <input type="number" min="0" step="1000" value={wdAmount} onChange={e => setWdAmount(sanitizeNonNegative(e.target.value))}
                           placeholder="Nhập số tiền..."
                           style={{ width: '100%', padding: '12px 60px 12px 14px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, borderRadius: 8, color: '#e2e8f0', fontSize: 16, boxSizing: 'border-box', outline: 'none', fontWeight: 600 }} />
                         <button type="button" onClick={() => setWdAmount(String(vndAvailable))}
