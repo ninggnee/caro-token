@@ -6,7 +6,7 @@ import { useWallet } from "../context/WalletContext";
 import { ethers } from "ethers";
 import { CA_RO_CONTRACTS, ABI } from "../config/config";
 import axios from "../utils/axiosClient";
-import { formatNumber, formatVND } from '../utils/formatters';
+import { formatVND, formatToken } from '../utils/formatters';
 import { TRADER_KEYS } from '../hooks/useTraderData';
 
 const C = {
@@ -425,10 +425,10 @@ export default function TraderWallet() {
                         {TOKEN_LABELS[key]}
                       </div>
                       <div style={{ fontSize: 20, fontWeight: 800, color: qty > 0 ? "#fff" : C.muted }}>
-                        {formatNumber(qty, 4)}
+                        {formatToken(qty)}
                       </div>
                       <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
-                        Khả dụng: <span style={{ color: C.green, fontWeight: 600 }}>{formatNumber(avail, 4)}</span>
+                        Khả dụng: <span style={{ color: C.green, fontWeight: 600 }}>{formatToken(avail)}</span>
                       </div>
                     </div>
                   );
@@ -459,7 +459,7 @@ export default function TraderWallet() {
                       <div key={key} style={{ padding: 18, borderRight: idx < 2 ? `1px solid ${C.border}` : 'none' }}>
                         <div style={{ fontSize: 11, color: TOKEN_COLORS[key], fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>{TOKEN_LABELS[key]}</div>
                         <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>{TOKEN_GRADE[key]}</div>
-                        <div style={{ fontSize: 24, fontWeight: 800, color: qty > 0 ? C.green : C.muted }}>{formatNumber(qty, 4)}</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: qty > 0 ? C.green : C.muted }}>{formatToken(qty)}</div>
                         <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>token</div>
                         <button onClick={() => nav('/trader/trading')}
                           style={{ marginTop: 12, padding: '6px 12px', fontSize: 11, background: 'rgba(72,117,115,0.12)', color: C.tealLight, border: `1px solid rgba(72,117,115,0.3)`, borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>
@@ -966,7 +966,7 @@ function TraderTokenDepositForm({ account, provider, connect, qc }) {
         {/* Balance Status */}
         <div style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between" }}>
           <span style={{ fontSize: 12, color: C.muted }}>Số dư trong ví MetaMask:</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: C.green }}>{formatNumber(avail, 4)} {token}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: C.green }}>{formatToken(avail, token)}</span>
         </div>
 
         {/* Destination Address */}
@@ -1080,7 +1080,7 @@ function TraderTokenWithdrawForm({ exchangeBals, account, connect, qc }) {
         {/* Balance Status */}
         <div style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between" }}>
           <span style={{ fontSize: 12, color: C.muted }}>Số dư nội bộ khả dụng:</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: C.tealLight }}>{formatNumber(avail, 4)} {token}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: C.tealLight }}>{formatToken(avail, token)}</span>
         </div>
 
         {/* Destination Address */}

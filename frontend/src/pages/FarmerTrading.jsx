@@ -151,10 +151,10 @@ export default function FarmerTrading() {
     if (side === 'buy') {
       if (priceN <= 0) return;
       const qty = (vndAvail * pct / 100) / priceN;
-      setAmount(qty > 0 ? String(Math.round(qty)) : '');
+      setAmount(qty > 0 ? qty.toFixed(4) : '');
     } else {
       const qty = tokAvail * pct / 100;
-      setAmount(qty > 0 ? String(Math.round(qty)) : '');
+      setAmount(qty > 0 ? qty.toFixed(4) : '');
     }
   };
 
@@ -163,7 +163,7 @@ export default function FarmerTrading() {
       return setMsg({ ok: false, text: 'Vui lòng nhập Số lượng hợp lệ' });
     }
     if (side === 'sell' && amtN > tokAvail) {
-      return setMsg({ ok: false, text: `Không đủ số dư ${tokenLabel}. Khả dụng: ${formatNumber(tokAvail)} kg` });
+      return setMsg({ ok: false, text: `Không đủ số dư ${tokenLabel}. Khả dụng: ${formatKg(tokAvail)}` });
     }
     if (!isMarket) {
       if (!price || priceN <= 0) {
@@ -256,7 +256,7 @@ export default function FarmerTrading() {
           {[
             { l: 'Cao nhất 24H',  v: ticker.high   ? formatVND(ticker.high)                  : '—', c: C.green },
             { l: 'Thấp nhất 24H', v: ticker.low    ? formatVND(ticker.low)                   : '—', c: C.red   },
-            { l: 'KL 24H',        v: ticker.volume ? `${formatNumber(ticker.volume)} kg`      : '—', c: C.text  },
+            { l: 'KL 24H',        v: ticker.volume ? formatKg(ticker.volume)                  : '—', c: C.text  },
           ].map(x => (
             <div key={x.l}>
               <div style={{ fontSize: 11, color: C.muted }}>{x.l}</div>
@@ -289,7 +289,7 @@ export default function FarmerTrading() {
                     style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', height: 24, alignItems: 'center', padding: '0 10px', cursor: isMarket ? 'default' : 'pointer' }}>
                     <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${pct}%`, background: 'rgba(246,70,93,0.08)' }} />
                     <span style={{ color: C.red, fontSize: 11, fontFamily: 'monospace', fontWeight: 600, position: 'relative' }}>{formatNumber(ask.price)}</span>
-                    <span style={{ color: C.muted, fontSize: 11, fontFamily: 'monospace', textAlign: 'right', position: 'relative' }}>{formatNumber(ask.amount, 1)}</span>
+                    <span style={{ color: C.muted, fontSize: 11, fontFamily: 'monospace', textAlign: 'right', position: 'relative' }}>{formatToken(ask.amount)}</span>
                   </div>
                 );
               })}
@@ -312,7 +312,7 @@ export default function FarmerTrading() {
                     style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', height: 24, alignItems: 'center', padding: '0 10px', cursor: isMarket ? 'default' : 'pointer' }}>
                     <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${pct}%`, background: `rgba(${C.greenRgb},0.08)` }} />
                     <span style={{ color: C.green, fontSize: 11, fontFamily: 'monospace', fontWeight: 600, position: 'relative' }}>{formatNumber(bid.price)}</span>
-                    <span style={{ color: C.muted, fontSize: 11, fontFamily: 'monospace', textAlign: 'right', position: 'relative' }}>{formatNumber(bid.amount, 1)}</span>
+                    <span style={{ color: C.muted, fontSize: 11, fontFamily: 'monospace', textAlign: 'right', position: 'relative' }}>{formatToken(bid.amount)}</span>
                   </div>
                 );
               })}
@@ -452,9 +452,9 @@ export default function FarmerTrading() {
                   onChange={e => setAmount(e.target.value)}
                   placeholder={
                     side === 'sell' && tokAvail > 0
-                      ? `Nhập số lượng (Khả dụng: ${formatNumber(tokAvail)} kg)`
+                      ? `Nhập số lượng (Khả dụng: ${formatKg(tokAvail)})`
                       : side === 'buy' && priceN > 0
-                      ? `Nhập số lượng (Tối đa: ${formatNumber(maxBuyQty)} kg)`
+                      ? `Nhập số lượng (Tối đa: ${formatKg(maxBuyQty)})`
                       : '0'
                   }
                   style={{ ...inputStyle, background: C.input }}

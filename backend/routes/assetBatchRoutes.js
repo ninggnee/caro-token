@@ -5,6 +5,7 @@ import fs       from 'fs';
 import {
   createBatch,
   getFarmerBatches,
+  getFarmerBatchesWithDocs,
   getBatchById,
   getBatchDocuments,
   getAllBatches,
@@ -86,6 +87,7 @@ router.post('/',
   createBatch
 );
 router.get('/mine', verifyToken, requireRole('farmer'), getFarmerBatches);
+router.get('/mine-with-docs', verifyToken, requireRole('farmer'), getFarmerBatchesWithDocs);
 router.post('/:id/supplement',
   verifyToken, requireRole('farmer'),
   batchDocFields, attachBuffers,

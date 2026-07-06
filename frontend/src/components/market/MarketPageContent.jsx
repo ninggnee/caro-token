@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getMarketStats, getMockOrderbook, getMockTrades, getChart } from "../../services/marketApi";
-import { formatNumber, formatVND } from '../../utils/formatters';
+import { formatNumber, formatVND, formatToken } from '../../utils/formatters';
 
 const C = {
   accent: "#408A71", muted: "#6b7a99",
@@ -212,7 +212,7 @@ function OrderBookPanel({ token }) {
           {formatNumber(row.price)}
         </span>
         <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", position: "relative", textAlign: "right", fontFamily: "monospace", minWidth: 52 }}>
-          {formatNumber(row.qty, 1)}
+          {formatToken(row.qty)}
         </span>
       </div>
     );
@@ -286,7 +286,7 @@ function TradesPanel({ token }) {
             {formatNumber(t.price)}
           </span>
           <span style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", fontFamily: "monospace" }}>
-            {formatNumber(t.quantity)}
+            {formatToken(t.quantity)}
           </span>
           <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontFamily: "monospace" }}>
             {formatNumber(t.value)}
@@ -323,7 +323,7 @@ function StatsBar({ stats, token }) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, fontSize: 10, color: C.muted }}>
                 <span>24H H: <span style={{ color: C.green }}>{s.high_24h ? formatNumber(s.high_24h) : "—"}</span></span>
                 <span>24H L: <span style={{ color: C.red }}>{s.low_24h ? formatNumber(s.low_24h) : "—"}</span></span>
-                <span style={{ gridColumn: "1/-1" }}>Vol: <span style={{ color: "#e2e8f0" }}>{s.volume_24h ? formatNumber(Number(s.volume_24h)) : "—"} token</span></span>
+                <span style={{ gridColumn: "1/-1" }}>Vol: <span style={{ color: "#e2e8f0" }}>{s.volume_24h ? formatToken(Number(s.volume_24h)) : "—"} token</span></span>
               </div>
             </div>
           );
@@ -351,7 +351,7 @@ function StatsBar({ stats, token }) {
       {[
         ["24H High",   s.high_24h,  C.green],
         ["24H Low",    s.low_24h,   C.red],
-        ["Volume",     s.volume_24h  ? formatNumber(Number(s.volume_24h)) + " token" : null, null],
+        ["Volume",     s.volume_24h  ? formatToken(Number(s.volume_24h)) + " token" : null, null],
         ["Market Cap", s.market_cap  ? formatVND(Number(s.market_cap))                : null, null],
       ].filter(([, v]) => v).map(([label, val, col]) => (
         <div key={label}>

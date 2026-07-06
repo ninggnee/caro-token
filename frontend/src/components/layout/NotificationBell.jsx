@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext";
 import { useWallet } from "../../context/WalletContext";
 import { useMyBatches, useAllBatches } from "../../hooks/useBatches";
@@ -51,6 +52,24 @@ export default function NotificationBell() {
 
   const farmerBatches = farmerData?.batches || [];
   const adminBatches = adminData?.batches || [];
+
+  // Collateral loan / token discounting notifications — same technique as
+  // the batch-status notifs above (derived from live data already backing
+  // FarmerFinancing.jsx), no separate notification backend involved.
+  const { data: farmerLoansData } = useQuery({
+    queryKey: ["farmer-collateral-loans-notif"],
+    queryFn: () => axios.get("/finance/collateral-loans").then((r) => r.data),
+    enabled: isFarmer,
+    staleTime: 15_000,
+  });
+  const { data: farmerDiscountsData } = useQuery({
+    queryKey: ["farmer-token-discounting-notif"],
+    queryFn: () => axios.get("/finance/token-discounting").then((r) => r.data),
+    enabled: isFarmer,
+    staleTime: 15_000,
+  });
+  const farmerLoans = farmerLoansData?.data || [];
+  const farmerDiscounts = farmerDiscountsData?.data || [];
 
   // Generate dynamic notifications list
   const notifs = [];
@@ -117,6 +136,88 @@ export default function NotificationBell() {
           color: "#ef4444",
           link: `/farmer/batch/${b.id}`,
           date: b.rejected_at || b.updated_at,
+        });
+      }
+    }
+
+    // 3. Collateral loan notifications
+    for (const l of farmerLoans) {
+      if (l.status === "pending") {
+        notifs.push({
+          id: `farmer-loan-pending-${l.id}`,
+          title: "⏳ Hồ sơ vay thế chấp đang chờ duyệt",
+          body: `Khoản vay #${l.id} (${l.token_type}) đã gửi thành công, đang chờ Ngân hàng xét duyệt.`,
+          type: "warning", icon: "⏳", color: "#f0b90b",
+          link: "/farmer/wallet/financing",
+          date: l.created_at,
+        });
+      } else if (l.status === "approved") {
+        notifs.push({
+          id: `farmer-loan-approved-${l.id}`,
+          title: "✅ Khoản vay đã được phê duyệt",
+          body: `Khoản vay #${l.id} đã được Ngân hàng phê duyệt, đang chờ giải ngân vào ví của bạn.`,
+          type: "success", icon: "✅", color: "#B0E4CC",
+          link: "/farmer/wallet/financing",
+          date: l.approved_at || l.updated_at || l.created_at,
+        });
+      } else if (l.status === "active") {
+        notifs.push({
+          id: `farmer-loan-active-${l.id}`,
+          title: "💰 Khoản vay đã được giải ngân",
+          body: `Khoản vay #${l.id} đã được giải ngân ${Number(l.max_loan_amount).toLocaleString("vi-VN")} VND vào ví CaRo của bạn. Khoản vay đang trong thời hạn.`,
+          type: "success", icon: "💰", color: "#B0E4CC",
+          link: "/farmer/wallet/financing",
+          date: l.disbursed_at || l.updated_at || l.created_at,
+        });
+      } else if (l.status === "rejected") {
+        notifs.push({
+          id: `farmer-loan-rejected-${l.id}`,
+          title: "❌ Khoản vay bị từ chối",
+          body: `Khoản vay #${l.id} đã bị Ngân hàng từ chối. Token đã được mở khóa về trạng thái khả dụng.`,
+          type: "danger", icon: "❌", color: "#ef4444",
+          link: "/farmer/wallet/financing",
+          date: l.updated_at || l.created_at,
+        });
+      } else if (l.status === "repaid") {
+        notifs.push({
+          id: `farmer-loan-repaid-${l.id}`,
+          title: "🏁 Đã tất toán khoản vay",
+          body: `Khoản vay #${l.id} (${l.token_type}) đã được tất toán đầy đủ. Token đã mở khóa về trạng thái khả dụng.`,
+          type: "success", icon: "🏁", color: "#B0E4CC",
+          link: "/farmer/wallet/financing",
+          date: l.repaid_at || l.updated_at || l.created_at,
+        });
+      }
+    }
+
+    // 4. Token discounting notifications
+    for (const d of farmerDiscounts) {
+      if (d.status === "pending") {
+        notifs.push({
+          id: `farmer-discount-pending-${d.id}`,
+          title: "⏳ Yêu cầu chiết khấu đang chờ duyệt",
+          body: `Yêu cầu chiết khấu #${d.id} (${d.token_type}) gửi tới ${d.bank_name} đang chờ xét duyệt.`,
+          type: "warning", icon: "⏳", color: "#f0b90b",
+          link: "/farmer/wallet/financing",
+          date: d.created_at,
+        });
+      } else if (d.status === "approved" || d.status === "completed") {
+        notifs.push({
+          id: `farmer-discount-approved-${d.id}`,
+          title: "✅ Chiết khấu đã được duyệt",
+          body: `Yêu cầu chiết khấu #${d.id} đã được ${d.bank_name} duyệt, bạn đã nhận ${Number(d.payment_amount).toLocaleString("vi-VN")} VND.`,
+          type: "success", icon: "✅", color: "#B0E4CC",
+          link: "/farmer/wallet/financing",
+          date: d.updated_at || d.created_at,
+        });
+      } else if (d.status === "rejected") {
+        notifs.push({
+          id: `farmer-discount-rejected-${d.id}`,
+          title: "❌ Chiết khấu bị từ chối",
+          body: `Yêu cầu chiết khấu #${d.id} bị Ngân hàng từ chối. Token đã được mở khóa về trạng thái khả dụng.`,
+          type: "danger", icon: "❌", color: "#ef4444",
+          link: "/farmer/wallet/financing",
+          date: d.updated_at || d.created_at,
         });
       }
     }

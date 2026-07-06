@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import { useAuth } from "../context/AuthContext";
 import { getMyDeposits } from "../services/walletApi";
-import { formatVND, formatNumber } from '../utils/formatters';
+import { formatVND, formatToken } from '../utils/formatters';
 import { useWallet } from "../context/WalletContext";
 import { ethers } from "ethers";
 import { CA_RO_CONTRACTS, ABI } from "../config/config";
@@ -450,7 +450,7 @@ export default function FarmerDepositPage() {
                   {/* MetaMask balance */}
                   <div style={{ background: "rgba(176, 228, 204,0.05)", border: "1px solid rgba(176, 228, 204,0.2)", borderRadius: 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: 13, color: "#94a3b8", fontWeight: 600 }}>Số dư trong ví MetaMask:</span>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: "#B0E4CC", fontFamily: "monospace" }}>{formatNumber(avail, 4)} {token}</span>
+                    <span style={{ fontSize: 15, fontWeight: 800, color: "#B0E4CC", fontFamily: "monospace" }}>{formatToken(avail, token)}</span>
                   </div>
 
                   {/* MetaMask link status */}

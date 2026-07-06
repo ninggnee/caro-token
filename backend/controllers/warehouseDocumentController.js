@@ -16,6 +16,7 @@ import db     from '../config/db.js';
 import { uploadToIPFS }           from '../services/IpfsService.js';
 import { recordWarehouseDocument } from '../services/BlockchainService.js';
 import { logAction, auditMeta }   from '../services/AuditService.js';
+import { recomputeLCReadiness }   from './lcController.js';
 
 // Document types supported by the system
 export const DOCUMENT_TYPES = [
@@ -27,6 +28,12 @@ export const DOCUMENT_TYPES = [
   'warehouse_photos',
   'coffee_storage_report',
   'warehouse_receipt',
+  // L/C ("Nhận nông sản thực tế") required document types — see
+  // constants/lcStatus.js LC_REQUIRED_DOCUMENT_TYPES, which must match.
+  'certificate_of_quality',
+  'packing_list',
+  'bill_of_lading',
+  'shipping_notice',
   'other',
 ];
 
@@ -44,7 +51,7 @@ export const uploadDocument = async (req, res) => {
   if (!file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
   const uploaderId = req.user?.id;
-  const { warehouse_id, document_type, description } = req.body;
+  const { warehouse_id, document_type, description, lc_contract_id } = req.body;
 
   if (!document_type || !DOCUMENT_TYPES.includes(document_type)) {
     return res.status(400).json({
@@ -85,10 +92,11 @@ export const uploadDocument = async (req, res) => {
   // Persist metadata
   const [result] = await db.execute(
     `INSERT INTO warehouse_documents
-       (warehouse_id, document_type, document_name, description, cid, file_size, mime_type, uploaded_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       (warehouse_id, lc_contract_id, document_type, document_name, description, cid, file_size, mime_type, uploaded_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       warehouse_id || null,
+      lc_contract_id || null,
       document_type,
       safeName,
       description || null,
@@ -135,9 +143,19 @@ export const uploadDocument = async (req, res) => {
     action:     'warehouse_doc:upload',
     entityType: 'warehouse_document',
     entityId:   docId,
-    newData:    { cid, document_type, safeName, warehouse_id, blockchainTx },
+    newData:    { cid, document_type, safeName, warehouse_id, lc_contract_id: lc_contract_id || null, blockchainTx },
     ...auditMeta(req),
   });
+
+  // A document may be the last missing piece for an L/C contract's Oracle
+  // attestation bundle — re-check readiness (best-effort, non-fatal).
+  if (lc_contract_id) {
+    try {
+      await recomputeLCReadiness(Number(lc_contract_id), uploaderId);
+    } catch (readinessErr) {
+      console.warn(`recomputeLCReadiness skipped for lc_contract #${lc_contract_id}: ${readinessErr.message}`);
+    }
+  }
 
   // Fetch the full record to return
   const [[doc]] = await db.execute(
@@ -166,7 +184,7 @@ export const listDocuments = async (req, res) => {
     const userId = req.user?.id;
     const role   = req.user?.role;
 
-    const { warehouse_id, document_type, page = 1, limit = 20 } = req.query;
+    const { warehouse_id, document_type, lc_contract_id, page = 1, limit = 20 } = req.query;
     const lim = Math.min(Math.max(1, parseInt(limit, 10) || 20), 100);
     const off = (Math.max(1, parseInt(page, 10)) - 1) * lim;
 
@@ -177,6 +195,25 @@ export const listDocuments = async (req, res) => {
     if (role === 'farmer') {
       conditions.push('wd.uploaded_by = ?');
       params.push(userId);
+    }
+
+    // Traders only see documents attached to their own L/C contracts —
+    // these are uploaded by Admin (as Oracle), not by the Trader.
+    if (role === 'trader') {
+      const contractId = Number(lc_contract_id);
+      if (!contractId) {
+        return res.status(400).json({ success: false, message: 'lc_contract_id is required' });
+      }
+      const [[owned]] = await db.execute(
+        `SELECT id FROM lc_contracts WHERE id = ? AND trader_id = ? LIMIT 1`,
+        [contractId, userId]
+      );
+      if (!owned) return res.status(403).json({ success: false, message: 'Forbidden' });
+      conditions.push('wd.lc_contract_id = ?');
+      params.push(contractId);
+    } else if (lc_contract_id) {
+      conditions.push('wd.lc_contract_id = ?');
+      params.push(Number(lc_contract_id));
     }
 
     if (warehouse_id) {
@@ -245,6 +282,15 @@ export const getDocument = async (req, res) => {
     // Farmers can only see their own documents
     if (role === 'farmer' && doc.uploaded_by !== userId) {
       return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    // Traders can only see documents attached to one of their own L/C contracts
+    if (role === 'trader') {
+      const [[owned]] = await db.execute(
+        `SELECT id FROM lc_contracts WHERE id = ? AND trader_id = ? LIMIT 1`,
+        [doc.lc_contract_id, userId]
+      );
+      if (!owned) return res.status(403).json({ message: 'Forbidden' });
     }
 
     res.json({

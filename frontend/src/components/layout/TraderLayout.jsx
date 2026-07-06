@@ -32,7 +32,7 @@ const I = {
 const MARKET_SUB = [
   { id: "overview",  label: "Tổng quan",     path: "/trader/market/overview"  },
   { id: "trading",   label: "Giao dịch",     path: "/trader/market/trading"   },
-  { id: "redeem",    label: "Đổi hàng hóa", path: "/trader/market/redeem"    },
+  { id: "lc",        label: "Nhận nông sản thực tế", path: "/trader/market/lc-contracts" },
 ];
 
 const MARKET_PATHS = MARKET_SUB.map(s => s.path);

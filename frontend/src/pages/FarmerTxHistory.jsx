@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import { useMyBatches } from "../hooks/useBatches";
 import { getMyDeposits, getMyWithdraws } from "../services/walletApi";
-import { formatNumber } from '../utils/formatters';
+import { formatNumber, formatToken } from '../utils/formatters';
 
 const TX_TYPES = ["All", "Mint", "Deposit", "Withdraw"];
 const TX_LABELS = { All: "Tất cả", Mint: "Mint", Deposit: "Nạp tiền", Withdraw: "Rút tiền" };
@@ -88,7 +88,7 @@ export default function FarmerTxHistory() {
     .map(b => ({
       type:   "Mint",
       title:  `Đã Mint lô hàng — ${b.batch_id}`,
-      amount: formatNumber(Number(b.minted_amount)),
+      amount: formatToken(Number(b.minted_amount)),
       token:  "CaRo",
       date:   new Date(b.minted_at || b.created_at).toLocaleString("vi-VN"),
       status: "completed",
@@ -109,7 +109,7 @@ export default function FarmerTxHistory() {
   const wdTxs = (wdData?.data || []).map(w => ({
     type:   "Withdraw",
     title:  w.bank_name ? `Rút tiền VND — ${w.bank_name}` : "Rút token về ví MetaMask",
-    amount: formatNumber(Number(w.amount)),
+    amount: w.bank_name ? formatNumber(Number(w.amount)) : formatToken(Number(w.amount)),
     token:  w.bank_name ? "VND" : "CaRo",
     date:   new Date(w.created_at).toLocaleString("vi-VN"),
     status: w.status === "approved" ? "approved" : w.status === "rejected" ? "rejected" : "pending",

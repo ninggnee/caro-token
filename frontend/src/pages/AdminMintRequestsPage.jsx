@@ -8,7 +8,7 @@ import {
   useUpdateGrade,
   useBatchDocuments,
 } from "../hooks/useBatches";
-import { formatNumber, formatKg } from '../utils/formatters';
+import { formatKg, formatToken } from '../utils/formatters';
 
 const TABS = [
   { key: "ALL",                   label: "Tất cả" },
@@ -26,6 +26,18 @@ const STATUS_META = {
 
 const QG_TO_GRADE = { CR1: "A", CR2: "B", CR3: "C" };
 const GRADE_TO_QG = { A: "CR1", B: "CR2", C: "CR3" };
+
+// Seed-based pseudo-random quality grade — mirrors BatchDetailPage/FarmerBatchesPage
+function computeQualityGrade(batchId) {
+  if (!batchId) return null;
+  const seed = parseInt(String(batchId).replace(/[^\d]/g, ''), 10)
+    || String(batchId).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const x = Math.sin(seed * 2.1) * 10000;
+  const gradeRand = (x - Math.floor(x)) * 100;
+  if (gradeRand < 40) return 'CR1';
+  if (gradeRand < 75) return 'CR2';
+  return 'CR3';
+}
 
 const DOC_LABELS = {
   harvest_certificate: "Chứng nhận thu hoạch",
@@ -137,9 +149,13 @@ function RejectModal({ batch, onClose, onConfirm, isPending }) {
 }
 
 function ApproveModal({ batch, onClose, onConfirm, isPending }) {
-  const [grade, setGrade] = useState(QG_TO_GRADE[batch.quality_grade] || "");
+  // Use server quality_grade if available, else compute from batch ID seed
+  const resolvedQG = batch.quality_grade || computeQualityGrade(batch.id);
+  const [grade, setGrade] = useState(QG_TO_GRADE[resolvedQG] || "");
   const gradeColors = { A: "#B0E4CC", B: "#408A71", C: "#f0b90b" };
   const tokenType = GRADE_TO_QG[grade] || "—";
+  // Mint amount is the standardized weight after processing loss, not the raw weight
+  const mintQty = batch.net_quantity != null ? Number(batch.net_quantity) : Number(batch.quantity);
 
   return (
     <div className="caro-modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -162,9 +178,13 @@ function ApproveModal({ batch, onClose, onConfirm, isPending }) {
               {batch.farmer_wallet ? `${batch.farmer_wallet.slice(0,10)}…${batch.farmer_wallet.slice(-8)}` : "Chưa liên kết ví ⚠️"}
             </span>
           </div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+            <span style={{ color: "#94a3b8" }}>Khối lượng thô ban đầu</span>
+            <span style={{ color: "#94a3b8" }}>{formatKg(batch.quantity)}</span>
+          </div>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span style={{ color: "#94a3b8" }}>Khối lượng cà phê</span>
-            <span style={{ fontWeight: 800, color: "#f8fafc" }}>{formatKg(batch.quantity)}</span>
+            <span style={{ color: "#94a3b8" }}>Khối lượng sau chuẩn hóa</span>
+            <span style={{ fontWeight: 800, color: "#f8fafc" }}>{formatKg(mintQty)}</span>
           </div>
         </div>
 
@@ -200,7 +220,7 @@ function ApproveModal({ batch, onClose, onConfirm, isPending }) {
           <div style={{ background: `${gradeColors[grade]}10`, border: `1px solid ${gradeColors[grade]}30`, borderRadius: 12, padding: "16px", marginBottom: 24, textAlign: "center" }}>
             <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 8, fontWeight: 600 }}>Sẽ phát hành (Mint)</div>
             <div style={{ fontSize: 24, fontWeight: 900, color: gradeColors[grade], fontFamily: "monospace" }}>
-              {formatNumber(batch.quantity)} <span style={{ fontSize: 18 }}>{tokenType}</span>
+              {formatToken(mintQty)} <span style={{ fontSize: 18 }}>{tokenType}</span>
             </div>
             <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 8 }}>→ chuyển đến ví giao dịch của nông dân</div>
           </div>
@@ -418,7 +438,7 @@ export default function AdminMintRequestsPage() {
                                        (reject.isPending  && reject.variables?.id  === b.id);
                   const docsExpanded  = expandedDocs === b.id;
                   const shortWallet   = b.farmer_wallet ? `${b.farmer_wallet.slice(0,6)}…${b.farmer_wallet.slice(-4)}` : "—";
-                  const currentGrade  = gradeOverride[b.id] || QG_TO_GRADE[b.quality_grade] || "";
+                  const currentGrade  = gradeOverride[b.id] || QG_TO_GRADE[b.quality_grade || computeQualityGrade(b.id)] || "";
 
                   return (
                     <Fragment key={b.id}>
@@ -450,8 +470,8 @@ export default function AdminMintRequestsPage() {
 
                         {/* Grade */}
                         <td style={{ padding: "16px" }}>
-                          {b.quality_grade && (b.logistics_status === 'INSPECTED' || b.status === 'MINTED') ? (
-                            <GradeBadge qg={b.quality_grade} />
+                          {(b.logistics_status === 'INSPECTED' || b.status === 'MINTED') ? (
+                            <GradeBadge qg={b.quality_grade || computeQualityGrade(b.id)} />
                           ) : (
                             <span style={{ fontSize: 13, color: "#94a3b8", fontStyle: "italic" }}>Chờ kiểm định</span>
                           )}
@@ -491,7 +511,7 @@ export default function AdminMintRequestsPage() {
                             </button>
                             {b.status === "PENDING_MINT_APPROVAL" && (
                               <>
-                                {b.quality_grade && b.logistics_status === 'INSPECTED' ? (
+                                {b.logistics_status === 'INSPECTED' ? (
                                   <>
                                     {b.farmer_wallet ? (
                                       <button onClick={() => setApproveTarget(b)} disabled={isProcessing}

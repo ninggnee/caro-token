@@ -6,7 +6,7 @@ export const listLogs = async (req, res) => {
     const limit = Number(req.query.limit) || 20;
     const offset = (page - 1) * limit;
 
-    const { action, actor_id, entity_type } = req.query;
+    const { action, actor_id, entity_type, entity_id } = req.query;
 
     let whereClause = 'WHERE 1=1';
     const params = [];
@@ -22,6 +22,10 @@ export const listLogs = async (req, res) => {
     if (entity_type) {
       whereClause += ' AND a.entity_type = ?';
       params.push(entity_type);
+    }
+    if (entity_id) {
+      whereClause += ' AND a.entity_id = ?';
+      params.push(Number(entity_id));
     }
 
     const query = `

@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useMyBatches } from "../hooks/useBatches";
 import { useQuery } from "@tanstack/react-query";
 import axios from "../utils/axiosClient";
-import { formatNumber, formatVND } from '../utils/formatters';
+import { formatVND, formatToken } from '../utils/formatters';
 
 function useTokenBalances() {
   return useQuery({
@@ -92,9 +92,9 @@ function InternalWalletWidget({ balances }) {
             return (
               <div key={t} style={{ background: `${accent}08`, borderRadius: 10, padding: "12px 10px", border: `1px solid ${accent}18` }}>
                 <div style={{ fontSize: 11, color: accent, fontWeight: 800, marginBottom: 6, letterSpacing: "0.05em" }}>{t}</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#f8fafc", fontFamily: "'Manrope',sans-serif" }}>{avail > 0 ? formatNumber(avail) : "0"}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#f8fafc", fontFamily: "'Manrope',sans-serif" }}>{avail > 0 ? formatToken(avail) : "0"}</div>
                 {locked > 0 && (
-                  <div style={{ fontSize: 10, color: "#64748b", marginTop: 3 }}>🔒 {formatNumber(locked)} khoá</div>
+                  <div style={{ fontSize: 10, color: "#64748b", marginTop: 3 }}>🔒 {formatToken(locked)} khoá</div>
                 )}
                 <div style={{ fontSize: 10, color: "#475569", marginTop: 3 }}>≈ {formatVND(avail * (priceMap[t] || 0))}</div>
               </div>

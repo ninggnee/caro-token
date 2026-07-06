@@ -27,6 +27,7 @@ const I = {
   chev:  "M9 18l6-6-6-6",
   bell:  "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 0 1-3.46 0",
   shield:"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+  bank:  "M3 21h18 M4 10h16 M6 6l6-3 6 3 M5 10v11 M19 10v11 M9 14v3 M15 14v3",
 };
 
 const MENU = [
@@ -35,6 +36,16 @@ const MENU = [
   { id: "users",   label: "Quản lý người dùng",  icon: "users", path: "/admin/users"    },
   { id: "batches", label: "Lô hàng Farmer",      icon: "box",   path: "/admin/batches"  },
   { id: "minted",  label: "Lịch sử Mint",        icon: "medal", path: "/admin/minted"   },
+  {
+    id: "banksim",
+    label: "Mô phỏng Ngân hàng",
+    icon: "bank",
+    children: [
+      { label: "Phê duyệt thế chấp",  path: "/admin/bank-sim/collateral-loans" },
+      { label: "Phê duyệt chiết khấu", path: "/admin/bank-sim/discounting" },
+      { label: "Nhận nông sản thực tế (L/C)", path: "/admin/bank-sim/lc-contracts" },
+    ],
+  },
   { id: "logs",    label: "Nhật ký hệ thống",    icon: "list",  path: "/admin/logs"     },
 ];
 
@@ -49,6 +60,15 @@ export default function DashboardLayout({ title = "Admin", children }) {
     }
     return loc.pathname === path || loc.pathname.startsWith(path + "/");
   };
+
+  const isParentActive = (m) => m.children?.some(c => isActive(c.path));
+
+  const [open, setOpen] = useState(() => {
+    const s = {};
+    MENU.forEach(m => { if (isParentActive(m)) s[m.id] = true; });
+    return s;
+  });
+  const toggleGroup = (id) => setOpen(p => ({ ...p, [id]: !p[id] }));
 
   const initials = (user?.full_name || user?.email || "A")[0].toUpperCase();
 
@@ -298,6 +318,52 @@ export default function DashboardLayout({ title = "Admin", children }) {
         <nav className="admin-nav">
           <div className="admin-nav-label">Quản trị</div>
           {MENU.map(m => {
+            if (m.children) {
+              const parentAct = isParentActive(m);
+              const isOpen = open[m.id] || parentAct;
+              return (
+                <div key={m.id}>
+                  <button onClick={() => toggleGroup(m.id)}
+                    className={`admin-nav-item${parentAct ? " active" : ""}`}
+                    style={{ justifyContent: "space-between" }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <Ico d={I[m.icon]} size={15} />
+                      <span>{m.label}</span>
+                    </div>
+                    <Ico d={I.chev} size={12} style={{ transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s", color: "inherit" }} />
+                  </button>
+                  {isOpen && (
+                    <div style={{ paddingLeft: 8, paddingBottom: 4 }}>
+                      {m.children.map(c => {
+                        const a = isActive(c.path);
+                        return (
+                          <Link key={c.path} to={c.path}
+                            style={{
+                              display: "flex", alignItems: "center", gap: 8,
+                              padding: "7px 14px 7px 34px",
+                              margin: "1px 8px",
+                              borderRadius: 8,
+                              fontSize: 12, fontWeight: a ? 600 : 400,
+                              color: a ? "#B0E4CC" : "#64748b",
+                              background: a ? "rgba(176, 228, 204,0.08)" : "transparent",
+                              textDecoration: "none",
+                              transition: "all 0.15s",
+                            }}
+                            onMouseEnter={e => { if (!a) { e.currentTarget.style.color = "#94a3b8"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; } }}
+                            onMouseLeave={e => { if (!a) { e.currentTarget.style.color = "#64748b"; e.currentTarget.style.background = "transparent"; } }}
+                          >
+                            <span style={{ width: 5, height: 5, borderRadius: "50%", background: a ? "#B0E4CC" : "#334155", flexShrink: 0 }} />
+                            {c.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             const act = isActive(m.path);
             return (
               <Link key={m.id} to={m.path}

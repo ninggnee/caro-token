@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import DashboardLayout from "../components/layout/DashboardLayout";
 import axios from '../utils/axiosClient';
 import { toast } from 'react-toastify';
+import { formatKg, formatToken } from '../utils/formatters';
 
 export default function AdminRequestsList() {
   const [items, setItems] = useState([]);
@@ -100,8 +101,8 @@ export default function AdminRequestsList() {
                         <div style={{ fontWeight: 600, color: "#e2e8f0" }}>{it.full_name}</div>
                         <div style={{ fontSize: 12, color: "#64748b" }}>{it.email}</div>
                       </td>
-                      <td style={{ fontWeight: 600 }}>{it.kg_amount} kg</td>
-                      <td style={{ fontWeight: 600, color: "#B0E4CC" }}>{it.token_amount} CR</td>
+                      <td style={{ fontWeight: 600 }}>{formatKg(it.kg_amount)}</td>
+                      <td style={{ fontWeight: 600, color: "#B0E4CC" }}>{formatToken(it.token_amount)} CR</td>
                       <td>
                         <span className={`caro-badge ${
                           it.status === 'APPROVED' ? 'caro-badge-success' : 

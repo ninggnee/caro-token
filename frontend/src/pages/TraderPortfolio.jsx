@@ -6,7 +6,7 @@ import { useWallet } from "../context/WalletContext";
 import { ethers } from "ethers";
 import { CA_RO_CONTRACTS, ABI } from "../config/config";
 import { getMarketStats } from "../services/marketApi";
-import { formatNumber, formatVND } from '../utils/formatters';
+import { formatNumber, formatVND, formatToken } from '../utils/formatters';
 import { TRADER_KEYS } from '../hooks/useTraderData';
 
 const TOKENS = [
@@ -102,7 +102,7 @@ export default function TraderPortfolio() {
             <div className="caro-stat-icon" style={{ background: "rgba(176, 228, 204,0.1)", color: "#B0E4CC" }}>🪙</div>
             <div className="caro-stat-label">Tổng Token CaRo</div>
             <div className="caro-stat-value" style={{ color: "#B0E4CC" }}>
-              {loading ? "…" : formatNumber(totalQty)}
+              {loading ? "…" : formatToken(totalQty)}
             </div>
             <div className="caro-stat-sub">trên blockchain</div>
           </div>
@@ -168,7 +168,7 @@ export default function TraderPortfolio() {
                         </div>
                       </td>
                       <td style={{ fontSize: 15, fontWeight: 700, color: qty > 0 ? "#B0E4CC" : "#64748b" }}>
-                        {loading ? "…" : qty > 0 ? formatNumber(qty) : "—"}
+                        {loading ? "…" : qty > 0 ? formatToken(qty) : "—"}
                       </td>
                       <td style={{ fontSize: 14, color: "#e2e8f0", fontFamily: "monospace" }}>
                         {price ? formatVND(price) : "—"}
@@ -190,7 +190,7 @@ export default function TraderPortfolio() {
                 <tr style={{ background: "rgba(176, 228, 204,0.05)", borderTop: `1px solid var(--border)` }}>
                   <td style={{ fontWeight: 800, color: "#94a3b8" }}>TỔNG CỘNG</td>
                   <td style={{ fontSize: 15, fontWeight: 800, color: "#B0E4CC" }}>
-                    {totalQty > 0 ? formatNumber(totalQty) : "—"}
+                    {totalQty > 0 ? formatToken(totalQty) : "—"}
                     <span style={{ fontSize: 12, color: "#64748b", marginLeft: 4 }}>CaRo</span>
                   </td>
                   <td /><td />

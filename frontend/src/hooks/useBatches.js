@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import * as api from "../services/batchApi";
-import { formatNumber } from '../utils/formatters';
+import { formatToken } from '../utils/formatters';
 
 // ── Query keys ──────────────────────────────────────────────────────────────
 export const BATCH_KEYS = {
@@ -82,7 +82,7 @@ export function useApproveBatch() {
   return useMutation({
     mutationFn: ({ id, grade }) => api.approveBatch(id, grade),
     onSuccess: (data) => {
-      const amount = formatNumber(Number(data.minted_amount));
+      const amount = formatToken(Number(data.minted_amount));
       toast.success(`Mint thành công! ${amount} ${data.token_type} → ví farmer`);
       qc.invalidateQueries({ queryKey: ["batches"] });
     },

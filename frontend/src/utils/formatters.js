@@ -34,9 +34,16 @@ export function formatVND(n) {
  * Format a weight value in kilograms.
  * formatKg(500)             → "500 kg"
  * formatKg(15000)           → "15.000 kg"
+ * formatKg(1085.7)          → "1.085,7 kg"
  * formatKg(1.5, 1)          → "1,5 kg"
+ *
+ * Default decimals is 2 (not 0) because processing-loss-adjusted weights
+ * (net_quantity) carry fractional kg — rounding those to whole numbers here
+ * while the minted token amount is shown with full precision elsewhere
+ * creates a false "Token != warehouse weight" mismatch. Whole-kg values are
+ * unaffected since minimumFractionDigits stays 0.
  */
-export function formatKg(n, decimals = 0) {
+export function formatKg(n, decimals = 2) {
   return formatNumber(n, decimals) + ' kg';
 }
 
@@ -68,3 +75,21 @@ export function formatPct(n, decimals = 2) {
     maximumFractionDigits: decimals,
   }) + '%';
 }
+
+/**
+ * Format a date string to dd/mm/yyyy format.
+ * formatDate("2026-07-03T00:00:00.000Z") -> "03/07/2026"
+ * formatDate("2026-07-03") -> "03/07/2026"
+ */
+export function formatDate(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const parts = dateStr.slice(0, 10).split('-');
+    if (parts.length === 3) {
+      const [y, m, d] = parts;
+      return `${d}/${m}/${y}`;
+    }
+  } catch (e) {}
+  return dateStr;
+}
+

@@ -60,3 +60,16 @@ CREATE TABLE IF NOT EXISTS withdraw_requests (
 ALTER TABLE withdraw_requests ADD COLUMN note        TEXT      NULL AFTER status;
 ALTER TABLE withdraw_requests ADD COLUMN reviewed_by INT       NULL AFTER note;
 ALTER TABLE withdraw_requests ADD COLUMN reviewed_at TIMESTAMP NULL AFTER reviewed_by;
+
+-- Token withdrawal support (walletController.createWithdraw inserts these for
+-- token_type-based withdraws to a MetaMask address; table originally only
+-- had the VND bank-transfer columns above).
+ALTER TABLE withdraw_requests ADD COLUMN token_type          VARCHAR(10)  NULL AFTER amount;
+ALTER TABLE withdraw_requests ADD COLUMN destination_address VARCHAR(42)  NULL AFTER token_type;
+ALTER TABLE withdraw_requests ADD COLUMN tx_hash             VARCHAR(100) NULL AFTER destination_address;
+
+-- amount was DECIMAL(20,2) (fine for whole-VND withdrawals) but token amounts
+-- need the same fractional precision as user_balances.available_balance
+-- (DECIMAL(18,4)) so a typed value like 10.5678 isn't silently rounded to
+-- 10.57 on insert.
+ALTER TABLE withdraw_requests MODIFY COLUMN amount DECIMAL(20,4) NOT NULL;

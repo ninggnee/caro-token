@@ -26,31 +26,31 @@ export const createTokenRequest = async (req, res) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    const { kg_amount, lot_id, lot_code, grade } = req.body;
-    if (!kg_amount || Number(kg_amount) <= 0) {
-      return res.status(400).json({ message: 'kg_amount must be > 0' });
+    const { lot_id, lot_code, grade } = req.body;
+    if (!lot_id) {
+      return res.status(400).json({ message: 'lot_id is required — token amount is derived from the warehouse-confirmed lot weight' });
     }
 
-    const token_amount = Number(kg_amount); // 1 kg = 1 token
-
-    // If a lot_id is supplied, validate custodian state
-    if (lot_id) {
-      const [[lot]] = await db.execute(
-        `SELECT id, status, grade FROM coffee_lots WHERE id = ? AND farmer_id = ? LIMIT 1`,
-        [lot_id, userId]
-      );
-      if (!lot) return res.status(404).json({ message: 'Coffee lot not found or not yours' });
-      if (!['receipt_issued'].includes(lot.status)) {
-        return res.status(422).json({
-          message: `Lot status is '${lot.status}'. Warehouse receipt must be issued before requesting tokenisation.`
-        });
-      }
+    // Token amount MUST come from the lot's own warehouse-confirmed weight,
+    // never from client input, so 1 token always represents 1 kg actually in custody.
+    const [[lot]] = await db.execute(
+      `SELECT id, status, grade, weight_kg FROM coffee_lots WHERE id = ? AND farmer_id = ? LIMIT 1`,
+      [lot_id, userId]
+    );
+    if (!lot) return res.status(404).json({ message: 'Coffee lot not found or not yours' });
+    if (!['receipt_issued'].includes(lot.status)) {
+      return res.status(422).json({
+        message: `Lot status is '${lot.status}'. Warehouse receipt must be issued before requesting tokenisation.`
+      });
     }
+
+    const kg_amount    = Number(lot.weight_kg);
+    const token_amount = kg_amount; // 1 kg custodied = 1 token
 
     const [result] = await db.execute(
       `INSERT INTO token_requests (user_id, role, lot_id, lot_id_ref, kg_amount, token_amount, grade, status, created_at)
        VALUES (?, 'farmer', ?, ?, ?, ?, ?, 'pending', NOW())`,
-      [userId, lot_code || null, lot_id || null, kg_amount, token_amount, grade || null]
+      [userId, lot_code || null, lot_id, kg_amount, token_amount, grade || lot.grade || null]
     );
 
     await logAction({
@@ -200,7 +200,8 @@ export const mintToken = async (req, res) => {
 
     // Load request with farmer wallet — prefer user_wallets, fall back to users.wallet_address
     const [[row]] = await db.execute(
-      `SELECT tr.*, COALESCE(uw.wallet_address, u.wallet_address) AS farmer_wallet, cl.lot_code
+      `SELECT tr.*, COALESCE(uw.wallet_address, u.wallet_address) AS farmer_wallet,
+              cl.lot_code, cl.weight_kg AS lot_weight_kg
        FROM token_requests tr
        LEFT JOIN users u ON u.id = tr.user_id
        LEFT JOIN user_wallets uw ON uw.user_id = tr.user_id AND uw.role = 'farmer'
@@ -213,8 +214,13 @@ export const mintToken = async (req, res) => {
       return res.status(409).json({ message: `Request must be approved before minting (current: ${row.status})` });
     }
 
-    const tokenType   = row.token_type || req.body.token_type || 'CR1';
-    const tokenAmount = Number(row.token_amount || 0);
+    const tokenType = row.token_type || req.body.token_type || 'CR1';
+    // Re-derive from the lot's current warehouse-confirmed weight (not the
+    // possibly-stale token_amount snapshotted at request time) so the minted
+    // amount always matches the final custodied weight.
+    const tokenAmount = row.lot_id_ref && row.lot_weight_kg != null
+      ? Number(row.lot_weight_kg)
+      : Number(row.token_amount || 0);
     const userId      = row.user_id;
     const lotCode     = row.lot_code || `TR-${id}`;
     const farmerWallet = row.farmer_wallet;

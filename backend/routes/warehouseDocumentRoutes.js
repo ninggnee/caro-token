@@ -88,9 +88,10 @@ router.post(
   uploadDocument
 );
 
-// ── Farmer + Admin: list & view ────────────────────────────────────────────
-router.get('/',    verifyToken, requireRole('farmer', 'admin'), listDocuments);
-router.get('/:id', verifyToken, requireRole('farmer', 'admin'), getDocument);
+// ── Farmer + Admin + Trader: list & view ────────────────────────────────────
+// Trader access is scoped to their own L/C contracts inside the controller.
+router.get('/',    verifyToken, requireRole('farmer', 'admin', 'trader'), listDocuments);
+router.get('/:id', verifyToken, requireRole('farmer', 'admin', 'trader'), getDocument);
 
 // ── Admin only: delete ─────────────────────────────────────────────────────
 router.delete('/:id', verifyToken, requireRole('admin'), deleteDocument);

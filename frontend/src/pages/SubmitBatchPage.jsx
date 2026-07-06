@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import { useSubmitBatch } from "../hooks/useBatches";
 import { useAuth } from "../context/AuthContext";
+import DateInput from "../components/common/DateInput";
 
 function MapUpdater({ center, zoom }) {
   const map = useMap();
@@ -19,8 +20,7 @@ const C = { green: "#B0E4CC", red: "#f6465d", gold: "#f0b90b", accent: "#408A71"
 const DOC_CATEGORIES = [
   { key: "harvest_certificate", label: "① Phiếu thu hoạch", required: true,  multiple: false, accept: ".pdf,.jpg,.jpeg,.png" },
   { key: "coffee_photos",       label: "② Ảnh lô cà phê",    required: true,  multiple: true,  accept: ".jpg,.jpeg,.png,.webp" },
-  { key: "cert_docs",           label: "③ Giấy chứng nhận (Nếu có)", required: false, multiple: true, accept: ".pdf,.jpg,.jpeg,.png" },
-  { key: "additional_docs",     label: "④ Tài liệu bổ sung",         required: false, multiple: true, accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx" },
+  { key: "cert_docs",           label: "③ Tài liệu bổ sung (Nếu có)", required: false, multiple: true, accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx" },
 ];
 
 const S = {
@@ -193,7 +193,6 @@ export default function SubmitBatchPage() {
     if (!form.quantity || Number(form.quantity) <= 0) e.quantity = "Khối lượng phải lớn hơn 0";
     if (!form.crop_year?.trim()) e.crop_year = "Niên vụ là bắt buộc";
     if (!form.harvest_date) e.harvest_date = "Ngày thu hoạch là bắt buộc";
-    if (!form.storage_location || !form.storage_location.trim()) e.storage_location = "Kho lưu trữ dự kiến là bắt buộc";
     
     // Check required files
     if (!fileMap.harvest_certificate || fileMap.harvest_certificate.length === 0) {
@@ -212,7 +211,19 @@ export default function SubmitBatchPage() {
     const fd = new FormData();
     fd.append("quantity",          form.quantity);
     fd.append("harvest_date",      form.harvest_date);
-    fd.append("storage_location",  form.storage_location);
+    
+    // Auto-select nearest warehouse based on GPS farm location
+    let nearestWarehouse = "Kho Trung tâm CaRo (Buôn Ma Thuột, Đắk Lắk)";
+    if (user?.farm_location) {
+      if (user.farm_location.includes("Lâm Hà") || user.farm_location.includes("Lâm Đồng")) {
+        nearestWarehouse = "Kho CaRo Lâm Hà (Lâm Đồng)";
+      } else if (user.farm_location.includes("Chư Sê") || user.farm_location.includes("Gia Lai")) {
+        nearestWarehouse = "Kho CaRo Chư Sê (Gia Lai)";
+      } else if (user.farm_location.includes("Đắk Mil") || user.farm_location.includes("Đắk Nông")) {
+        nearestWarehouse = "Kho CaRo Chư Sê (Gia Lai)";
+      }
+    }
+    fd.append("storage_location",  nearestWarehouse);
     
     // Combine Owner & Certs into batch_description column for backend storage
     let descParts = [];
@@ -247,16 +258,9 @@ export default function SubmitBatchPage() {
       }
     }
 
-    // cert_docs (save under additional_docs key)
+    // cert_docs (Tài liệu bổ sung) - save under additional_docs key
     if (fileMap.cert_docs) {
       for (const file of fileMap.cert_docs) {
-        fd.append("additional_docs", file);
-      }
-    }
-
-    // additional_docs
-    if (fileMap.additional_docs) {
-      for (const file of fileMap.additional_docs) {
         fd.append("additional_docs", file);
       }
     }
@@ -335,10 +339,10 @@ export default function SubmitBatchPage() {
 
             <div style={S.group}>
               <label style={S.label}>Ngày thu hoạch *</label>
-              <input
+              <DateInput
                 style={{ ...S.input, borderColor: errors.harvest_date ? C.red : undefined }}
-                type="date"
-                value={form.harvest_date} onChange={setField("harvest_date")}
+                value={form.harvest_date}
+                onChange={setField("harvest_date")}
               />
               {errors.harvest_date && <div style={S.errMsg}>{errors.harvest_date}</div>}
             </div>
@@ -410,31 +414,14 @@ export default function SubmitBatchPage() {
           )}
 
 
-          {/* 8 & 9. Kho lưu trữ dự kiến & Phương thức canh tác */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div style={S.group}>
-              <label style={S.label}>Kho lưu trữ dự kiến *</label>
-              <select
-                style={{ ...S.input, borderColor: errors.storage_location ? C.red : undefined }}
-                value={form.storage_location} onChange={setField("storage_location")}
-              >
-                <option value="">-- Chọn kho lưu trữ --</option>
-                <option value="Kho Trung tâm CaRo (Buôn Ma Thuột, Đắk Lắk)">Kho Trung tâm CaRo (Buôn Ma Thuột, Đắk Lắk)</option>
-                <option value="Kho CaRo Lâm Hà (Lâm Đồng)">Kho CaRo Lâm Hà (Lâm Đồng)</option>
-                <option value="Kho CaRo Chư Sê (Gia Lai)">Kho CaRo Chư Sê (Gia Lai)</option>
-                <option value="Kho Cảng Cát Lái (TP.HCM)">Kho Cảng Cát Lái (TP.HCM)</option>
-              </select>
-              {errors.storage_location && <div style={S.errMsg}>{errors.storage_location}</div>}
-            </div>
-
-            <div style={S.group}>
-              <label style={S.label}>Phương thức canh tác *</label>
-              <select style={S.input} value={form.farming_method} onChange={setField("farming_method")}>
-                <option value="Traditional">Truyền thống</option>
-                <option value="Sustainable">Canh tác bền vững</option>
-                <option value="Organic">Canh tác hữu cơ</option>
-              </select>
-            </div>
+          {/* Phương thức canh tác */}
+          <div style={S.group}>
+            <label style={S.label}>Phương thức canh tác *</label>
+            <select style={S.input} value={form.farming_method} onChange={setField("farming_method")}>
+              <option value="Traditional">Truyền thống</option>
+              <option value="Sustainable">Canh tác bền vững</option>
+              <option value="Organic">Canh tác hữu cơ</option>
+            </select>
           </div>
 
           {/* 11. Nhật ký sản xuất */}
@@ -488,10 +475,6 @@ export default function SubmitBatchPage() {
               error={errors[doc.key]}
             />
           ))}
-
-          <div style={{ marginTop: 12, padding: "10px 14px", background: "rgba(72,117,115,0.05)", borderRadius: 8, fontSize: 12, color: "rgba(255,255,255,0.4)", borderLeft: `2px solid ${C.accent}` }}>
-            Hồ sơ sau khi gửi sẽ được tạo thành Hồ sơ số (Digital Asset Profile). Các tài liệu sẽ được lưu trên IPFS và chờ kho tiếp nhận để chuyển sang bước kiểm định.
-          </div>
         </div>
 
         {/* Actions */}

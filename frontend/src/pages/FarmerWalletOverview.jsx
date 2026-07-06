@@ -121,7 +121,7 @@ export default function FarmerWalletOverview() {
           <BalCard
             label="Token_CaRo (Tổng số dư)"
             value={formatToken(totalCaRo, "CaRo")}
-            sub={`CaRo1: ${formatNumber(caro1)} · CaRo2: ${formatNumber(caro2)} · CaRo3: ${formatNumber(caro3)}`}
+            sub={`CaRo1: ${formatToken(caro1)} · CaRo2: ${formatToken(caro2)} · CaRo3: ${formatToken(caro3)}`}
             accent="#408A71"
             bgAccent="rgba(64, 138, 113, 0.1)"
             icon="🪙"
@@ -214,7 +214,7 @@ export default function FarmerWalletOverview() {
                         </div>
                       </td>
                       <td style={{ fontSize: 15, fontWeight: 700, fontFamily: "monospace", color: qty > 0 ? "#B0E4CC" : "#64748b" }}>
-                        {qty > 0 ? formatNumber(qty) : "—"}
+                        {qty > 0 ? formatToken(qty) : "—"}
                       </td>
                       <td style={{ fontSize: 14, fontFamily: "monospace", color: "#f8fafc" }}>
                         {qty > 0 ? formatKg(qty) : "—"}
@@ -235,7 +235,7 @@ export default function FarmerWalletOverview() {
                     <td style={{ fontSize: 13, fontWeight: 800, color: "#94a3b8" }}>TỔNG CỘNG</td>
                     <td>
                       <span style={{ fontSize: 16, fontWeight: 800, fontFamily: "monospace", color: "#B0E4CC" }}>
-                        {formatNumber(totalCaRo)}
+                        {formatToken(totalCaRo)}
                       </span>
                       <span style={{ fontSize: 12, color: "#64748b", marginLeft: 6, fontWeight: 600 }}>CaRo</span>
                     </td>

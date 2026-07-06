@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import TraderLayout from "../components/layout/TraderLayout";
 import axios from "../utils/axiosClient";
 import { formatNumber, formatVND } from '../utils/formatters';
+import DateInput from "../components/common/DateInput";
 
 const PAIRS = ["Tất cả", "CR1/VND", "CR2/VND", "CR3/VND"];
 const SIDES = ["Tất cả", "buy", "sell"];
@@ -111,12 +112,12 @@ export default function TradeHistory() {
 
             <div>
               <div className="caro-label">Từ ngày</div>
-              <input type="date" className="caro-input" style={{ width: 150 }} value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
+              <DateInput className="caro-input" style={{ width: 150 }} value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
             </div>
 
             <div>
               <div className="caro-label">Đến ngày</div>
-              <input type="date" className="caro-input" style={{ width: 150 }} value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
+              <DateInput className="caro-input" style={{ width: 150 }} value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
             </div>
 
             {(pair !== "Tất cả" || side !== "Tất cả" || dateFrom || dateTo) && (

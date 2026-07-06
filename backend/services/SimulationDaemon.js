@@ -78,25 +78,29 @@ async function processBatches() {
       updates.push('humidity_sensor = ?');
       params.push(humidity);
 
-      // Mass balance simulation
+      // Mass balance simulation.
+      // NOTE: quantity (original farmer-submitted raw weight) is NEVER overwritten.
+      // The net weight after processing loss is stored in net_quantity.
       if (nextStatus === 'STANDARDIZED') {
-        const netQty = Number((Number(batch.quantity) * 0.98).toFixed(2));
-        updates.push('quantity = ?');
+        const lossPct = getRandomFloat(0, 2, 2); // random 0-2% cleaning/drying loss
+        const netQty = Number((Number(batch.quantity) * (1 - lossPct / 100)).toFixed(2));
+        updates.push('net_quantity = ?');
         params.push(netQty);
+        updates.push('processing_loss_pct = ?');
+        params.push(lossPct);
         updates.push('batch_description = ?');
-        params.push(`${batch.batch_description || ''}\n[Mass Balance] Đã sấy lọc & trừ 2% hao hụt. Khối lượng ròng: ${netQty} kg.`);
+        params.push(`${batch.batch_description || ''}\n[Mass Balance] Đã sấy lọc & trừ ${lossPct}% hao hụt. Khối lượng sau chuẩn hóa: ${netQty} kg.`);
       }
 
       if (nextStatus === 'STORED') {
         const fakeCid = "Qm" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         await db.execute(`
-          INSERT INTO warehouse_documents (uploaded_by, document_type, document_name, file_size, cid, status, batch_id)
-          VALUES (?, 'warehouse_receipt', ?, 102400, ?, 'active', ?)
+          INSERT INTO warehouse_documents (uploaded_by, document_type, document_name, file_size, cid, status)
+          VALUES (?, 'warehouse_receipt', ?, 102400, ?, 'active')
         `, [
           batch.farmer_id,
           `Biên bản bàn giao và nhập kho - ${batch.batch_id}.pdf`,
-          fakeCid,
-          batch.batch_id
+          fakeCid
         ]);
       }
 
@@ -116,13 +120,12 @@ async function processBatches() {
         // Generate fake warehouse document
         const fakeCid = "Qm" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         await db.execute(`
-          INSERT INTO warehouse_documents (uploaded_by, document_type, document_name, file_size, cid, status, batch_id)
-          VALUES (?, 'quality_inspection', ?, 102400, ?, 'active', ?)
+          INSERT INTO warehouse_documents (uploaded_by, document_type, document_name, file_size, cid, status)
+          VALUES (?, 'quality_inspection', ?, 102400, ?, 'active')
         `, [
           batch.farmer_id,
-          `Báo cáo kiểm định chất lượng - ${ins.gradeCode}.pdf`,
-          fakeCid,
-          batch.batch_id
+          `Báo cáo kiểm định chất lượng - ${batch.batch_id} - ${ins.gradeCode}.pdf`,
+          fakeCid
         ]);
       }
 
@@ -141,9 +144,9 @@ async function processBatches() {
 export const startDaemon = async () => {
   console.log("⚙️ Starting Simulation Daemon...");
   
-  // Run immediately once, then every 30 seconds
+  // Run immediately once, then every 10 seconds
   processBatches();
-  setInterval(processBatches, 30000);
+  setInterval(processBatches, 10000);
 };
 
 export default { startDaemon };

@@ -49,11 +49,40 @@ function calculatePolygonArea(coordsString) {
   }
 }
 
+// DB stores farm_area as DECIMAL(12,4) (e.g. "5.4700"); strip it down to a clean
+// display value with at most 2 decimals (e.g. "5.47") for the editable input.
+function formatAreaValue(val) {
+  if (val === null || val === undefined || val === "") return "";
+  const n = Number(val);
+  if (Number.isNaN(n)) return "";
+  return String(Math.round(n * 100) / 100);
+}
+
 const TAY_NGUYEN_FARMS = [
-  { name: "Buôn Ma Thuột, Đắk Lắk", coords: "[[12.6842, 108.0539], [12.6855, 108.0545], [12.6848, 108.0558], [12.6835, 108.0550]]", area: 2.48, soil: "Đất đỏ basalt" },
-  { name: "Lâm Hà, Lâm Đồng", coords: "[[11.9082, 108.4382], [11.9122, 108.4412], [11.9142, 108.4352]]", area: 5.75, soil: "Đất feralit mùn vàng" },
-  { name: "Chư Sê, Gia Lai", coords: "[[13.9822, 107.9892], [13.9892, 107.9942], [13.9922, 107.9822]]", area: 7.35, soil: "Đất đỏ basalt tơi xốp" },
-  { name: "Đắk Mil, Đắk Nông", coords: "[[12.4382, 107.6282], [12.4452, 107.6322], [12.4412, 107.6212]]", area: 4.95, soil: "Đất đỏ basalt phong hóa" }
+  { 
+    name: "Buôn Ma Thuột, Đắk Lắk", 
+    coords: "[[12.6742, 107.9939], [12.6742, 108.0039], [12.6842, 108.0039], [12.6842, 107.9939]]", 
+    area: 4.2, 
+    soil: "Đất đỏ basalt" 
+  },
+  { 
+    name: "Lâm Hà, Lâm Đồng", 
+    coords: "[[11.9082, 108.4082], [11.9082, 108.4182], [11.9182, 108.4182], [11.9182, 108.4082]]", 
+    area: 6.5, 
+    soil: "Đất feralit mùn vàng" 
+  },
+  { 
+    name: "Chư Sê, Gia Lai", 
+    coords: "[[13.9222, 107.8992], [13.9222, 107.9092], [13.9322, 107.9092], [13.9322, 107.8992]]", 
+    area: 7.8, 
+    soil: "Đất đỏ basalt tơi xốp" 
+  },
+  { 
+    name: "Đắk Mil, Đắk Nông", 
+    coords: "[[12.4182, 107.5882], [12.4182, 107.5982], [12.4282, 107.5982], [12.4282, 107.5882]]", 
+    area: 5.6, 
+    soil: "Đất đỏ basalt phong hóa" 
+  }
 ];
 
 export default function FarmerProfile() {
@@ -65,7 +94,7 @@ export default function FarmerProfile() {
     phone:     user?.phone     || "",
     address:   user?.address   || "",
     farm_code:      user?.farm_code || "",
-    farm_area:      user?.farm_area || "",
+    farm_area:      formatAreaValue(user?.farm_area),
     farm_location:  user?.farm_location || "",
     farm_soil_type: user?.farm_soil_type || "",
     farm_coords:    user?.farm_coords || "",
@@ -100,7 +129,7 @@ export default function FarmerProfile() {
       phone:     user?.phone     || "",
       address:   user?.address   || "",
       farm_code:      user?.farm_code || "",
-      farm_area:      user?.farm_area || "",
+      farm_area:      formatAreaValue(user?.farm_area),
       farm_location:  user?.farm_location || "",
       farm_soil_type: user?.farm_soil_type || "",
       farm_coords:    user?.farm_coords || "",
@@ -131,8 +160,33 @@ export default function FarmerProfile() {
     },
   });
 
+  // Diện tích: 1-10 ha, tối đa 2 chữ số thập phân. Chặn ký tự không hợp lệ ngay khi gõ,
+  // phần range 1-10 được kiểm tra khi lưu (để không chặn việc gõ tuần tự, VD gõ "1" trước khi ra "10").
+  const handleFarmAreaChange = (e) => {
+    const raw = e.target.value;
+    if (raw === "" || /^\d{0,2}(\.\d{0,2})?$/.test(raw)) {
+      setForm(f => ({ ...f, farm_area: raw }));
+    }
+  };
+
+  const validateFarmArea = () => {
+    if (form.farm_area === "" || form.farm_area == null) return true;
+    const areaStr = String(form.farm_area).trim();
+    if (!/^\d{1,2}(\.\d{1,2})?$/.test(areaStr)) {
+      toast.error("Diện tích chỉ được nhập tối đa 2 chữ số thập phân");
+      return false;
+    }
+    const area = Number(areaStr);
+    if (area < 1 || area > 10) {
+      toast.error("Diện tích phải trong khoảng 1 - 10 ha");
+      return false;
+    }
+    return true;
+  };
+
   const handleProfileSave = () => {
     if (!form.full_name.trim()) { toast.error("Họ tên không được để trống"); return; }
+    if (!validateFarmArea()) return;
     profileMut.mutate({
       ...form,
       certifications: JSON.stringify(selectedCerts)
@@ -158,7 +212,7 @@ export default function FarmerProfile() {
       const mockFarm = TAY_NGUYEN_FARMS[Math.floor(Math.random() * TAY_NGUYEN_FARMS.length)];
       setForm(f => ({
         ...f,
-        farm_code: f.farm_code || `CARO-FARM-${Math.floor(1000 + Math.random() * 9000)}`,
+        farm_code: "",
         farm_coords: mockFarm.coords,
         farm_area: mockFarm.area,
         farm_location: mockFarm.name,
@@ -180,8 +234,8 @@ export default function FarmerProfile() {
   const kycStatus = user?.kyc_status || "pending";
   const truncateWallet = (addr) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "Chưa kết nối";
 
-  const province = form.farm_location ? form.farm_location.split(",")[1]?.trim() : "Đắk Lắk";
-  const district = form.farm_location ? form.farm_location.split(",")[0]?.trim() : "Cư M'gar";
+  const province = form.farm_location ? form.farm_location.split(",")[1]?.trim() : "";
+  const district = form.farm_location ? form.farm_location.split(",")[0]?.trim() : "";
 
   const renderMapEmbed = () => {
     let lat = 14.0583; // center vietnam approx (Tay Nguyen)
@@ -394,8 +448,13 @@ export default function FarmerProfile() {
                     <input type="text" className="caro-input" value={form.farm_code} onChange={e => setForm(f => ({ ...f, farm_code: e.target.value }))} placeholder="VD: CARO-FARM-842" />
                   </div>
                   <div className="caro-field">
-                    <label className="caro-label">Diện tích</label>
-                    <input type="text" className="caro-input" value={form.farm_area ? `${form.farm_area} Ha` : "0.00 Ha"} readOnly />
+                    <label className="caro-label">Diện tích (ha)</label>
+                    <input
+                      type="number" className="caro-input" min="1" max="10" step="0.01"
+                      value={form.farm_area}
+                      onChange={handleFarmAreaChange}
+                      placeholder="VD: 5.47"
+                    />
                   </div>
                 </div>
 
@@ -406,18 +465,18 @@ export default function FarmerProfile() {
                   </div>
                   <div className="caro-field">
                     <label className="caro-label">Địa phương</label>
-                    <input type="text" className="caro-input" value={form.farm_location || "Tây Nguyên, Việt Nam"} readOnly />
+                    <input type="text" className="caro-input" value={form.farm_location} placeholder="Chưa có dữ liệu" readOnly />
                   </div>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                   <div className="caro-field">
                     <label className="caro-label">Tỉnh thành</label>
-                    <input type="text" className="caro-input" value={province} readOnly />
+                    <input type="text" className="caro-input" value={province} placeholder="Chưa có dữ liệu" readOnly />
                   </div>
                   <div className="caro-field">
                     <label className="caro-label">Quận huyện</label>
-                    <input type="text" className="caro-input" value={district} readOnly />
+                    <input type="text" className="caro-input" value={district} placeholder="Chưa có dữ liệu" readOnly />
                   </div>
                 </div>
 

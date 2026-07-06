@@ -332,6 +332,13 @@ export const updateProfile = async (req, res) => {
       return res.status(400).json({ message: 'full_name is required' });
     }
 
+    if (farm_area !== undefined && farm_area !== null && farm_area !== '') {
+      const areaStr = String(farm_area).trim();
+      if (!/^\d{1,2}(\.\d{1,2})?$/.test(areaStr) || Number(areaStr) < 1 || Number(areaStr) > 10) {
+        return res.status(400).json({ message: 'Diện tích (farm_area) phải trong khoảng 1 - 10 ha, tối đa 2 chữ số thập phân' });
+      }
+    }
+
     await db.execute(
       `UPDATE users SET
          full_name = ?, phone = ?, address = ?,

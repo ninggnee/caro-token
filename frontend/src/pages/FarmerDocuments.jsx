@@ -4,15 +4,68 @@ import FarmerLayout from "../components/layout/FarmerLayout";
 import { useMyBatches, useBatch } from "../hooks/useBatches";
 import { formatKg } from '../utils/formatters';
 
-const DOC_LABELS = {
-  harvest_certificate:   { label: "Giấy chứng nhận thu hoạch", icon: "📜" },
-  quality_inspection:    { label: "Kiểm định chất lượng",        icon: "🔬" },
-  coffee_photos:         { label: "Ảnh sản phẩm",               icon: "📷" },
-  additional_docs:       { label: "Tài liệu bổ sung",           icon: "📄" },
-  warehouse_receipt:     { label: "Biên bản bàn giao và nhập kho", icon: "🏭" },
-  quality_audit:         { label: "Đánh giá chất lượng",        icon: "📋" },
-  coffee_storage_report: { label: "Báo cáo lưu trữ cà phê",   icon: "📊" },
+// Document groups are driven by `label`/`group` the API computes per document
+// (see backend/services/DocumentTypeService.js) so any new document_type the
+// backend starts returning shows up automatically — nothing to edit here.
+// Order follows the batch workflow: farmer docs → warehouse intake → quality
+// inspection → logistics → everything else (goods must be stored before they
+// can be inspected, so warehouse docs always precede inspection docs).
+const GROUP_ORDER = [
+  "Tài liệu nông hộ",
+  "Tài liệu nhập kho",
+  "Tài liệu kiểm định chất lượng",
+  "Tài liệu logistics",
+  "Tài liệu khác",
+];
+
+// Batch logistics pipeline, earliest → latest (mirrors backend
+// DocumentTypeService.LOGISTICS_STAGE_ORDER / SimulationDaemon's LOGISTICS_FLOW).
+// A document only appears once the batch's current stage has reached the
+// stage its group requires — a document can exist in the DB long before its
+// business stage occurs (e.g. a farmer attaches a "quality_inspection" file
+// at batch creation, well before the batch is actually inspected).
+const LOGISTICS_STAGE_ORDER = [
+  "PENDING_PICKUP", "IN_TRANSIT", "DELIVERED", "STANDARDIZED", "STORED", "INSPECTED", "MINTED",
+];
+const GROUP_REQUIRED_STAGE = {
+  "Tài liệu nông hộ":              "PENDING_PICKUP",
+  "Tài liệu logistics":            "IN_TRANSIT",
+  "Tài liệu nhập kho":             "STORED",
+  "Tài liệu kiểm định chất lượng": "INSPECTED",
+  "Tài liệu khác":                 "PENDING_PICKUP",
 };
+function stageIndex(stage) {
+  const i = LOGISTICS_STAGE_ORDER.indexOf(stage);
+  return i === -1 ? 0 : i;
+}
+
+const GROUP_ICONS = {
+  "Tài liệu nông hộ": "🌾",
+  "Tài liệu kiểm định chất lượng": "🔬",
+  "Tài liệu nhập kho": "🏭",
+  "Tài liệu logistics": "🚚",
+  "Tài liệu khác": "📄",
+};
+
+const DOC_STATUS_MAP = {
+  uploaded: { label: "Đã tải lên",   cls: "caro-badge-success" },
+  active:   { label: "Đang lưu trữ", cls: "caro-badge-success" },
+  deleted:  { label: "Đã xóa",       cls: "caro-badge-danger" },
+};
+
+// Safety-net classifier: only used if a document ever arrives without the
+// API-computed label/group (e.g. an older cached response).
+function prettify(type) {
+  return String(type || "").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+function fallbackGroup(type) {
+  const t = String(type || "").toLowerCase();
+  if (/harvest|coffee_photo|^photo|farm/.test(t)) return "Tài liệu nông hộ";
+  if (/warehouse|receipt|storage|stock/.test(t)) return "Tài liệu nhập kho";
+  if (/quality|inspect|audit|lab|analysis|certificate/.test(t)) return "Tài liệu kiểm định chất lượng";
+  if (/logistic|transport|shipping|delivery/.test(t)) return "Tài liệu logistics";
+  return "Tài liệu khác";
+}
 
 const STATUS_MAP = {
   PENDING_MINT_APPROVAL: { label: "Chờ duyệt",  cls: "caro-badge-warning" },
@@ -25,16 +78,18 @@ function DocItem({ doc }) {
   const ext = doc.file_name?.split(".").pop()?.toLowerCase();
   const isImg = ["jpg", "jpeg", "png", "webp", "gif"].includes(ext);
   const isPdf = ext === "pdf";
-  const meta = DOC_LABELS[doc.document_type] || { label: doc.document_type, icon: "📄" };
+  const label = doc.label || prettify(doc.document_type);
+  const statusMeta = DOC_STATUS_MAP[doc.status] || { label: doc.status || "Đã tải lên", cls: "caro-badge-muted" };
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 8, background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)", marginBottom: 8 }}>
       <div style={{ fontSize: 24, flexShrink: 0 }}>{isImg ? "🖼️" : isPdf ? "📄" : "📎"}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#f8fafc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.file_name}</div>
-        <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
-          {meta.icon} {meta.label}
-          {doc.uploaded_at && ` · ${new Date(doc.uploaded_at).toLocaleDateString("vi-VN")}`}
+        <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <span>{label}</span>
+          {doc.uploaded_at && <span>· {new Date(doc.uploaded_at).toLocaleDateString("vi-VN")}</span>}
+          <span className={`caro-badge ${statusMeta.cls}`} style={{ padding: "1px 6px", fontSize: 10 }}>{statusMeta.label}</span>
         </div>
         {doc.ipfs_cid && (
           <div style={{ fontSize: 11, color: "#408A71", marginTop: 4, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -70,33 +125,44 @@ function BatchDocsPanel({ batch, nav }) {
     id: `wh-${d.id}`,
     batch_id: batch.batch_id,
     document_type: d.document_type,
+    label: d.label,
+    group: d.group,
+    status: d.status,
     file_name: d.document_name,
     file_path: null,
     ipfs_cid: d.cid,
     uploaded_at: d.created_at
   }));
-  const docs = [...standardDocs, ...whMapped];
+  const allDocs = [...standardDocs, ...whMapped];
   const rejectionReason = data?.batch?.rejection_reason || batch.rejection_reason;
 
+  // A document is only shown once the batch's current logistics stage has
+  // reached the stage its group requires (see GROUP_REQUIRED_STAGE above) —
+  // this is a real filter on the rendered array, not a CSS/visual hide, so
+  // documents from steps that haven't happened yet are never in the DOM.
+  // effective_logistics_stage (computed by the API) is used instead of the
+  // raw logistics_status because legacy MINTED/APPROVED batches can have a
+  // stale logistics_status that predates that column's introduction.
+  const currentStage = data?.batch?.effective_logistics_stage || data?.batch?.logistics_status || "PENDING_PICKUP";
+  const docs = allDocs.filter(d => {
+    const group = d.group || fallbackGroup(d.document_type);
+    const requiredStage = d.requiredStage || GROUP_REQUIRED_STAGE[group] || "PENDING_PICKUP";
+    return stageIndex(requiredStage) <= stageIndex(currentStage);
+  });
+
+  // Group by the API-computed `group` (fallback classifier only if it's ever
+  // missing) — every visible document lands in exactly one group, unrecognized
+  // types included, so rendered count always equals docs.length.
   const grouped = docs.reduce((acc, d) => {
-    if (!acc[d.document_type]) acc[d.document_type] = [];
-    acc[d.document_type].push(d);
+    const group = d.group || fallbackGroup(d.document_type);
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(d);
     return acc;
   }, {});
 
-  const ORDERED_TYPES = [
-    "harvest_certificate",
-    "coffee_photos",
-    "warehouse_receipt",
-    "quality_inspection",
-    "quality_audit",
-    "coffee_storage_report",
-    "additional_docs"
-  ];
-
   const sortedEntries = Object.entries(grouped).sort(([a], [b]) => {
-    let idxA = ORDERED_TYPES.indexOf(a);
-    let idxB = ORDERED_TYPES.indexOf(b);
+    let idxA = GROUP_ORDER.indexOf(a);
+    let idxB = GROUP_ORDER.indexOf(b);
     if (idxA === -1) idxA = 999;
     if (idxB === -1) idxB = 999;
     return idxA - idxB;
@@ -128,17 +194,14 @@ function BatchDocsPanel({ batch, nav }) {
         <div style={{ padding: "20px 0", color: "#64748b", fontSize: 14 }}>Lô hàng này chưa có giấy tờ nào.</div>
       )}
 
-      {sortedEntries.map(([type, items]) => {
-        const meta = DOC_LABELS[type] || { label: type, icon: "📄" };
-        return (
-          <div key={type} style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 12 }}>
-              {meta.icon} {meta.label} ({items.length})
-            </div>
-            {items.map(d => <DocItem key={d.id} doc={d} />)}
+      {sortedEntries.map(([group, items]) => (
+        <div key={group} style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 12 }}>
+            {GROUP_ICONS[group] || "📄"} {group} ({items.length})
           </div>
-        );
-      })}
+          {items.map(d => <DocItem key={d.id} doc={d} />)}
+        </div>
+      ))}
     </div>
   );
 }
@@ -292,11 +355,11 @@ export default function FarmerDocuments() {
           </div>
         </div>
 
-        {/* Doc type legend */}
+        {/* Doc group legend */}
         <div style={{ marginTop: 24, display: "flex", gap: 24, flexWrap: "wrap", padding: "16px 20px", background: "rgba(255,255,255,0.02)", borderRadius: 8 }}>
-          {Object.entries(DOC_LABELS).map(([, m]) => (
-            <div key={m.label} style={{ fontSize: 12, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
-              <span>{m.icon}</span> {m.label}
+          {GROUP_ORDER.map(group => (
+            <div key={group} style={{ fontSize: 12, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
+              <span>{GROUP_ICONS[group]}</span> {group}
             </div>
           ))}
         </div>

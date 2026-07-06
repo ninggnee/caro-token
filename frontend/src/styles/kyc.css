@@ -129,8 +129,8 @@
   width:50%;
   display:flex;
   justify-content:center;
-  align-items:center;
-  padding:80px 60px;
+  align-items:flex-start;
+  padding:60px 60px;
   background:#122622;
   min-height:100vh;
   overflow-y:auto;
@@ -143,10 +143,10 @@
   background:transparent;
   display:flex;
   flex-direction:column;
-  justify-content:center;
+  justify-content:flex-start;
   box-shadow:none;
   border-radius:0;
-  padding:0;
+  padding:20px 0 40px;
 }
 
 .kyc-card h2{

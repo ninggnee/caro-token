@@ -20,7 +20,8 @@ import TraderProfile     from '../pages/TraderProfile';
 import ConnectWallet     from '../pages/ConnectWallet';
 import RedeemCoffee      from '../pages/RedeemCoffee';
 import TraderFinancing    from '../pages/TraderFinancing';
-import TraderRedeemGoods  from '../pages/TraderRedeemGoods';
+import TraderLCContracts       from '../pages/TraderLCContracts';
+import TraderLCContractDetail  from '../pages/TraderLCContractDetail';
 import DepositPage       from '../pages/DepositPage';
 import WithdrawPage      from '../pages/WithdrawPage';
 
@@ -71,6 +72,13 @@ import SupplementRequests  from '../pages/SupplementRequests';
 import CreditVnd           from '../pages/CreditVnd';
 import AdminRedeemOrders   from '../pages/AdminRedeemOrders';
 import SystemLogs          from '../pages/SystemLogs';
+// Admin — "Mô phỏng Ngân hàng" (Bank simulation), Prototype only
+import AdminCollateralLoans       from '../pages/AdminCollateralLoans';
+import AdminCollateralLoanDetail  from '../pages/AdminCollateralLoanDetail';
+import AdminTokenDiscounting      from '../pages/AdminTokenDiscounting';
+import AdminTokenDiscountingDetail from '../pages/AdminTokenDiscountingDetail';
+import AdminLCContracts           from '../pages/AdminLCContracts';
+import AdminLCContractDetail      from '../pages/AdminLCContractDetail';
 
 export default function AppRouter() {
   return (
@@ -96,7 +104,9 @@ export default function AppRouter() {
         <Route path="/trader/market/trading"     element={<TraderTrading />} />
         <Route path="/trader/wallet/financing"      element={<TraderFinancing />} />
         <Route path="/trader/market/financing"       element={<Navigate to="/trader/wallet/financing" replace />} />
-        <Route path="/trader/market/redeem"      element={<TraderRedeemGoods />} />
+        <Route path="/trader/market/lc-contracts"     element={<TraderLCContracts />} />
+        <Route path="/trader/market/lc-contracts/:id" element={<TraderLCContractDetail />} />
+        <Route path="/trader/market/redeem"      element={<Navigate to="/trader/market/lc-contracts" replace />} />
         <Route path="/trader/marketplace"        element={<Navigate to="/trader/market/overview" replace />} />
         <Route path="/trader/trading"            element={<Navigate to="/trader/market/trading" replace />} />
         <Route path="/trader/portfolio"          element={<TraderPortfolio />} />
@@ -184,6 +194,14 @@ export default function AppRouter() {
         <Route path="/admin/mint-requests"        element={<Navigate to="/admin/batches" replace />} />
         <Route path="/admin/batch/:id"            element={<BatchDetailPage />} />
         <Route path="/admin/warehouse-docs"       element={<WarehouseDocuments />} />
+
+        {/* Admin — Mô phỏng Ngân hàng (Bank simulation), Prototype only */}
+        <Route path="/admin/bank-sim/collateral-loans"     element={<AdminCollateralLoans />} />
+        <Route path="/admin/bank-sim/collateral-loans/:id" element={<AdminCollateralLoanDetail />} />
+        <Route path="/admin/bank-sim/discounting"          element={<AdminTokenDiscounting />} />
+        <Route path="/admin/bank-sim/discounting/:id"      element={<AdminTokenDiscountingDetail />} />
+        <Route path="/admin/bank-sim/lc-contracts"         element={<AdminLCContracts />} />
+        <Route path="/admin/bank-sim/lc-contracts/:id"     element={<AdminLCContractDetail />} />
 
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

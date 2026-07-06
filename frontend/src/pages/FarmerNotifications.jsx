@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import { useMyBatches } from "../hooks/useBatches";
 import { useAuth } from "../context/AuthContext";
-import { formatNumber, formatKg } from '../utils/formatters';
+import axios from "../utils/axiosClient";
+import { formatKg, formatToken, formatVND } from '../utils/formatters';
 
 function batchToNotifs(batches, user) {
   const out = [];
@@ -28,7 +30,7 @@ function batchToNotifs(batches, user) {
         icon: "🪙",
         color: "#B0E4CC",
         title: "Đã Mint Lô Hàng Thành Công",
-        body: `${b.batch_id} — Đã mint ${formatNumber(Number(b.minted_amount || b.quantity))} token CaRo vào ví của bạn`,
+        body: `${b.batch_id} — Đã mint ${formatToken(Number(b.minted_amount ?? b.quantity))} token CaRo vào ví của bạn`,
         date: b.minted_at || b.updated_at || b.created_at,
         link: `/farmer/batch/${b.id}`,
       });
@@ -84,8 +86,105 @@ function batchToNotifs(batches, user) {
   return [...out, ...batchNotifs];
 }
 
-const TYPES = ["All", "Minted", "Rejected", "Pending"];
-const TYPE_LABELS = { All: "Tất cả", Minted: "Đã Mint", Rejected: "Từ chối", Pending: "Chờ duyệt" };
+// Same derivation technique as batchToNotifs — reads the farmer's own
+// collateral-loan / token-discounting rows (already fetched for
+// FarmerFinancing.jsx) instead of a separate notifications backend.
+function loansToNotifs(loans) {
+  return loans.map(l => {
+    if (l.status === "approved") {
+      return {
+        type: "loan-approve",
+        icon: "✅",
+        color: "#B0E4CC",
+        title: "Khoản Vay Đã Được Phê Duyệt",
+        body: `Khoản vay #${l.id} (${l.token_type}) đã được Ngân hàng phê duyệt, đang chờ giải ngân.`,
+        date: l.approved_at || l.updated_at || l.created_at,
+        link: "/farmer/wallet/financing",
+      };
+    }
+    if (l.status === "active") {
+      return {
+        type: "loan-active",
+        icon: "💰",
+        color: "#B0E4CC",
+        title: "Khoản Vay Đã Được Giải Ngân",
+        body: `Khoản vay #${l.id} (${l.token_type}) đã được giải ngân ${formatVND(l.max_loan_amount)} vào ví của bạn.`,
+        date: l.disbursed_at || l.updated_at || l.created_at,
+        link: "/farmer/wallet/financing",
+      };
+    }
+    if (l.status === "rejected") {
+      return {
+        type: "loan-reject",
+        icon: "❌",
+        color: "#ef4444",
+        title: "Khoản Vay Bị Từ Chối",
+        body: `Khoản vay #${l.id} (${l.token_type}) bị Ngân hàng từ chối. Token đã được mở khóa về trạng thái khả dụng.`,
+        date: l.updated_at || l.created_at,
+        link: "/farmer/wallet/financing",
+      };
+    }
+    if (l.status === "repaid") {
+      return {
+        type: "loan-repaid",
+        icon: "🏁",
+        color: "#B0E4CC",
+        title: "Đã Tất Toán Khoản Vay",
+        body: `Khoản vay #${l.id} (${l.token_type}) đã được tất toán đầy đủ. Token đã mở khóa về trạng thái khả dụng.`,
+        date: l.repaid_at || l.updated_at || l.created_at,
+        link: "/farmer/wallet/financing",
+      };
+    }
+    return {
+      type: "loan-pending",
+      icon: "⏳",
+      color: "#f0b90b",
+      title: "Hồ Sơ Vay Đang Chờ Duyệt",
+      body: `Khoản vay #${l.id} (${l.token_type}) đã gửi thành công, đang chờ Ngân hàng xét duyệt.`,
+      date: l.created_at,
+      link: "/farmer/wallet/financing",
+    };
+  });
+}
+
+function discountsToNotifs(discounts) {
+  return discounts.map(d => {
+    if (d.status === "approved" || d.status === "completed") {
+      return {
+        type: "discount-approve",
+        icon: "✅",
+        color: "#B0E4CC",
+        title: "Chiết Khấu Đã Được Duyệt",
+        body: `Yêu cầu chiết khấu #${d.id} (${d.token_type}) đã được ${d.bank_name} duyệt, bạn đã nhận ${formatVND(d.payment_amount)}.`,
+        date: d.updated_at || d.created_at,
+        link: "/farmer/wallet/financing",
+      };
+    }
+    if (d.status === "rejected") {
+      return {
+        type: "discount-reject",
+        icon: "❌",
+        color: "#ef4444",
+        title: "Chiết Khấu Bị Từ Chối",
+        body: `Yêu cầu chiết khấu #${d.id} (${d.token_type}) bị Ngân hàng từ chối. Token đã được mở khóa về trạng thái khả dụng.`,
+        date: d.updated_at || d.created_at,
+        link: "/farmer/wallet/financing",
+      };
+    }
+    return {
+      type: "discount-pending",
+      icon: "⏳",
+      color: "#f0b90b",
+      title: "Yêu Cầu Chiết Khấu Đang Chờ Duyệt",
+      body: `Yêu cầu chiết khấu #${d.id} (${d.token_type}) gửi tới ${d.bank_name} đang chờ xét duyệt.`,
+      date: d.created_at,
+      link: "/farmer/wallet/financing",
+    };
+  });
+}
+
+const TYPES = ["All", "Minted", "Rejected", "Pending", "Loan", "Discount"];
+const TYPE_LABELS = { All: "Tất cả", Minted: "Đã Mint", Rejected: "Từ chối", Pending: "Chờ duyệt", Loan: "Vay thế chấp", Discount: "Chiết khấu" };
 
 export default function FarmerNotifications() {
   const nav = useNavigate();
@@ -95,13 +194,31 @@ export default function FarmerNotifications() {
 
   const { data: allData } = useMyBatches({ limit: 50 });
   const batches = allData?.batches || [];
-  const notifs = batchToNotifs(batches, user).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const { data: loansData } = useQuery({
+    queryKey: ["farmer-collateral-loans-notif-page"],
+    queryFn: () => axios.get("/finance/collateral-loans").then(r => r.data),
+  });
+  const { data: discountsData } = useQuery({
+    queryKey: ["farmer-token-discounting-notif-page"],
+    queryFn: () => axios.get("/finance/token-discounting").then(r => r.data),
+  });
+  const loans = loansData?.data || [];
+  const discounts = discountsData?.data || [];
+
+  const notifs = [
+    ...batchToNotifs(batches, user),
+    ...loansToNotifs(loans),
+    ...discountsToNotifs(discounts),
+  ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const filtered = notifs.filter(n => {
-    if (filter === "All")     return true;
-    if (filter === "Minted")  return n.type === "mint";
-    if (filter === "Rejected")return n.type === "reject";
-    if (filter === "Pending") return n.type === "pending";
+    if (filter === "All")      return true;
+    if (filter === "Minted")   return n.type === "mint";
+    if (filter === "Rejected") return n.type === "reject" || n.type === "loan-reject" || n.type === "discount-reject";
+    if (filter === "Pending")  return n.type === "pending" || n.type === "loan-pending" || n.type === "discount-pending";
+    if (filter === "Loan")     return n.type.startsWith("loan-");
+    if (filter === "Discount") return n.type.startsWith("discount-");
     return true;
   });
 

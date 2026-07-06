@@ -5,7 +5,7 @@ import FarmerLayout from "../components/layout/FarmerLayout";
 import { useAuth } from "../context/AuthContext";
 import { useMyBatches } from "../hooks/useBatches";
 import axios from "../utils/axiosClient";
-import { formatNumber, formatKg, formatPct } from '../utils/formatters';
+import { formatKg, formatPct, formatToken } from '../utils/formatters';
 
 function useDashboard() {
   return useQuery({
@@ -268,7 +268,7 @@ export default function FarmerDashboard() {
         <div className="caro-grid-3" style={{ marginBottom: 24 }}>
           <TokenCard
             label="CaRo1 (Hạng A)"
-            value={isLoading ? "…" : formatNumber(Number(tokenBals.caro1 || 0))}
+            value={isLoading ? "…" : formatToken(Number(tokenBals.caro1 || 0))}
             sub="CR1 · Robusta Cao cấp"
             accent="#B0E4CC"
             bgAccent="rgba(176, 228, 204,0.15)"
@@ -277,7 +277,7 @@ export default function FarmerDashboard() {
           />
           <TokenCard
             label="CaRo2 (Hạng B)"
-            value={isLoading ? "…" : formatNumber(Number(tokenBals.caro2 || 0))}
+            value={isLoading ? "…" : formatToken(Number(tokenBals.caro2 || 0))}
             sub="CR2 · Robusta Tiêu chuẩn"
             accent="#408A71"
             bgAccent="rgba(64, 138, 113,0.15)"
@@ -286,7 +286,7 @@ export default function FarmerDashboard() {
           />
           <TokenCard
             label="CaRo3 (Hạng C)"
-            value={isLoading ? "…" : formatNumber(Number(tokenBals.caro3 || 0))}
+            value={isLoading ? "…" : formatToken(Number(tokenBals.caro3 || 0))}
             sub="CR3 · Robusta Phổ thông"
             accent="#f0b90b"
             bgAccent="rgba(240,185,11,0.15)"

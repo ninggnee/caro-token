@@ -325,7 +325,7 @@ export default function Landing() {
           </div>
           <div className="footer-links">
             <a href="#">Thị trường</a>
-            <a href="#">Sách trắng</a>
+            <a href="#">Bản cáo bạch</a>
             <a href="#">Điều khoản sử dụng</a>
             <a href="#">Chính sách bảo mật</a>
           </div>

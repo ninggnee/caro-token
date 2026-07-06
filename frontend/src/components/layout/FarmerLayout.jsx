@@ -83,10 +83,22 @@ export default function FarmerLayout({ children, title = "Farmer Portal" }) {
     }
   };
 
-  const isLeafActive = (path) =>
-    path === "/farmer/status"
-      ? loc.pathname === "/farmer/status" || loc.pathname.startsWith("/farmer/status/")
-      : loc.pathname === path || loc.pathname.startsWith(path + "/");
+  // All navigable leaf paths in the sidebar (top-level items + every child).
+  // Used to resolve which single item is "active" when routes are nested
+  // (e.g. "/farmer/wallet" is itself a page AND a prefix of
+  // "/farmer/wallet/financing" — naive prefix matching would activate both).
+  const ALL_MENU_PATHS = MENU.flatMap(m => m.children ? m.children.map(c => c.path) : [m.path]);
+
+  const matchesPath = (pathname, path) => pathname === path || pathname.startsWith(path + "/");
+
+  // Pick the most specific (longest) matching path so sibling routes that
+  // share a common prefix never activate together.
+  const activePath = ALL_MENU_PATHS.reduce((best, path) => {
+    if (!matchesPath(loc.pathname, path)) return best;
+    return !best || path.length > best.length ? path : best;
+  }, null);
+
+  const isLeafActive = (path) => path === activePath;
 
   const isParentActive = (m) => m.children?.some(c => isLeafActive(c.path));
 
@@ -99,8 +111,18 @@ export default function FarmerLayout({ children, title = "Farmer Portal" }) {
   const toggle = id => setOpen(p => ({ ...p, [id]: !p[id] }));
   const initials = (user?.full_name || user?.email || "F")[0].toUpperCase();
 
-  // Active page label for breadcrumb
-  const activeMenu = MENU.find(m => isLeafActive(m.path));
+  // Breadcrumb labels for the active route — includes the parent label when
+  // the active item is a child (e.g. "Ví tài khoản › Tài chính"), not just
+  // top-level items, so it stays in sync with the router like the nav itself.
+  const breadcrumbLabels = (() => {
+    if (!activePath) return [];
+    for (const m of MENU) {
+      if (m.path === activePath) return [m.label];
+      const child = m.children?.find(c => c.path === activePath);
+      if (child) return [m.label, child.label];
+    }
+    return [];
+  })();
 
   const css = `
     .farmer-sidebar {
@@ -464,12 +486,12 @@ export default function FarmerLayout({ children, title = "Farmer Portal" }) {
               <span>CaRo</span>
               <span style={{ color: "#334155" }}>›</span>
               <span>Farmer</span>
-              {activeMenu && (
-                <>
+              {breadcrumbLabels.map((label, i) => (
+                <span key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ color: "#334155" }}>›</span>
-                  <span style={{ color: "#B0E4CC" }}>{activeMenu.label}</span>
-                </>
-              )}
+                  <span style={{ color: i === breadcrumbLabels.length - 1 ? "#B0E4CC" : "#475569" }}>{label}</span>
+                </span>
+              ))}
             </div>
           </div>
 

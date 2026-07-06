@@ -40,7 +40,7 @@ export const uploadProof = multer({
 
 // ── Ensure wallet row exists ─────────────────────────────────────────────────
 
-async function ensureWallet(userId, conn = db) {
+export async function ensureWallet(userId, conn = db) {
   await conn.execute(
     `INSERT IGNORE INTO wallets (user_id, vnd_balance, vnd_locked, pending_withdraw)
      VALUES (?, 0, 0, 0)`,

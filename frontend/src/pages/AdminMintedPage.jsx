@@ -1,7 +1,7 @@
 import { useState } from "react";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import { useAllBatches } from "../hooks/useBatches";
-import { formatNumber, formatKg } from '../utils/formatters';
+import { formatKg, formatToken } from '../utils/formatters';
 
 export default function AdminMintedPage() {
   const [page,        setPage]        = useState(1);
@@ -130,7 +130,7 @@ export default function AdminMintedPage() {
                       </td>
                       <td style={{ padding: "16px" }}>
                         <span style={{ fontWeight: 900, color: "#B0E4CC", fontSize: 16 }}>
-                          {formatNumber(b.minted_amount || b.quantity)}
+                          {formatToken(b.minted_amount ?? b.quantity)}
                         </span>
                         <span className="caro-badge caro-badge-info" style={{ marginLeft: 8, fontSize: 11, padding: "2px 6px" }}>{b.quality_grade || "CR1"}</span>
                       </td>

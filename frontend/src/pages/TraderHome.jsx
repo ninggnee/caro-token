@@ -8,7 +8,7 @@ import { ethers } from "ethers";
 import { CA_RO_CONTRACTS, ABI } from "../config/config";
 import axios from "../utils/axiosClient";
 import { getMarketStats } from "../services/marketApi";
-import { formatNumber, formatVND } from '../utils/formatters';
+import { formatVND, formatToken } from '../utils/formatters';
 import { TRADER_KEYS } from '../hooks/useTraderData';
 
 const TOKEN_COLORS = { CR1: "#f59e0b", CR2: "#B0E4CC", CR3: "#8b5cf6" };
@@ -158,7 +158,7 @@ export default function TraderHome() {
                           </span>
                         </td>
                         <td style={{ fontFamily: "'JetBrains Mono','Fira Code',monospace", color: qty > 0 ? "#B0E4CC" : "#64748b" }}>
-                          {account ? (qty > 0 ? formatNumber(qty, 2) : "—") : "—"}
+                          {account ? (qty > 0 ? formatToken(qty) : "—") : "—"}
                         </td>
                         <td style={{ fontFamily: "'JetBrains Mono','Fira Code',monospace", color: "#f8fafc" }}>
                           {price ? formatVND(price) : "—"}

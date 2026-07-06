@@ -57,6 +57,38 @@ export async function creditMint(userId, tokenType, amount, conn = null) {
 }
 
 /**
+ * Credit `locked_balance` directly (and the legacy `balance` total) without
+ * ever touching `available_balance`. Used when tokens enter a balance
+ * already LOCKED from the moment they arrive — e.g. an escrow account that
+ * receives Token gathered from other holders for an L/C contract, which
+ * must show as locked immediately, never as spendable/available.
+ */
+export async function creditLocked(userId, tokenType, amount, conn = null) {
+  const ownConn = !conn;
+  const c = conn || (await db.getConnection());
+
+  try {
+    if (ownConn) await c.beginTransaction();
+
+    await c.execute(
+      `INSERT INTO user_balances (user_id, token_type, balance, available_balance, locked_balance)
+       VALUES (?, ?, ?, 0, ?)
+       ON DUPLICATE KEY UPDATE
+         balance        = balance        + VALUES(balance),
+         locked_balance = locked_balance + VALUES(locked_balance)`,
+      [userId, tokenType, amount, amount]
+    );
+
+    if (ownConn) await c.commit();
+  } catch (err) {
+    if (ownConn) await c.rollback();
+    throw err;
+  } finally {
+    if (ownConn) c.release();
+  }
+}
+
+/**
  * Lock `amount` tokens (available → locked).
  * Used when: placing a sell order, creating a redeem request.
  *
@@ -225,4 +257,4 @@ export async function getBalances(userId) {
   return result;
 }
 
-export default { creditMint, lockBalance, unlockBalance, deductLocked, deductAvailable, getBalances };
+export default { creditMint, creditLocked, lockBalance, unlockBalance, deductLocked, deductAvailable, getBalances };

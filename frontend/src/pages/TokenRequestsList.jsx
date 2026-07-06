@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import DashboardLayout from "../components/layout/DashboardLayout";
 import axios from '../utils/axiosClient';
+import { formatKg, formatToken } from '../utils/formatters';
 
 export default function TokenRequestsList() {
   const [items, setItems] = useState([]);
@@ -27,8 +28,8 @@ export default function TokenRequestsList() {
       <div style={{ display: 'grid', gap: 12 }}>
         {items.map(it => (
           <div key={it.id} style={{ background: '#0f1619', padding: 12 }}>
-            <div><b>#{it.id}</b> - {it.lot_id || 'Lô chưa đặt'} - {it.kg_amount} kg</div>
-            <div>Tokens: {it.token_amount} - Status: {it.status}</div>
+            <div><b>#{it.id}</b> - {it.lot_id || 'Lô chưa đặt'} - {formatKg(it.kg_amount)}</div>
+            <div>Tokens: {formatToken(it.token_amount)} - Status: {it.status}</div>
             <div>Created: {it.created_at}</div>
           </div>
         ))}

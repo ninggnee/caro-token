@@ -3,6 +3,16 @@ import db          from '../config/db.js';
 import { mintToken }    from '../services/BlockchainService.js';
 import { uploadToIPFS } from '../services/IpfsService.js';
 import { logAction, auditMeta } from '../services/AuditService.js';
+import { classifyDocumentType, countVisibleDocuments, effectiveLogisticsStage } from '../services/DocumentTypeService.js';
+
+// Decorate a raw document row with a display label/group/requiredStage so
+// consumers never need their own hardcoded document_type → label/group table.
+// requiredStage is the earliest batch.logistics_status at which this document's
+// group is allowed to be shown to the farmer (see DocumentTypeService).
+function decorateDoc(doc) {
+  const { label, group, requiredStage } = classifyDocumentType(doc.document_type);
+  return { ...doc, label, group, requiredStage, status: doc.status || 'uploaded' };
+}
 
 // Document categories that are required before a batch can be submitted
 const REQUIRED_DOC_TYPES = [
@@ -132,31 +142,112 @@ export const getFarmerBatches = async (req, res) => {
       params
     );
 
-    // Attach document counts per batch (standard + warehouse documents)
+    // Attach document counts per batch — doc_count must reflect exactly what
+    // the farmer sees in the "Giấy tờ" detail panel, i.e. only documents whose
+    // group has reached its required logistics stage for that batch (same
+    // countVisibleDocuments() the detail panel's gating is built from), not a
+    // raw row count.
     if (rows.length > 0) {
       const batchIds = rows.map(r => r.batch_id);
-      const [docCounts] = await db.execute(
-        `SELECT batch_id, COUNT(*) as doc_count FROM batch_documents
-         WHERE batch_id IN (${batchIds.map(() => '?').join(',')})
-         GROUP BY batch_id`,
+      const [batchDocRows] = await db.execute(
+        `SELECT batch_id, document_type FROM batch_documents
+         WHERE batch_id IN (${batchIds.map(() => '?').join(',')})`,
         batchIds
       );
-      const [whCounts] = await db.execute(
-        `SELECT batch_id, COUNT(*) as wh_count FROM warehouse_documents
-         WHERE status = 'active' AND batch_id IN (${batchIds.map(() => '?').join(',')})
-         GROUP BY batch_id`,
+      const [whDocRows] = await db.execute(
+        `SELECT b.batch_id, w.document_type
+         FROM asset_batches b
+         JOIN warehouse_documents w ON w.uploaded_by = b.farmer_id
+           AND w.status = 'active'
+           AND w.document_name LIKE CONCAT('%', b.batch_id COLLATE utf8mb4_unicode_ci, '%')
+         WHERE b.batch_id IN (${batchIds.map(() => '?').join(',')})`,
         batchIds
       );
-      const countMap = Object.fromEntries(docCounts.map(d => [d.batch_id, d.doc_count]));
-      const whMap = Object.fromEntries(whCounts.map(d => [d.batch_id, d.wh_count]));
+      const typesByBatch = {};
+      for (const d of [...batchDocRows, ...whDocRows]) {
+        (typesByBatch[d.batch_id] ||= []).push(d.document_type);
+      }
       for (const r of rows) {
-        r.doc_count = (countMap[r.batch_id] || 0) + (whMap[r.batch_id] || 0);
+        r.effective_logistics_stage = effectiveLogisticsStage(r.status, r.logistics_status);
+        r.doc_count = countVisibleDocuments(typesByBatch[r.batch_id] || [], r.effective_logistics_stage);
       }
     }
 
     res.json({ success: true, batches: rows, total, page: pg, pages: Math.ceil(total / lim) });
   } catch (err) {
     console.error('getFarmerBatches error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ── Farmer: list all batches with full document arrays (for Giấy tờ page) ──
+export const getFarmerBatchesWithDocs = async (req, res) => {
+  try {
+    const farmerId = req.user?.id;
+
+    // Fetch all batches (no status filter, newest first)
+    const [batches] = await db.execute(
+      `SELECT b.id, b.batch_id, b.quantity, b.coffee_type, b.status,
+              b.logistics_status, b.created_at, b.minted_amount, b.tx_hash
+       FROM asset_batches b
+       WHERE b.farmer_id = ?
+       ORDER BY b.created_at DESC`,
+      [farmerId]
+    );
+
+    if (batches.length === 0) {
+      return res.json({ success: true, batches: [] });
+    }
+
+    const batchIds   = batches.map(b => b.batch_id);
+    const batchIdSet = batchIds.map(() => '?').join(',');
+
+    // Fetch all batch_documents in one query
+    const [batchDocs] = await db.execute(
+      `SELECT batch_id, id, document_type, file_name, ipfs_cid as cid,
+              uploaded_at as created_at, file_path
+       FROM batch_documents
+       WHERE batch_id IN (${batchIdSet})
+       ORDER BY document_type, uploaded_at`,
+      batchIds
+    );
+
+    // Fetch all warehouse_documents linked by document_name containing batch_id
+    const [whDocs] = await db.execute(
+      `SELECT wd.id, wd.document_type, wd.document_name, wd.cid,
+              wd.file_size, wd.mime_type, wd.created_at,
+              b.batch_id
+       FROM warehouse_documents wd
+       JOIN asset_batches b ON b.farmer_id = wd.uploaded_by
+         AND wd.document_name LIKE CONCAT('%', b.batch_id COLLATE utf8mb4_unicode_ci, '%')
+       WHERE b.farmer_id = ? AND wd.status = 'active'
+         AND b.batch_id IN (${batchIdSet})
+       ORDER BY wd.document_type, wd.created_at DESC`,
+      [farmerId, ...batchIds]
+    );
+
+    // Group documents by batch_id
+    const batchDocsMap = {};
+    const whDocsMap    = {};
+    for (const d of batchDocs) {
+      if (!batchDocsMap[d.batch_id]) batchDocsMap[d.batch_id] = [];
+      batchDocsMap[d.batch_id].push(d);
+    }
+    for (const d of whDocs) {
+      if (!whDocsMap[d.batch_id]) whDocsMap[d.batch_id] = [];
+      whDocsMap[d.batch_id].push(d);
+    }
+
+    // Attach to each batch
+    for (const b of batches) {
+      b.documents           = batchDocsMap[b.batch_id]  || [];
+      b.warehouse_documents = whDocsMap[b.batch_id]     || [];
+      b.doc_count           = b.documents.length + b.warehouse_documents.length;
+    }
+
+    res.json({ success: true, batches });
+  } catch (err) {
+    console.error('getFarmerBatchesWithDocs error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -170,6 +261,7 @@ export const getBatchById = async (req, res) => {
 
     const [[batch]] = await db.execute(
       `SELECT b.*, u.full_name as farmer_name, u.email as farmer_email,
+              u.wallet_address as farmer_wallet,
               a.full_name as reviewer_name
        FROM asset_batches b
        LEFT JOIN users u ON u.id = b.farmer_id
@@ -183,23 +275,27 @@ export const getBatchById = async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
+    // Compensates for legacy rows whose logistics_status was never backfilled
+    // when that column was introduced — see DocumentTypeService for details.
+    batch.effective_logistics_stage = effectiveLogisticsStage(batch.status, batch.logistics_status);
+
     // Attach batch documents
     const [docs] = await db.execute(
       `SELECT * FROM batch_documents WHERE batch_id = ? ORDER BY document_type, uploaded_at`,
       [batch.batch_id]
     );
-    batch.documents = docs;
+    batch.documents = docs.map(decorateDoc);
 
-    // Attach farmer's warehouse documents specific to this batch
+    // Attach farmer's warehouse documents
     try {
       const [warehouseDocs] = await db.execute(
-        `SELECT id, document_type, document_name, cid, file_size, mime_type, created_at
+        `SELECT id, document_type, document_name, cid, file_size, mime_type, status, created_at
          FROM warehouse_documents
-         WHERE uploaded_by = ? AND status = 'active' AND batch_id = ?
+         WHERE uploaded_by = ? AND status = 'active' AND document_name LIKE CONCAT('%', ? COLLATE utf8mb4_unicode_ci, '%')
          ORDER BY document_type, created_at DESC`,
         [batch.farmer_id, batch.batch_id]
       );
-      batch.warehouse_documents = warehouseDocs;
+      batch.warehouse_documents = warehouseDocs.map(decorateDoc);
     } catch (_) {
       batch.warehouse_documents = [];
     }
@@ -245,7 +341,7 @@ export const getAllBatches = async (req, res) => {
       params
     );
 
-    // Attach document counts (standard + warehouse documents)
+    // Attach document counts
     if (rows.length > 0) {
       const batchIds = rows.map(r => r.batch_id);
       const [docCounts] = await db.execute(
@@ -255,9 +351,13 @@ export const getAllBatches = async (req, res) => {
         batchIds
       );
       const [whCounts] = await db.execute(
-        `SELECT batch_id, COUNT(*) as wh_count FROM warehouse_documents
-         WHERE status = 'active' AND batch_id IN (${batchIds.map(() => '?').join(',')})
-         GROUP BY batch_id`,
+        `SELECT b.batch_id, COUNT(w.id) as wh_count
+         FROM asset_batches b
+         LEFT JOIN warehouse_documents w ON w.uploaded_by = b.farmer_id 
+           AND w.status = 'active'
+           AND w.document_name LIKE CONCAT('%', b.batch_id COLLATE utf8mb4_unicode_ci, '%')
+         WHERE b.batch_id IN (${batchIds.map(() => '?').join(',')})
+         GROUP BY b.batch_id`,
         batchIds
       );
       const countMap = Object.fromEntries(docCounts.map(d => [d.batch_id, d.doc_count]));
@@ -289,7 +389,28 @@ export const getBatchDocuments = async (req, res) => {
       [batch.batch_id]
     );
 
-    res.json({ success: true, documents: docs });
+    let whMapped = [];
+    try {
+      const [warehouseDocs] = await db.execute(
+        `SELECT id, document_type, document_name, cid, file_size, mime_type, status, created_at
+         FROM warehouse_documents
+         WHERE uploaded_by = ? AND status = 'active' AND document_name LIKE CONCAT('%', ? COLLATE utf8mb4_unicode_ci, '%')
+         ORDER BY document_type, created_at DESC`,
+        [batch.farmer_id, batch.batch_id]
+      );
+      whMapped = warehouseDocs.map(d => ({
+        id: `wh-${d.id}`,
+        batch_id: batch.batch_id,
+        document_type: d.document_type,
+        file_name: d.document_name,
+        file_path: null,
+        ipfs_cid: d.cid,
+        status: d.status,
+        uploaded_at: d.created_at
+      }));
+    } catch (_) {}
+
+    res.json({ success: true, documents: [...docs, ...whMapped].map(decorateDoc) });
   } catch (err) {
     console.error('getBatchDocuments error:', err);
     res.status(500).json({ success: false, message: err.message });
@@ -391,6 +512,11 @@ export const approveBatch = async (req, res) => {
     // Determine token type: use quality_grade if set, otherwise default to CR1
     const tokenType = batch.quality_grade || 'CR1';
 
+    // Mint amount = standardized weight after processing loss (net_quantity),
+    // NOT the raw pre-processing weight. defect_rate from inspection only
+    // determines tokenType/grade above — it never reduces the minted amount.
+    const mintQty = batch.net_quantity != null ? Number(batch.net_quantity) : Number(batch.quantity);
+
     let txHash = null;
     let blockNumber = null;
 
@@ -398,7 +524,7 @@ export const approveBatch = async (req, res) => {
       const result = await mintToken({
         tokenType,
         toAddress: farmerWallet,
-        amount:    Number(batch.quantity),
+        amount:    mintQty,
         lotCode:   batch.batch_id,
         requestId: String(batch.id),
       });
@@ -427,7 +553,7 @@ export const approveBatch = async (req, res) => {
          ON DUPLICATE KEY UPDATE
            balance           = balance           + VALUES(balance),
            available_balance = available_balance + VALUES(available_balance)`,
-        [batch.farmer_id, tokenType, batch.quantity, batch.quantity]
+        [batch.farmer_id, tokenType, mintQty, mintQty]
       );
 
       // Update batch to MINTED
@@ -435,7 +561,7 @@ export const approveBatch = async (req, res) => {
         `UPDATE asset_batches
          SET status='MINTED', minted_amount=?, tx_hash=?, block_number=?, logistics_status='MINTED', minted_at=NOW()
          WHERE id=?`,
-        [batch.quantity, txHash, blockNumber, id]
+        [mintQty, txHash, blockNumber, id]
       );
 
       await conn.commit();
@@ -452,16 +578,16 @@ export const approveBatch = async (req, res) => {
 
     await logAction({
       actorId: adminId, action: 'batch:mint', entityType: 'asset_batch', entityId: batch.id,
-      newData: { txHash, blockNumber, mintedAmount: batch.quantity, tokenType, farmerWallet },
+      newData: { txHash, blockNumber, mintedAmount: mintQty, tokenType, farmerWallet },
       ...auditMeta(req),
     });
 
     res.json({
       success:       true,
-      message:       `Đã mint ${Number(batch.quantity).toLocaleString()} ${tokenType} trực tiếp vào ví của farmer (${farmerWallet})`,
+      message:       `Đã mint ${mintQty.toLocaleString('vi-VN', { maximumFractionDigits: 2 })} ${tokenType} trực tiếp vào ví của farmer (${farmerWallet})`,
       tx_hash:       txHash,
       block_number:  blockNumber,
-      minted_amount: batch.quantity,
+      minted_amount: mintQty,
       token_type:    tokenType,
       farmer_wallet: farmerWallet,
     });
@@ -612,14 +738,17 @@ export const simulateLogistics = async (req, res) => {
       updates.push('logistics_status = ?');
       params.push(next_status);
 
-      // Simulate mass balance loss on STANDARDIZED
+      // Simulate mass balance loss on STANDARDIZED.
+      // NOTE: quantity (original farmer-submitted weight) is NEVER overwritten.
+      // The net weight after processing loss is stored in net_quantity.
       if (next_status === 'STANDARDIZED') {
         const originalQty = Number(batch.quantity);
-        const netQty = Number((originalQty * 0.98).toFixed(2)); // 2% cleaning loss
-        updates.push('quantity = ?');
+        const lossPct = Number((Math.random() * 2).toFixed(2)); // random 0-2% cleaning/drying loss
+        const netQty = Number((originalQty * (1 - lossPct / 100)).toFixed(2));
+        updates.push('net_quantity = ?');
         params.push(netQty);
-        updates.push('batch_description = ?');
-        params.push(`${batch.batch_description || ''}\n[Mass Balance] Đã sấy lọc & trừ 2% hao hụt. Khối lượng ròng sau chuẩn hóa: ${netQty} kg.`);
+        updates.push('processing_loss_pct = ?');
+        params.push(lossPct);
       }
 
       // Simulate Oracle inspection results on INSPECTED
