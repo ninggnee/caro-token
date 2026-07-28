@@ -15,6 +15,11 @@
  *
  * This service runs inside a MySQL transaction covering both the orders and
  * balances tables to prevent double-spend or race conditions.
+ *
+ * Self-Trade Prevention (STP): a taker order never executes against its own
+ * resting orders. Matching skips over same-user candidates (leaving them
+ * untouched in the book) and continues down the price-time queue, mirroring
+ * exchange-standard STP behavior (e.g. Binance's default spot STP).
  */
 
 /**
@@ -54,6 +59,10 @@ export async function matchOrder(conn, order) {
 
   for (const opp of candidates) {
     if (myRemaining <= 0) break;
+
+    // Self-Trade Prevention: never match a taker against its own resting order.
+    // Skip it and keep walking the price-time queue for the next best candidate.
+    if (opp.user_id === user_id) continue;
 
     const oppRemaining = Number(opp.remaining);
     const tradeAmount  = Math.min(myRemaining, oppRemaining);

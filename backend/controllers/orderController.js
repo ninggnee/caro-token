@@ -405,13 +405,42 @@ export const getOrderbook = async (req, res) => {
 
 export const getTradeHistory = async (req, res) => {
   try {
-    const pair  = req.query.pair || null;
-    const where = pair ? `WHERE pair = ?` : '';
-    const [rows] = await db.execute(
-      `SELECT * FROM trades ${where} ORDER BY created_at DESC LIMIT 200`,
-      pair ? [pair] : []
+    const userId = req.user?.id;
+    const { pair, side, from, to } = req.query;
+    const mine   = req.query.mine === 'true';
+    const limit  = Math.min(Math.max(Number(req.query.limit)  || 20, 1), 200);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+
+    const conditions = [];
+    const params     = [];
+
+    // Restrict to current user's trades when ?mine=true
+    if (mine && userId) {
+      conditions.push('(buyer_id = ? OR seller_id = ?)');
+      params.push(userId, userId);
+    }
+
+    // Side filter — interpreted from the requesting user's perspective
+    if (userId && side === 'buy')  { conditions.push('buyer_id  = ?'); params.push(userId); }
+    if (userId && side === 'sell') { conditions.push('seller_id = ?'); params.push(userId); }
+
+    if (pair) { conditions.push('pair = ?');        params.push(pair); }
+    if (from) { conditions.push('created_at >= ?'); params.push(from); }
+    if (to)   { conditions.push('created_at < DATE_ADD(?, INTERVAL 1 DAY)'); params.push(to); }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const [[{ total }]] = await db.execute(
+      `SELECT COUNT(*) AS total FROM trades ${where}`,
+      params
     );
-    res.json({ success: true, data: rows });
+
+    const [rows] = await db.execute(
+      `SELECT * FROM trades ${where} ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`,
+      params
+    );
+
+    res.json({ success: true, data: rows, total: Number(total) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Server error' });
