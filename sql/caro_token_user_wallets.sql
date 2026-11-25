@@ -1,3 +1,7 @@
+-- NOTE: data rows (INSERT INTO ...) da duoc go khoi file nay.
+-- File nay chi con SCHEMA (DDL). Du lieu that chua PII (email, bcrypt hash,
+-- so CCCD) khong duoc commit len git. Dump day du phai giu ngoai repo.
+
 -- MySQL dump 10.13  Distrib 8.0.34, for Win64 (x86_64)
 --
 -- Host: 127.0.0.1    Database: caro_token
@@ -38,7 +42,6 @@ CREATE TABLE `user_wallets` (
 
 LOCK TABLES `user_wallets` WRITE;
 /*!40000 ALTER TABLE `user_wallets` DISABLE KEYS */;
-INSERT INTO `user_wallets` VALUES (1,4,'trader','0x0ecbecfdb336a1b56d8f9cfd634844d0efd70cf4'),(2,3,'farmer','0x0EcBEcFDb336A1B56D8f9cFD634844d0Efd70Cf4');
 /*!40000 ALTER TABLE `user_wallets` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;

@@ -34,3 +34,8 @@ Thumbs.db
 # ── Editor ────────────────────────────────────────────────────────────────
 .vscode/settings.json
 .idea/
+
+# ── Database dump that lai (chua PII: email, bcrypt hash, so CCCD) ────────
+*_dump_full.sql
+*.dump.sql
+backend/database/*_data.sql

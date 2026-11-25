@@ -1,5 +1,7 @@
 import express from 'express';
 import cors    from 'cors';
+import helmet  from 'helmet';
+import rateLimit from 'express-rate-limit';
 import dotenv  from 'dotenv';
 import path    from 'path';
 import fs      from 'fs';
@@ -34,16 +36,59 @@ dotenv.config({ path: path.resolve(__dirname, '.env') });
 
 const app = express();
 
-app.use(cors());
+// Security headers. crossOriginResourcePolicy is relaxed so the SPA on a
+// different origin can still render images served by the API.
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+
+// CORS: only the origins listed in CORS_ORIGINS (comma-separated) are allowed.
+// Leave it unset in local dev to fall back to the usual Vite dev-server ports.
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin: (origin, cb) => {
+    // Same-origin / curl / server-to-server requests send no Origin header.
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error(`Origin ${origin} không nằm trong danh sách CORS_ORIGINS`));
+  },
+  credentials: true,
+}));
+
 app.use(express.json());
+
+// Global rate limit — blunt protection against scraping and brute force.
+app.use('/api', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_MAX || 1000),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Quá nhiều yêu cầu, vui lòng thử lại sau' },
+}));
+
+// Tighter limit on authentication endpoints.
+app.use('/api/auth/login', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_LOGIN_MAX || 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { success: false, message: 'Quá nhiều lần đăng nhập thất bại, vui lòng thử lại sau 15 phút' },
+}));
 
 // Ensure upload directories exist
 ['uploads/kyc', 'uploads/deposits', 'uploads/batches', 'uploads/warehouse-docs'].forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
-// Static file serving
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+// Static file serving — uploads/kyc is deliberately NOT mounted here.
+// CCCD images are encrypted at rest and only readable through
+// GET /api/kyc/image/:id/:side, which checks the caller's token and role.
+['deposits', 'batches', 'warehouse-docs'].forEach(dir => {
+  app.use(`/uploads/${dir}`, express.static(path.join(process.cwd(), 'uploads', dir)));
+});
 
 // ── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/auth',         authRoutes);
@@ -295,9 +340,20 @@ async function applyV13Migration() {
   }
 }
 
+// Fail fast on missing secrets rather than silently running insecurely.
+if (!process.env.JWT_SECRET) {
+  console.error('❌ JWT_SECRET chưa được cấu hình trong .env — dừng khởi động.');
+  process.exit(1);
+}
+
+import { isConfigured as kycCryptoReady } from './utils/fileCrypto.js';
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  if (!kycCryptoReady()) {
+    console.warn('⚠️  KYC_ENCRYPTION_KEY chưa cấu hình — nộp hồ sơ KYC sẽ lỗi. Tạo khoá: openssl rand -hex 32');
+  }
   try {
     const [[{ now }]] = await db.execute('SELECT NOW() as now');
     console.log(`✅ DB connected — ${now}`);

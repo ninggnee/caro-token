@@ -36,11 +36,12 @@ const getOcrName = async (filePath) => {
     const formData = new FormData();
     formData.append("image", blob, path.basename(absolutePath));
 
+    if (!process.env.OCR_API_KEY) throw new Error("OCR_API_KEY chua duoc cau hinh trong .env");
     console.log("Calling FPT.AI ID Recognition API for file:", absolutePath);
     const response = await fetch("https://api.fpt.ai/vision/idr/vnm", {
       method: "POST",
       headers: {
-        "api-key": process.env.OCR_API_KEY || "***REMOVED-OCR-KEY***"
+        "api-key": process.env.OCR_API_KEY
       },
       body: formData
     });

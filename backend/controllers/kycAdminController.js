@@ -21,7 +21,15 @@ export const listPending = async (req, res) => {
          ORDER BY k.created_at DESC`
       );
     }
-    res.json({ success: true, data: rows });
+    // Never hand the on-disk path to the client — expose only the authenticated
+    // read endpoint, which checks ownership/role and decrypts on the fly.
+    const data = rows.map(({ front_path, back_path, ...rest }) => ({
+      ...rest,
+      front_url: front_path ? `/kyc/image/${rest.id}/front` : null,
+      back_url: back_path ? `/kyc/image/${rest.id}/back` : null,
+    }));
+
+    res.json({ success: true, data });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Server error" });

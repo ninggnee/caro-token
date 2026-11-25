@@ -1,3 +1,7 @@
+-- NOTE: data rows (INSERT INTO ...) da duoc go khoi file nay.
+-- File nay chi con SCHEMA (DDL). Du lieu that chua PII (email, bcrypt hash,
+-- so CCCD) khong duoc commit len git. Dump day du phai giu ngoai repo.
+
 -- MySQL dump 10.13  Distrib 8.0.34, for Win64 (x86_64)
 --
 -- Host: 127.0.0.1    Database: caro_token
@@ -47,7 +51,6 @@ CREATE TABLE `kyc_requests` (
 
 LOCK TABLES `kyc_requests` WRITE;
 /*!40000 ALTER TABLE `kyc_requests` DISABLE KEYS */;
--- ***REMOVED: KYC data (so CCCD)***
 /*!40000 ALTER TABLE `kyc_requests` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;

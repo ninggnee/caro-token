@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "../utils/axiosClient";
 import DashboardLayout from "../components/layout/DashboardLayout";
+import SecureImage from "../components/SecureImage";
 
 export default function KycAdmin() {
   const [items, setItems] = useState([]);
@@ -123,20 +124,20 @@ export default function KycAdmin() {
                       </td>
                       <td>
                         <div style={{ display: "flex", gap: 10 }}>
-                          {it.front_path && (
+                          {it.front_url && (
                             <div style={{ position: "relative", cursor: "pointer", borderRadius: 6, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", width: 60, height: 40 }}
-                                 onClick={() => setLightbox({ src: it.front_path, title: `Mặt trước CCCD - ${it.full_name}` })}>
-                              <img src={it.front_path} alt="Front" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                 onClick={() => setLightbox({ src: it.front_url, title: `Mặt trước CCCD - ${it.full_name}` })}>
+                              <SecureImage path={it.front_url} alt="Front" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                               <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity 0.2s" }}
                                    onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0}>
                                 🔍
                               </div>
                             </div>
                           )}
-                          {it.back_path && (
+                          {it.back_url && (
                             <div style={{ position: "relative", cursor: "pointer", borderRadius: 6, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", width: 60, height: 40 }}
-                                 onClick={() => setLightbox({ src: it.back_path, title: `Mặt sau CCCD - ${it.full_name}` })}>
-                              <img src={it.back_path} alt="Back" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                 onClick={() => setLightbox({ src: it.back_url, title: `Mặt sau CCCD - ${it.full_name}` })}>
+                              <SecureImage path={it.back_url} alt="Back" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                               <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity 0.2s" }}
                                    onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0}>
                                 🔍
@@ -180,8 +181,8 @@ export default function KycAdmin() {
             <div style={{ color: "#fff", marginBottom: 16, fontSize: 18, fontWeight: 700, fontFamily: "'Manrope',sans-serif" }}>
               {lightbox.title}
             </div>
-            <img
-              src={lightbox.src}
+            <SecureImage
+              path={lightbox.src}
               alt="CCCD Zoom"
               style={{ maxWidth: "90%", maxHeight: "80%", objectFit: "contain", borderRadius: 12, boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)" }}
             />
@@ -258,20 +259,20 @@ export default function KycAdmin() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                     <div style={{ background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 12, padding: 10 }}>
                       <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", marginBottom: 10, fontWeight: 600, textTransform: "uppercase" }}>Mặt trước</div>
-                      <img
-                        src={selectedItem.front_path}
+                      <SecureImage
+                        path={selectedItem.front_url}
                         alt="Front card"
                         style={{ width: "100%", height: 180, objectFit: "contain", borderRadius: 8, cursor: "zoom-in", background: "#0f172a" }}
-                        onClick={() => setLightbox({ src: selectedItem.front_path, title: `Mặt trước CCCD - ${selectedItem.full_name}` })}
+                        onClick={() => setLightbox({ src: selectedItem.front_url, title: `Mặt trước CCCD - ${selectedItem.full_name}` })}
                       />
                     </div>
                     <div style={{ background: "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 12, padding: 10 }}>
                       <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", marginBottom: 10, fontWeight: 600, textTransform: "uppercase" }}>Mặt sau</div>
-                      <img
-                        src={selectedItem.back_path}
+                      <SecureImage
+                        path={selectedItem.back_url}
                         alt="Back card"
                         style={{ width: "100%", height: 180, objectFit: "contain", borderRadius: 8, cursor: "zoom-in", background: "#0f172a" }}
-                        onClick={() => setLightbox({ src: selectedItem.back_path, title: `Mặt sau CCCD - ${selectedItem.full_name}` })}
+                        onClick={() => setLightbox({ src: selectedItem.back_url, title: `Mặt sau CCCD - ${selectedItem.full_name}` })}
                       />
                     </div>
                   </div>

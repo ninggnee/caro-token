@@ -1,3 +1,7 @@
+-- NOTE: data rows (INSERT INTO ...) da duoc go khoi file nay.
+-- File nay chi con SCHEMA (DDL). Du lieu that chua PII (email, bcrypt hash,
+-- so CCCD) khong duoc commit len git. Dump day du phai giu ngoai repo.
+
 -- MySQL dump 10.13  Distrib 8.0.34, for Win64 (x86_64)
 --
 -- Host: 127.0.0.1    Database: caro_token
@@ -38,7 +42,6 @@ CREATE TABLE `audit_logs` (
 
 LOCK TABLES `audit_logs` WRITE;
 /*!40000 ALTER TABLE `audit_logs` DISABLE KEYS */;
-INSERT INTO `audit_logs` VALUES (1,6,'token_request:create','{\"token_request_id\": 1}','2026-06-17 03:36:44'),(2,5,'token_request:review','{\"action\": \"approve\", \"token_request_id\": \"1\"}','2026-06-17 03:36:44'),(3,5,'token_request:mint','{\"tx_hash\": \"0xE2E_TEST\", \"token_request_id\": \"1\"}','2026-06-17 03:36:44'),(4,6,'token_request:create','{\"token_request_id\": 2}','2026-06-17 03:38:25'),(5,5,'token_request:review','{\"action\": \"approve\", \"token_request_id\": \"2\"}','2026-06-17 03:38:25'),(6,5,'token_request:mint','{\"tx_hash\": \"0xE2E_TEST\", \"token_request_id\": \"2\"}','2026-06-17 03:38:25'),(7,6,'token_request:create','{\"token_request_id\": 3}','2026-06-17 03:48:12'),(8,5,'token_request:review','{\"action\": \"approve\", \"token_request_id\": \"3\"}','2026-06-17 03:48:12');
 /*!40000 ALTER TABLE `audit_logs` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;

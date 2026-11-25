@@ -1,26 +1,61 @@
 import db from "../config/db.js";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
+import { encryptBuffer, decryptBuffer } from "../utils/fileCrypto.js";
+
+const KYC_DIR = path.join(process.cwd(), "uploads", "kyc");
+
+// Uploads are held in memory (multer memoryStorage) so a plaintext CCCD image
+// never touches the disk — only the AES-256-GCM encrypted .enc file is written.
+
+// Client-supplied mimetype cannot be trusted; check the real file signature.
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+const sniffImageType = (buf) => {
+  if (buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "image/jpeg";
+  if (buf.length > 8 && buf.subarray(0, 8).equals(PNG_MAGIC)) return "image/png";
+  return null;
+};
+
+const extFor = (mime) => (mime === "image/png" ? "png" : "jpg");
+
+// Opaque filename — no user-supplied text, nothing guessable from the outside.
+const makeStoredName = (mime) =>
+  `${Date.now()}-${crypto.randomBytes(12).toString("hex")}.${extFor(mime)}.enc`;
+
+const writeEncrypted = (buffer, mime) => {
+  if (!fs.existsSync(KYC_DIR)) fs.mkdirSync(KYC_DIR, { recursive: true });
+  const name = makeStoredName(mime);
+  fs.writeFileSync(path.join(KYC_DIR, name), encryptBuffer(buffer), { mode: 0o600 });
+  return name;
+};
 
 export const processOcr = async (req, res) => {
   const frontFile = req.files?.front?.[0];
   const backFile = req.files?.back?.[0];
-
-  const frontPath = frontFile?.path;
-  const backPath = backFile?.path;
 
   try {
     if (!frontFile || !backFile) {
       return res.status(400).json({ success: false, message: "Vui lòng cung cấp đầy đủ cả mặt trước và mặt sau CCCD" });
     }
 
-    const fileBuffer = fs.readFileSync(frontPath);
-    const blob = new Blob([fileBuffer], { type: frontFile.mimetype });
+    const mime = sniffImageType(frontFile.buffer);
+    if (!mime) {
+      return res.status(400).json({ success: false, message: "Tệp tải lên không phải ảnh JPG/PNG hợp lệ" });
+    }
+
+    const apiKey = process.env.OCR_API_KEY;
+    if (!apiKey) {
+      console.error("OCR_API_KEY chưa được cấu hình trong .env");
+      return res.status(503).json({ success: false, message: "Dịch vụ OCR chưa được cấu hình" });
+    }
+
+    const blob = new Blob([frontFile.buffer], { type: mime });
     const formData = new FormData();
-    formData.append("image", blob, frontFile.originalname);
+    formData.append("image", blob, `front.${extFor(mime)}`);
 
     const fptAiUrl = "https://api.fpt.ai/vision/idr/vnm";
-    const apiKey = process.env.OCR_API_KEY || "***REMOVED-OCR-KEY***";
 
     const response = await fetch(fptAiUrl, {
       method: "POST",
@@ -31,10 +66,12 @@ export const processOcr = async (req, res) => {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      return res.status(response.status).json({
+      // Never echo the upstream body back to the client — it can leak key/quota details.
+      const upstreamError = await response.text();
+      console.error(`FPT.AI Vision API error ${response.status}: ${upstreamError}`);
+      return res.status(502).json({
         success: false,
-        message: `FPT.AI Vision API returned status ${response.status}: ${errorText}`
+        message: "Không gọi được dịch vụ OCR, vui lòng thử lại sau"
       });
     }
 
@@ -52,22 +89,7 @@ export const processOcr = async (req, res) => {
     }
   } catch (err) {
     console.error("OCR Error:", err);
-    res.status(500).json({ success: false, message: err.message || "OCR processing server error" });
-  } finally {
-    if (frontPath && fs.existsSync(frontPath)) {
-      try {
-        fs.unlinkSync(frontPath);
-      } catch (e) {
-        console.error("Failed to delete temp front OCR file:", e);
-      }
-    }
-    if (backPath && fs.existsSync(backPath)) {
-      try {
-        fs.unlinkSync(backPath);
-      } catch (e) {
-        console.error("Failed to delete temp back OCR file:", e);
-      }
-    }
+    res.status(500).json({ success: false, message: "Lỗi xử lý OCR" });
   }
 };
 
@@ -76,7 +98,7 @@ export const submitKyc = async (req, res) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    // files: front, back
+    // files: front, back — both still in memory at this point
     const front = req.files?.front?.[0];
     const back = req.files?.back?.[0];
 
@@ -84,11 +106,14 @@ export const submitKyc = async (req, res) => {
       return res.status(400).json({ message: "Front and back images are required" });
     }
 
-    const uploadsDir = path.join(process.cwd(), "uploads", "kyc");
-    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+    const frontMime = sniffImageType(front.buffer);
+    const backMime = sniffImageType(back.buffer);
+    if (!frontMime || !backMime) {
+      return res.status(400).json({ message: "Tệp tải lên không phải ảnh JPG/PNG hợp lệ" });
+    }
 
-    const frontPath = `/uploads/kyc/${front.filename}`;
-    const backPath = `/uploads/kyc/${back.filename}`;
+    const frontPath = `/uploads/kyc/${writeEncrypted(front.buffer, frontMime)}`;
+    const backPath = `/uploads/kyc/${writeEncrypted(back.buffer, backMime)}`;
 
     const { id_number, full_name } = req.body;
 
@@ -114,6 +139,73 @@ export const submitKyc = async (req, res) => {
     }
 
     res.json({ success: true, message: "KYC submitted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// GET /api/kyc/image/:id/:side — the ONLY way to view a CCCD image.
+// Requires a valid token, and only the owner of the request or an admin may read it.
+// Replaces the old public `express.static('/uploads')` exposure.
+export const getKycImage = async (req, res) => {
+  try {
+    const { id, side } = req.params;
+    if (!["front", "back"].includes(side)) {
+      return res.status(400).json({ success: false, message: "Invalid side" });
+    }
+
+    let row;
+    try {
+      [[row]] = await db.execute(
+        `SELECT user_id, front_path, back_path FROM kyc_requests WHERE id = ?`,
+        [id]
+      );
+    } catch (e) {
+      [[row]] = await db.execute(
+        `SELECT user_id, document_front AS front_path, document_back AS back_path FROM kyc_requests WHERE id = ?`,
+        [id]
+      );
+    }
+    if (!row) return res.status(404).json({ success: false, message: "Not found" });
+
+    const isOwner = String(row.user_id) === String(req.user?.id);
+    const isAdmin = req.user?.role === "admin";
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ success: false, message: "Forbidden" });
+    }
+
+    const stored = side === "front" ? row.front_path : row.back_path;
+    if (!stored) return res.status(404).json({ success: false, message: "Not found" });
+
+    // Only ever read the basename out of the KYC directory — no path traversal.
+    const fileName = path.basename(String(stored));
+    const filePath = path.join(KYC_DIR, fileName);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, message: "File missing" });
+    }
+
+    const raw = fs.readFileSync(filePath);
+    let data;
+    if (fileName.endsWith(".enc")) {
+      try {
+        data = decryptBuffer(raw);
+      } catch (e) {
+        console.error(`KYC decrypt failed for ${fileName}:`, e.message);
+        return res.status(500).json({ success: false, message: "Không giải mã được hồ sơ" });
+      }
+    } else {
+      // Legacy plaintext file uploaded before encryption was introduced.
+      // Run `node scripts/encryptExistingKyc.js` to migrate these.
+      data = raw;
+    }
+
+    const mime = sniffImageType(data) || "application/octet-stream";
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Cache-Control", "no-store, private");
+    res.setHeader("Content-Disposition", "inline");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    return res.send(data);
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Server error" });

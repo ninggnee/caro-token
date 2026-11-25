@@ -111,7 +111,8 @@ npm run dev
 
 ## Cấu hình môi trường
 
-Tạo file `.env`
+Sao chép `backend/.env.example` thành `backend/.env` rồi điền giá trị thật.
+File `.env` **không bao giờ** được commit.
 
 ```env
 PORT=5000
@@ -122,8 +123,33 @@ DB_NAME=caro_token
 DB_USER=root
 DB_PASSWORD=password
 
+# Bắt buộc — server không khởi động nếu để trống
 JWT_SECRET=your_secret_key
+
+# Bắt buộc cho KYC — mã hoá AES-256-GCM ảnh CCCD khi lưu trên đĩa
+# Tạo: openssl rand -hex 32
+KYC_ENCRYPTION_KEY=your_64_hex_char_key
+
+# Origin được phép gọi API (phân tách bằng dấu phẩy)
+CORS_ORIGINS=http://localhost:5173
 ```
+
+### Bảo mật hồ sơ KYC
+
+Ảnh CCCD được mã hoá AES-256-GCM trước khi ghi xuống đĩa và **không** được phục
+vụ qua `/uploads`. Cách duy nhất để xem là `GET /api/kyc/image/:id/:side`, yêu
+cầu token hợp lệ và chỉ cho phép chính chủ hồ sơ hoặc admin.
+
+Nếu đã có ảnh cũ lưu dạng plaintext, chạy migration một lần:
+
+```bash
+cd backend
+node scripts/encryptExistingKyc.js --dry-run   # xem trước
+node scripts/encryptExistingKyc.js             # thực hiện
+```
+
+> ⚠️ Mất `KYC_ENCRYPTION_KEY` đồng nghĩa mất toàn bộ hồ sơ KYC đã lưu. Hãy sao
+> lưu khoá ở nơi an toàn, ngoài git.
 
 ---
 

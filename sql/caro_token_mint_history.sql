@@ -1,3 +1,7 @@
+-- NOTE: data rows (INSERT INTO ...) da duoc go khoi file nay.
+-- File nay chi con SCHEMA (DDL). Du lieu that chua PII (email, bcrypt hash,
+-- so CCCD) khong duoc commit len git. Dump day du phai giu ngoai repo.
+
 -- MySQL dump 10.13  Distrib 8.0.34, for Win64 (x86_64)
 --
 -- Host: 127.0.0.1    Database: caro_token
@@ -39,7 +43,6 @@ CREATE TABLE `mint_history` (
 
 LOCK TABLES `mint_history` WRITE;
 /*!40000 ALTER TABLE `mint_history` DISABLE KEYS */;
-INSERT INTO `mint_history` VALUES (1,1,5,42.0000,NULL,'2026-06-17 03:36:44'),(2,1,5,42.0000,'0xE2E_TEST','2026-06-17 03:36:44'),(3,2,5,42.0000,NULL,'2026-06-17 03:38:25'),(4,2,5,42.0000,'0xE2E_TEST','2026-06-17 03:38:25'),(5,3,5,42.0000,NULL,'2026-06-17 03:48:12');
 /*!40000 ALTER TABLE `mint_history` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
