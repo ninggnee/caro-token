@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import { useMyBatches, useBatch } from "../hooks/useBatches";
 import { formatKg } from '../utils/formatters';
+import openSecureFile from '../utils/openSecureFile';
 
 // Document groups are driven by `label`/`group` the API computes per document
 // (see backend/services/DocumentTypeService.js) so any new document_type the
@@ -99,11 +100,11 @@ function DocItem({ doc }) {
       </div>
       <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
         {doc.file_path && (
-          <a href={`/uploads/${doc.file_path.replace(/\\/g, "/").split("uploads/")[1]}`}
-            target="_blank" rel="noreferrer"
-            className="caro-btn caro-btn-sm caro-btn-primary" style={{ textDecoration: "none", padding: "6px 12px" }}>
+          <button type="button"
+            onClick={() => openSecureFile("batches", doc.file_path)}
+            className="caro-btn caro-btn-sm caro-btn-primary" style={{ padding: "6px 12px" }}>
             Xem
-          </a>
+          </button>
         )}
         {doc.ipfs_cid && (
           <a href={`https://ipfs.io/ipfs/${doc.ipfs_cid}`} target="_blank" rel="noreferrer"

@@ -31,6 +31,7 @@ import farmerRoutes            from './routes/farmerDashboardRoutes.js';
 import adminSyncRoutes         from './routes/adminSyncRoutes.js';
 import financeRoutes           from './routes/financeRoutes.js';
 import lcRoutes                from './routes/lcRoutes.js';
+import secureFileRoutes       from './routes/secureFileRoutes.js';
 
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
@@ -83,16 +84,15 @@ app.use('/api/auth/login', rateLimit({
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
-// Static file serving — uploads/kyc is deliberately NOT mounted here.
-// CCCD images are encrypted at rest and only readable through
-// GET /api/kyc/image/:id/:side, which checks the caller's token and role.
-['deposits', 'batches', 'warehouse-docs'].forEach(dir => {
-  app.use(`/uploads/${dir}`, express.static(path.join(process.cwd(), 'uploads', dir)));
-});
+// NOTE: uploads/ is deliberately NOT served by express.static any more.
+// Every uploaded file now goes through an authenticated, ownership-checked route:
+//   - CCCD images (encrypted at rest):  GET /api/kyc/image/:id/:side
+//   - everything else:                  GET /api/files/:category/:filename
 
 // ── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/auth',         authRoutes);
 app.use('/api/kyc',          kycRoutes);
+app.use('/api/files',        secureFileRoutes);   // authenticated access to uploaded files
 app.use('/api/admin/kyc',    kycAdminRoutes);
 app.use('/api/admin/users',  adminUsersRoutes);
 app.use('/api/admin',        adminSummaryRoutes);

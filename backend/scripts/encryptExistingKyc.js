@@ -62,20 +62,31 @@ const run = async () => {
     fs.writeFileSync(dest, encryptBuffer(fs.readFileSync(src)), { mode: 0o600 });
 
     // Point any referencing rows at the encrypted file. The schema varies
-    // between deployments, so try both column-name conventions.
+    // between deployments, so try both column-name conventions. Match on the
+    // trailing filename rather than the whole path: some rows were written
+    // with a different encoding of the same (non-ASCII) name.
+    let matched = 0;
     for (const [frontCol, backCol] of [["front_path", "back_path"], ["document_front", "document_back"]]) {
       try {
-        const [r1] = await db.execute(
-          `UPDATE kyc_requests SET ${frontCol} = ? WHERE ${frontCol} = ?`, [newDbPath, oldDbPath]
-        );
-        const [r2] = await db.execute(
-          `UPDATE kyc_requests SET ${backCol} = ? WHERE ${backCol} = ?`, [newDbPath, oldDbPath]
-        );
-        rowsUpdated += r1.affectedRows + r2.affectedRows;
+        for (const col of [frontCol, backCol]) {
+          const [exact] = await db.execute(
+            `UPDATE kyc_requests SET ${col} = ? WHERE ${col} = ?`, [newDbPath, oldDbPath]
+          );
+          if (exact.affectedRows > 0) { matched += exact.affectedRows; continue; }
+
+          const [loose] = await db.execute(
+            `UPDATE kyc_requests SET ${col} = ? WHERE ${col} LIKE ?`, [newDbPath, `%${file}`]
+          );
+          matched += loose.affectedRows;
+        }
         break; // this convention exists — no need to try the other
       } catch (e) {
         if (!/Unknown column/i.test(e.message)) throw e;
       }
+    }
+    rowsUpdated += matched;
+    if (matched === 0) {
+      console.log("    (không có bản ghi DB nào tham chiếu — tệp mồ côi)");
     }
 
     fs.unlinkSync(src);
